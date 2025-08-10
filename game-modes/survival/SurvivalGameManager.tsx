@@ -8,16 +8,6 @@ import {
   Crosshair,
   AlertTriangle,
   RotateCcw,
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  Smartphone,
-  MousePointer,
-  AlertCircle,
-  CheckCircle,
-  Copy,
-  Download,
-  Bug,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -60,84 +50,6 @@ interface PlayAgainError {
   redirecting: boolean;
 }
 
-interface SecurityDebugInfo {
-  clickMonitoring: boolean;
-  gyroscopeMonitoring: boolean;
-  gyroscopeError: string | null;
-  totalClicks: number;
-  suspiciousClicks: number;
-  gyroscopeChecks: number;
-  gyroscopeMovements: number;
-}
-
-interface DetailedSecurityDebugInfo {
-  // ShadowSecurityManager internal state
-  shadowManagerEnabled: boolean;
-  gameMode: string;
-  gameStartTime: number;
-  suspiciousThreshold: number;
-  
-  // Click monitoring details
-  clickRecords: Array<{
-    circleId: number;
-    activationTime: number;
-    clickTime: number;
-    reactionTime: number;
-    isSuspicious: boolean;
-  }>;
-  
-  // Gyroscope monitoring details
-  gyroscopeConfig: {
-    enabled: boolean;
-    sensitivityThreshold: number;
-    suspiciousMovementThreshold: number;
-    maxCheckInterval: number;
-    minCheckInterval: number;
-    requirePermissionCheck: boolean;
-  };
-  
-  gyroscopeState: {
-    enabled: boolean;
-    permissionGranted: boolean;
-    dataAvailable: boolean;
-    errorReason: string | null;
-    checkIntervals: number[];
-    movementRecords: Array<{
-      timestamp: number;
-      alpha: number | null;
-      beta: number | null;
-      gamma: number | null;
-      movementDetected: boolean;
-      sensitivityThreshold: number;
-    }>;
-    lastCheckTime: number;
-    nextCheckTime: number;
-    minimumSensitivity: number;
-  };
-  
-  // Generated suspicious activity data
-  suspiciousActivityData: any | null;
-  suspiciousActivityDataGenerated: boolean;
-  
-  // API response details
-  apiRequestSent: boolean;
-  apiResponse: {
-    success: boolean;
-    status: number;
-    error?: string;
-    responseBody?: any;
-  } | null;
-  
-  // Validation details
-  validationResults: {
-    hasSuspiciousClicks: boolean;
-    hasSuspiciousGyroscope: boolean;
-    hasGyroscopeUnavailability: boolean;
-    shouldSubmit: boolean;
-    reason: string;
-  } | null;
-}
-
 const initialSaveStatus: SaveStatus = {
   isLoading: false,
   attempt: 0,
@@ -153,50 +65,8 @@ const initialPlayAgainError: PlayAgainError = {
   redirecting: false,
 };
 
-const initialSecurityDebugInfo: SecurityDebugInfo = {
-  clickMonitoring: false,
-  gyroscopeMonitoring: false,
-  gyroscopeError: null,
-  totalClicks: 0,
-  suspiciousClicks: 0,
-  gyroscopeChecks: 0,
-  gyroscopeMovements: 0,
-};
-
-const initialDetailedDebugInfo: DetailedSecurityDebugInfo = {
-  shadowManagerEnabled: false,
-  gameMode: "",
-  gameStartTime: 0,
-  suspiciousThreshold: 0,
-  clickRecords: [],
-  gyroscopeConfig: {
-    enabled: false,
-    sensitivityThreshold: 0,
-    suspiciousMovementThreshold: 0,
-    maxCheckInterval: 0,
-    minCheckInterval: 0,
-    requirePermissionCheck: false,
-  },
-  gyroscopeState: {
-    enabled: false,
-    permissionGranted: false,
-    dataAvailable: false,
-    errorReason: null,
-    checkIntervals: [],
-    movementRecords: [],
-    lastCheckTime: 0,
-    nextCheckTime: 0,
-    minimumSensitivity: 0,
-  },
-  suspiciousActivityData: null,
-  suspiciousActivityDataGenerated: false,
-  apiRequestSent: false,
-  apiResponse: null,
-  validationResults: null,
-};
 
 const LEVEL_UPDATE_INTERVAL = 200;
-const DEBUG_UPDATE_INTERVAL = 1000; // Update debug info every second
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -217,12 +87,6 @@ export default function SurvivalGameManager() {
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  // Debug panel state
-  const [showDebugPanel, setShowDebugPanel] = useState(true);
-  const [showDetailedDebug, setShowDetailedDebug] = useState(false);
-  const [securityDebugInfo, setSecurityDebugInfo] = useState<SecurityDebugInfo>(initialSecurityDebugInfo);
-  const [detailedDebugInfo, setDetailedDebugInfo] = useState<DetailedSecurityDebugInfo>(initialDetailedDebugInfo);
-
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
@@ -231,7 +95,6 @@ export default function SurvivalGameManager() {
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
-  const debugUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -274,58 +137,6 @@ export default function SurvivalGameManager() {
     }
   }, [playAgainError.show, playAgainError.redirecting, router]);
 
-  // Debug info update effect
-  useEffect(() => {
-    if (gameState.gameState === GameState.PLAYING && shadowSecurityRef.current) {
-      debugUpdateIntervalRef.current = setInterval(() => {
-        if (shadowSecurityRef.current) {
-          const status = shadowSecurityRef.current.getMonitoringStatus();
-          setSecurityDebugInfo({
-            clickMonitoring: status.clickMonitoring,
-            gyroscopeMonitoring: status.gyroscopeMonitoring,
-            gyroscopeError: status.gyroscopeError,
-            totalClicks: status.totalClicks,
-            suspiciousClicks: status.suspiciousClicks,
-            gyroscopeChecks: status.gyroscopeChecks,
-            gyroscopeMovements: status.gyroscopeMovements,
-          });
-          
-          // Update detailed debug info
-          updateDetailedDebugInfo();
-        }
-      }, DEBUG_UPDATE_INTERVAL);
-    } else {
-      if (debugUpdateIntervalRef.current) {
-        clearInterval(debugUpdateIntervalRef.current);
-        debugUpdateIntervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (debugUpdateIntervalRef.current) {
-        clearInterval(debugUpdateIntervalRef.current);
-        debugUpdateIntervalRef.current = null;
-      }
-    };
-  }, [gameState.gameState]);
-
-  const updateDetailedDebugInfo = useCallback(() => {
-    if (!shadowSecurityRef.current) return;
-
-    // Extract detailed information from ShadowSecurityManager
-    const detailedStatus = shadowSecurityRef.current.getDetailedStatus();
-    
-    setDetailedDebugInfo(prev => ({
-      ...prev,
-      shadowManagerEnabled: detailedStatus.isEnabled,
-      gameMode: detailedStatus.gameMode,
-      gameStartTime: detailedStatus.gameStartTime,
-      suspiciousThreshold: detailedStatus.suspiciousThreshold,
-      clickRecords: detailedStatus.clickRecords,
-      gyroscopeConfig: detailedStatus.gyroscopeConfig,
-      gyroscopeState: detailedStatus.gyroscopeState,
-    }));
-  }, []);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -362,48 +173,26 @@ export default function SurvivalGameManager() {
 
       const processSuspiciousActivity = async () => {
         if (!shadowSecurityRef.current || !user) {
-          setDetailedDebugInfo(prev => ({
-            ...prev,
-            suspiciousActivityDataGenerated: false,
-            suspiciousActivityData: null,
-            apiRequestSent: false,
-            validationResults: {
-              hasSuspiciousClicks: false,
-              hasSuspiciousGyroscope: false,
-              hasGyroscopeUnavailability: false,
-              shouldSubmit: false,
-              reason: "ShadowSecurityManager or user not available"
-            }
-          }));
           return;
         }
 
         try {
-          console.log("=== SECURITY DEBUG: Starting suspicious activity processing ===");
-          
+
           const suspiciousActivityData = shadowSecurityRef.current.generateSuspiciousActivityData(
             user.telegram_id,
             Date.now()
           );
 
-          console.log("=== SECURITY DEBUG: Generated suspicious activity data ===", suspiciousActivityData);
-
-          setDetailedDebugInfo(prev => ({
-            ...prev,
-            suspiciousActivityData,
-            suspiciousActivityDataGenerated: suspiciousActivityData !== null,
-          }));
-
           if (suspiciousActivityData) {
             // Perform validation logic similar to API
             const hasSuspiciousClicks = suspiciousActivityData.suspiciousClicksCount > 0;
             const hasSuspiciousGyroscope = suspiciousActivityData.gyroscopeEnabled && suspiciousActivityData.gyroscopeSuspicious;
-            const hasGyroscopeUnavailability = !suspiciousActivityData.gyroscopeEnabled && 
-                                              suspiciousActivityData.gyroscopeErrorReason !== null &&
-                                              suspiciousActivityData.gyroscopeErrorReason !== "ios_optimization_disabled";
+            const hasGyroscopeUnavailability = !suspiciousActivityData.gyroscopeEnabled &&
+              suspiciousActivityData.gyroscopeErrorReason !== null &&
+              suspiciousActivityData.gyroscopeErrorReason !== "ios_optimization_disabled";
 
             const shouldSubmit = hasSuspiciousClicks || hasSuspiciousGyroscope || hasGyroscopeUnavailability;
-            
+
             let reason = "";
             if (!shouldSubmit) {
               reason = "No suspicious activity detected - neither suspicious clicks, suspicious gyroscope activity, nor gyroscope unavailability found";
@@ -414,30 +203,6 @@ export default function SurvivalGameManager() {
               if (hasGyroscopeUnavailability) reasons.push("gyroscope unavailability");
               reason = `Should submit: ${reasons.join(", ")}`;
             }
-
-            setDetailedDebugInfo(prev => ({
-              ...prev,
-              validationResults: {
-                hasSuspiciousClicks,
-                hasSuspiciousGyroscope,
-                hasGyroscopeUnavailability,
-                shouldSubmit,
-                reason
-              }
-            }));
-
-            console.log("=== SECURITY DEBUG: Validation results ===", {
-              hasSuspiciousClicks,
-              hasSuspiciousGyroscope,
-              hasGyroscopeUnavailability,
-              shouldSubmit,
-              reason,
-              gyroscopeEnabled: suspiciousActivityData.gyroscopeEnabled,
-              gyroscopeSuspicious: suspiciousActivityData.gyroscopeSuspicious,
-              gyroscopeMovementPercentage: suspiciousActivityData.gyroscopeMovementPercentage,
-              suspiciousClicksCount: suspiciousActivityData.suspiciousClicksCount,
-              totalClicks: suspiciousActivityData.totalClicks
-            });
 
             const suspiciousActivityResponse = await makeAuthenticatedRequest(
               "/api/security/suspicious-activity",
@@ -450,11 +215,6 @@ export default function SurvivalGameManager() {
               }
             );
 
-            setDetailedDebugInfo(prev => ({
-              ...prev,
-              apiRequestSent: true,
-            }));
-
             let responseBody = null;
             try {
               responseBody = await suspiciousActivityResponse.json();
@@ -462,56 +222,13 @@ export default function SurvivalGameManager() {
               responseBody = { error: "Failed to parse response JSON" };
             }
 
-            console.log("=== SECURITY DEBUG: API Response ===", {
-              status: suspiciousActivityResponse.status,
-              ok: suspiciousActivityResponse.ok,
-              responseBody
-            });
-
-            setDetailedDebugInfo(prev => ({
-              ...prev,
-              apiResponse: {
-                success: suspiciousActivityResponse.ok,
-                status: suspiciousActivityResponse.status,
-                error: !suspiciousActivityResponse.ok ? (responseBody?.error || "Unknown error") : undefined,
-                responseBody
-              }
-            }));
-
             if (!suspiciousActivityResponse.ok) {
               const errorData = responseBody || {};
-              console.warn("=== SECURITY DEBUG: API request failed ===", {
-                status: suspiciousActivityResponse.status,
-                error: errorData.error,
-                responseBody: errorData
-              });
             } else {
-              console.log("=== SECURITY DEBUG: API request successful ===");
             }
           } else {
-            console.log("=== SECURITY DEBUG: No suspicious activity data generated ===");
-            setDetailedDebugInfo(prev => ({
-              ...prev,
-              validationResults: {
-                hasSuspiciousClicks: false,
-                hasSuspiciousGyroscope: false,
-                hasGyroscopeUnavailability: false,
-                shouldSubmit: false,
-                reason: "ShadowSecurityManager returned null - no suspicious activity detected"
-              }
-            }));
           }
         } catch (error) {
-          console.error("=== SECURITY DEBUG: Error processing suspicious activity ===", error);
-          setDetailedDebugInfo(prev => ({
-            ...prev,
-            apiResponse: {
-              success: false,
-              status: 0,
-              error: error instanceof Error ? error.message : "Unknown error",
-              responseBody: null
-            }
-          }));
         }
       };
 
@@ -593,15 +310,6 @@ export default function SurvivalGameManager() {
         shadowSecurityRef.current.cleanupAllPendingActivations();
       }
 
-      // Stop debug updates
-      if (debugUpdateIntervalRef.current) {
-        clearInterval(debugUpdateIntervalRef.current);
-        debugUpdateIntervalRef.current = null;
-      }
-
-      // Final debug info update
-      updateDetailedDebugInfo();
-
       setGameState((prev) => {
         if (prev.isGameEnding) {
           return prev;
@@ -642,7 +350,7 @@ export default function SurvivalGameManager() {
         return finalGameState;
       });
     },
-    [handleSaveGameResult, checkForNewBestScore, updateDetailedDebugInfo],
+    [handleSaveGameResult, checkForNewBestScore],
   );
 
   const scheduleNextActivation = useCallback(() => {
@@ -818,8 +526,6 @@ export default function SurvivalGameManager() {
     setIsNewBestScore(false);
     setInstantlyDeactivatedCircles([]);
     setIsPlayingAgain(false);
-    setSecurityDebugInfo(initialSecurityDebugInfo);
-    setDetailedDebugInfo(initialDetailedDebugInfo);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -907,84 +613,12 @@ export default function SurvivalGameManager() {
     }
   }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
-  const copyDebugInfo = useCallback(() => {
-    const debugData = {
-      timestamp: new Date().toISOString(),
-      gameResult,
-      securityDebugInfo,
-      detailedDebugInfo,
-      userAgent: window?.navigator?.userAgent,
-      screenSize: {
-        width: window?.screen?.width,
-        height: window?.screen?.height,
-      },
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    };
-
-    const debugText = JSON.stringify(debugData, null, 2);
-    
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(debugText).then(() => {
-        alert("Debug information copied to clipboard!");
-      }).catch(() => {
-        // Fallback
-        const textArea = document.createElement("textarea");
-        textArea.value = debugText;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-        alert("Debug information copied to clipboard!");
-      });
-    } else {
-      // Fallback for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = debugText;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      alert("Debug information copied to clipboard!");
-    }
-  }, [gameResult, securityDebugInfo, detailedDebugInfo]);
-
-  const downloadDebugInfo = useCallback(() => {
-    const debugData = {
-      timestamp: new Date().toISOString(),
-      gameResult,
-      securityDebugInfo,
-      detailedDebugInfo,
-      userAgent: window?.navigator?.userAgent,
-      screenSize: {
-        width: window?.screen?.width,
-        height: window?.screen?.height,
-      },
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    };
-
-    const debugText = JSON.stringify(debugData, null, 2);
-    const blob = new Blob([debugText], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `security-debug-${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [gameResult, securityDebugInfo, detailedDebugInfo]);
-
   useEffect(() => {
     return () => {
       cleanupSurvivalGame(gameStateRef.current);
 
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanup();
-      }
-
-      if (debugUpdateIntervalRef.current) {
-        clearInterval(debugUpdateIntervalRef.current);
       }
     };
   }, []);
@@ -1015,216 +649,6 @@ export default function SurvivalGameManager() {
       causeKeyMapping.timeout;
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
-  };
-
-  const renderDebugPanel = () => {
-    if (!showDebugPanel || gameState.gameState !== GameState.PLAYING) {
-      return null;
-    }
-
-    return (
-      <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-sm border-t border-white/20 p-3 text-xs font-mono z-50">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-2">
-            <span className="text-yellow-400 font-bold">DEBUG: Security Monitor</span>
-            <button
-              onClick={() => setShowDebugPanel(false)}
-              className="text-white/60 hover:text-white transition-colors"
-            >
-              <EyeOff size={14} />
-            </button>
-            <button
-              onClick={() => setShowDetailedDebug(!showDetailedDebug)}
-              className="text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              <Bug size={14} />
-            </button>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3">
-          {/* Click Monitoring */}
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <MousePointer size={12} className="text-blue-400" />
-              <span className="text-white/80">Click Monitor</span>
-              {securityDebugInfo.clickMonitoring ? (
-                <CheckCircle size={12} className="text-green-400" />
-              ) : (
-                <AlertCircle size={12} className="text-red-400" />
-              )}
-            </div>
-            <div className="text-white/60 ml-6">
-              <div>Total: {securityDebugInfo.totalClicks}</div>
-              <div>Suspicious: {securityDebugInfo.suspiciousClicks}</div>
-            </div>
-          </div>
-
-          {/* Gyroscope Monitoring */}
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <Smartphone size={12} className="text-purple-400" />
-              <span className="text-white/80">Gyroscope</span>
-              {securityDebugInfo.gyroscopeMonitoring ? (
-                <CheckCircle size={12} className="text-green-400" />
-              ) : (
-                <AlertCircle size={12} className="text-red-400" />
-              )}
-            </div>
-            <div className="text-white/60 ml-6">
-              <div>Checks: {securityDebugInfo.gyroscopeChecks}</div>
-              <div>Movements: {securityDebugInfo.gyroscopeMovements}</div>
-              {securityDebugInfo.gyroscopeError && (
-                <div className="text-red-400 text-xs mt-1">
-                  Error: {securityDebugInfo.gyroscopeError}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Movement Percentage */}
-        {securityDebugInfo.gyroscopeChecks > 0 && (
-          <div className="mt-2 pt-2 border-t border-white/20">
-            <div className="flex items-center justify-between">
-              <span className="text-white/80">Movement Rate:</span>
-              <span className={`font-bold ${
-                (securityDebugInfo.gyroscopeMovements / securityDebugInfo.gyroscopeChecks) * 100 < 80
-                  ? 'text-red-400' 
-                  : 'text-green-400'
-              }`}>
-                {((securityDebugInfo.gyroscopeMovements / securityDebugInfo.gyroscopeChecks) * 100).toFixed(1)}%
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Detailed Debug Panel */}
-        {showDetailedDebug && (
-          <div className="mt-3 pt-3 border-t border-white/20 max-h-32 overflow-y-auto">
-            <div className="text-white/80 text-xs space-y-1">
-              <div>Gyro Config: {JSON.stringify(detailedDebugInfo.gyroscopeConfig)}</div>
-              <div>Gyro State: enabled={detailedDebugInfo.gyroscopeState.enabled}, error={detailedDebugInfo.gyroscopeState.errorReason}</div>
-              <div>Validation: {detailedDebugInfo.validationResults?.reason || "Not validated yet"}</div>
-              <div>API: sent={detailedDebugInfo.apiRequestSent ? "YES" : "NO"}, status={detailedDebugInfo.apiResponse?.status || "N/A"}</div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderDebugToggle = () => {
-    if (showDebugPanel || gameState.gameState !== GameState.PLAYING) {
-      return null;
-    }
-
-    return (
-      <button
-        onClick={() => setShowDebugPanel(true)}
-        className="fixed bottom-4 right-4 bg-black/80 backdrop-blur-sm border border-white/20 rounded-lg p-2 text-white/60 hover:text-white transition-colors z-40"
-      >
-        <Eye size={16} />
-      </button>
-    );
-  };
-
-  const renderDetailedDebugInfo = () => {
-    if (gameState.gameState !== GameState.FINISHED || !gameResult) {
-      return null;
-    }
-
-    return (
-      <div className="bg-blue-500/10 backdrop-blur-sm border border-blue-400/30 rounded-xl p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-blue-400">Security Debug Information</h3>
-          <div className="flex space-x-2">
-            <button
-              onClick={copyDebugInfo}
-              className="flex items-center space-x-1 px-3 py-1 bg-blue-500/20 border border-blue-400/30 text-blue-300 rounded text-sm hover:bg-blue-500/30 transition-colors"
-            >
-              <Copy size={14} />
-              <span>Copy</span>
-            </button>
-            <button
-              onClick={downloadDebugInfo}
-              className="flex items-center space-x-1 px-3 py-1 bg-green-500/20 border border-green-400/30 text-green-300 rounded text-sm hover:bg-green-500/30 transition-colors"
-            >
-              <Download size={14} />
-              <span>Download</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-3 text-sm">
-          {/* Gyroscope Summary */}
-          <div className="bg-black/30 rounded p-3">
-            <h4 className="text-blue-300 font-bold mb-2">Gyroscope Summary</h4>
-            <div className="space-y-1 text-white/80">
-              <div>Enabled: {detailedDebugInfo.gyroscopeState.enabled ? "YES" : "NO"}</div>
-              <div>Permission Granted: {detailedDebugInfo.gyroscopeState.permissionGranted ? "YES" : "NO"}</div>
-              <div>Data Available: {detailedDebugInfo.gyroscopeState.dataAvailable ? "YES" : "NO"}</div>
-              <div>Error: {detailedDebugInfo.gyroscopeState.errorReason || "None"}</div>
-              <div>Checks: {detailedDebugInfo.gyroscopeState.movementRecords.length}</div>
-              <div>Movements: {detailedDebugInfo.gyroscopeState.movementRecords.filter(r => r.movementDetected).length}</div>
-              {detailedDebugInfo.gyroscopeState.movementRecords.length > 0 && (
-                <div>Movement %: {(
-                  (detailedDebugInfo.gyroscopeState.movementRecords.filter(r => r.movementDetected).length / 
-                   detailedDebugInfo.gyroscopeState.movementRecords.length) * 100
-                ).toFixed(1)}%</div>
-              )}
-              <div>Sensitivity: {detailedDebugInfo.gyroscopeState.minimumSensitivity}°</div>
-              <div>Suspicious Threshold: {detailedDebugInfo.gyroscopeConfig.suspiciousMovementThreshold}%</div>
-            </div>
-          </div>
-
-          {/* Validation Results */}
-          {detailedDebugInfo.validationResults && (
-            <div className="bg-black/30 rounded p-3">
-              <h4 className="text-yellow-300 font-bold mb-2">Validation Results</h4>
-              <div className="space-y-1 text-white/80">
-                <div>Suspicious Clicks: {detailedDebugInfo.validationResults.hasSuspiciousClicks ? "YES" : "NO"}</div>
-                <div>Suspicious Gyroscope: {detailedDebugInfo.validationResults.hasSuspiciousGyroscope ? "YES" : "NO"}</div>
-                <div>Gyroscope Unavailable: {detailedDebugInfo.validationResults.hasGyroscopeUnavailability ? "YES" : "NO"}</div>
-                <div>Should Submit: {detailedDebugInfo.validationResults.shouldSubmit ? "YES" : "NO"}</div>
-                <div className="text-yellow-300">Reason: {detailedDebugInfo.validationResults.reason}</div>
-              </div>
-            </div>
-          )}
-
-          {/* API Response */}
-          {detailedDebugInfo.apiResponse && (
-            <div className="bg-black/30 rounded p-3">
-              <h4 className="text-purple-300 font-bold mb-2">API Response</h4>
-              <div className="space-y-1 text-white/80">
-                <div>Request Sent: {detailedDebugInfo.apiRequestSent ? "YES" : "NO"}</div>
-                <div>Status: {detailedDebugInfo.apiResponse.status}</div>
-                <div>Success: {detailedDebugInfo.apiResponse.success ? "YES" : "NO"}</div>
-                {detailedDebugInfo.apiResponse.error && (
-                  <div className="text-red-400">Error: {detailedDebugInfo.apiResponse.error}</div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Suspicious Activity Data */}
-          {detailedDebugInfo.suspiciousActivityData && (
-            <div className="bg-black/30 rounded p-3">
-              <h4 className="text-green-300 font-bold mb-2">Generated Activity Data</h4>
-              <div className="space-y-1 text-white/80 text-xs">
-                <div>Gyroscope Enabled: {detailedDebugInfo.suspiciousActivityData.gyroscopeEnabled ? "YES" : "NO"}</div>
-                <div>Gyroscope Suspicious: {detailedDebugInfo.suspiciousActivityData.gyroscopeSuspicious ? "YES" : "NO"}</div>
-                <div>Movement %: {detailedDebugInfo.suspiciousActivityData.gyroscopeMovementPercentage}%</div>
-                <div>Total Checks: {detailedDebugInfo.suspiciousActivityData.totalGyroscopeChecks}</div>
-                <div>Movements Detected: {detailedDebugInfo.suspiciousActivityData.gyroscopeMovementsDetected}</div>
-                <div>Click Records: {detailedDebugInfo.suspiciousActivityData.totalClicks}</div>
-                <div>Suspicious Clicks: {detailedDebugInfo.suspiciousActivityData.suspiciousClicksCount}</div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
   };
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
@@ -1296,9 +720,6 @@ export default function SurvivalGameManager() {
               </div>
             </div>
           </div>
-
-          {/* Detailed Debug Information */}
-          {renderDetailedDebugInfo()}
 
           {(saveStatus.isLoading ||
             saveStatus.error ||
@@ -1460,12 +881,6 @@ export default function SurvivalGameManager() {
           instantlyDeactivatedCircles={instantlyDeactivatedCircles}
         />
       </div>
-
-      {/* Debug Panel */}
-      {renderDebugPanel()}
-      
-      {/* Debug Toggle Button */}
-      {renderDebugToggle()}
     </div>
   );
 }
