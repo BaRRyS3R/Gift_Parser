@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Complete integration with Shadow Security System (Fixed)
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with gyroscope monitoring security system
 
 "use client";
 
@@ -34,7 +34,6 @@ import {
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 
-// SHADOW SECURITY: Import shadow security system
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
@@ -88,27 +87,19 @@ export default function SurvivalGameManager() {
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] =
-    useState<number>(0);
-
-  // State for instant deactivation tracking
+  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
 
-  // Protection against multiple simultaneous operations
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
-
-  // SHADOW SECURITY: Add shadow security manager ref
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Setup Telegram WebApp back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -125,7 +116,6 @@ export default function SurvivalGameManager() {
     }
   }, [router]);
 
-  // Auto-start game on component mount
   useEffect(() => {
     const timer = setTimeout(() => {
       startGame();
@@ -134,7 +124,6 @@ export default function SurvivalGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Handle play again error auto-redirect
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -193,7 +182,6 @@ export default function SurvivalGameManager() {
           );
 
           if (suspiciousActivityData) {
-
             const suspiciousActivityResponse = await makeAuthenticatedRequest(
               "/api/security/suspicious-activity",
               {
@@ -223,7 +211,6 @@ export default function SurvivalGameManager() {
         }
 
         try {
-          // SHADOW SECURITY: Process suspicious activity before saving game result (only on first attempt)
           if (attemptCount === 1) {
             await processSuspiciousActivity();
           }
@@ -287,8 +274,6 @@ export default function SurvivalGameManager() {
 
       isGameEndingRef.current = true;
 
-      // SHADOW SECURITY: Clean up any pending circle activations when game ends
-      // FIXED: Proper null check for shadowSecurityRef.current
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanupAllPendingActivations();
       }
@@ -336,7 +321,6 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult, checkForNewBestScore],
   );
 
-  // SHADOW SECURITY: Enhanced scheduleNextActivation with security tracking
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
@@ -379,8 +363,6 @@ export default function SurvivalGameManager() {
           (circleIds, redCircleIds) => {
             const timestamp = Date.now();
 
-            // SHADOW SECURITY: Record activation times for white circles only
-            // FIXED: Proper null check for shadowSecurityRef.current
             if (shadowSecurityRef.current) {
               circleIds.forEach(circleId => {
                 const isWhiteCircle = !redCircleIds.includes(circleId);
@@ -402,8 +384,6 @@ export default function SurvivalGameManager() {
               return;
             }
 
-            // SHADOW SECURITY: Clean up activation tracking for timed out circles
-            // FIXED: Proper null check for shadowSecurityRef.current
             if (shadowSecurityRef.current) {
               shadowSecurityRef.current.cleanupCircleActivation(circleId);
             }
@@ -442,7 +422,6 @@ export default function SurvivalGameManager() {
     }, 50);
   }, [endGame]);
 
-  // SHADOW SECURITY: Enhanced handleCircleClickEvent with security tracking
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       const currentState = gameStateRef.current;
@@ -459,8 +438,6 @@ export default function SurvivalGameManager() {
       );
 
       if (result === "correct") {
-        // SHADOW SECURITY: Record successful click on white circle
-        // FIXED: Proper null check for shadowSecurityRef.current
         if (shadowSecurityRef.current) {
           const clickedCircle = currentState.circles.find(c => c.id === circleId);
           if (clickedCircle && clickedCircle.isActive && !clickedCircle.isDecoy) {
@@ -489,17 +466,23 @@ export default function SurvivalGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
-  // SHADOW SECURITY: Enhanced startGame function with security initialization
   const startGame = useCallback(() => {
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
     const newGameState = initializeSurvivalGameState();
 
-    // SHADOW SECURITY: Initialize shadow security manager for new game
     shadowSecurityRef.current = new ShadowSecurityManager(
       GameMode.SURVIVAL,
-      newGameState.gameStartTime
+      newGameState.gameStartTime,
+      {
+        enabled: true,
+        sensitivityThreshold: 1.0,
+        suspiciousMovementThreshold: 10.0,
+        maxCheckInterval: 5000,
+        minCheckInterval: 1000,
+        requirePermissionCheck: false
+      }
     );
 
     setGameState(newGameState);
@@ -589,7 +572,6 @@ export default function SurvivalGameManager() {
 
       startGame();
     } catch (error) {
-      console.error("Error starting new survival game:", error);
       setPlayAgainError({
         show: true,
         message: t("game.modes.survival.playAgain.error"),
@@ -599,13 +581,10 @@ export default function SurvivalGameManager() {
     }
   }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
-  // SHADOW SECURITY: Enhanced cleanup effect
   useEffect(() => {
     return () => {
       cleanupSurvivalGame(gameStateRef.current);
 
-      // SHADOW SECURITY: Cleanup shadow security manager
-      // FIXED: Proper null check for shadowSecurityRef.current
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanup();
       }
@@ -710,7 +689,6 @@ export default function SurvivalGameManager() {
             </div>
           </div>
 
-          {/* Save Status Display */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
@@ -790,7 +768,6 @@ export default function SurvivalGameManager() {
               </div>
             )}
 
-          {/* Play Again Error Display */}
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">
@@ -848,7 +825,6 @@ export default function SurvivalGameManager() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col text-white relative">
-      {/* Top-centered timer display */}
       {gameState.gameState === GameState.PLAYING && (
         <div className="fixed top-0 left-0 right-0 z-10 pointer-events-none">
           <div className="flex justify-center pt-8">
@@ -861,7 +837,6 @@ export default function SurvivalGameManager() {
         </div>
       )}
 
-      {/* Game area - full screen */}
       <div className="flex-1 flex items-center justify-center">
         <GameGrid
           circles={gameState.circles}
