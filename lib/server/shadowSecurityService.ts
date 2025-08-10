@@ -472,8 +472,6 @@ export class ShadowSecurityService {
 
             const deletedCount = data ? data.length : 0;
 
-            console.log(`Shadow Security: Cleaned up ${deletedCount} suspicious activity records older than ${daysOld} days`);
-
             return {
                 success: true,
                 deletedCount,

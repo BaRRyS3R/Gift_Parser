@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Updated with play again functionality
+// src/game-modes/rotation/RotationGameManager.tsx - Complete integration with Shadow Security System
 
 "use client";
 
@@ -27,13 +27,16 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
-import { GameState } from "@/types/game-modes/common";
+import { GameState, GameMode } from "@/types/game-modes/common";
 import {
   RotationGameState,
   RotationGameResult,
 } from "@/types/game-modes/rotation";
 import RotatingCircleGrid from "@/components/RotatingCircleGrid";
 import { useT } from "@/contexts/LocalizationContext";
+
+// SHADOW SECURITY: Import shadow security system
+import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
   isLoading: boolean;
@@ -68,7 +71,7 @@ const initialPlayAgainError: PlayAgainError = {
 const LEVEL_UPDATE_INTERVAL = 100; // Update level/time every 100ms
 
 export default function RotationGameManager() {
-  const { makeAuthenticatedRequest } = useUser();
+  const { makeAuthenticatedRequest, user } = useUser();
   const {
     consumeAttempt,
     fetchAttemptsStatus,
@@ -91,6 +94,9 @@ export default function RotationGameManager() {
     useState<number>(0);
 
   const gameStateRef = useRef<RotationGameState>(gameState);
+
+  // SHADOW SECURITY: Add shadow security manager ref
+  const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -158,6 +164,37 @@ export default function RotationGameManager() {
         showRetryDetails: false,
       }));
 
+      const processSuspiciousActivity = async () => {
+        if (!shadowSecurityRef.current || !user) {
+          return;
+        }
+
+        try {
+          const suspiciousActivityData = shadowSecurityRef.current.generateSuspiciousActivityData(
+            user.telegram_id,
+            Date.now()
+          );
+
+          if (suspiciousActivityData) {
+
+            const suspiciousActivityResponse = await makeAuthenticatedRequest(
+              "/api/security/suspicious-activity",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ suspiciousActivity: suspiciousActivityData }),
+              }
+            );
+
+            if (!suspiciousActivityResponse.ok) {
+              const errorData = await suspiciousActivityResponse.json().catch(() => ({}));
+            } 
+          }
+        } catch (error) { }
+      };
+
       let attemptCount = 1;
 
       const attemptSave = async (): Promise<void> => {
@@ -169,8 +206,16 @@ export default function RotationGameManager() {
         }
 
         try {
+          // SHADOW SECURITY: Process suspicious activity before saving game result (only on first attempt)
+          if (attemptCount === 1) {
+            await processSuspiciousActivity();
+          }
+
           const response = await makeAuthenticatedRequest("/api/game/save", {
             method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
             body: JSON.stringify({ gameResult: result }),
           });
 
@@ -215,11 +260,16 @@ export default function RotationGameManager() {
         }));
       }
     },
-    [makeAuthenticatedRequest, t],
+    [makeAuthenticatedRequest, t, user],
   );
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
+      // SHADOW SECURITY: Clean up any pending circle activations when game ends
+      if (shadowSecurityRef.current) {
+        shadowSecurityRef.current.cleanupAllPendingActivations();
+      }
+
       setGameState((prev) => {
         const finalState = updateRotationLevel(prev, Date.now());
 
@@ -256,6 +306,7 @@ export default function RotationGameManager() {
     [handleSaveGameResult],
   );
 
+  // SHADOW SECURITY: Enhanced scheduleNextActivation with security tracking
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
@@ -279,6 +330,16 @@ export default function RotationGameManager() {
             (circleIds, redCircleIds) => {
               const timestamp = Date.now();
 
+              // SHADOW SECURITY: Record activation times for white circles only
+              if (shadowSecurityRef.current) {
+                circleIds.forEach(circleId => {
+                  const isWhiteCircle = !redCircleIds.includes(circleId);
+                  if (isWhiteCircle) {
+                    shadowSecurityRef.current!.recordCircleActivation(circleId, timestamp);
+                  }
+                });
+              }
+
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
@@ -287,6 +348,11 @@ export default function RotationGameManager() {
               }, 450);
             },
             (circleId, wasDecoy) => {
+              // SHADOW SECURITY: Clean up activation tracking for timed out circles
+              if (shadowSecurityRef.current) {
+                shadowSecurityRef.current.cleanupCircleActivation(circleId);
+              }
+
               if (!wasDecoy) {
                 endGame("miss");
               } else {
@@ -310,6 +376,7 @@ export default function RotationGameManager() {
     }));
   }, [endGame]);
 
+  // SHADOW SECURITY: Enhanced handleCircleClickEvent with security tracking
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
@@ -322,6 +389,14 @@ export default function RotationGameManager() {
       );
 
       if (result === "correct") {
+        // SHADOW SECURITY: Record successful click on white circle
+        if (shadowSecurityRef.current) {
+          const clickedCircle = gameStateRef.current.circles.find(c => c.id === circleId);
+          if (clickedCircle && clickedCircle.isActive && !clickedCircle.isDecoy) {
+            shadowSecurityRef.current.recordCircleClick(circleId, clickTime);
+          }
+        }
+
         triggerHapticFeedback("success");
         setGameState(newState);
 
@@ -341,8 +416,15 @@ export default function RotationGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
+  // SHADOW SECURITY: Enhanced startGame function with security initialization
   const startGame = useCallback(() => {
     const initialState = initializeRotationGameState();
+
+    // SHADOW SECURITY: Initialize shadow security manager for new game
+    shadowSecurityRef.current = new ShadowSecurityManager(
+      GameMode.ROTATION,
+      initialState.gameStartTime
+    );
 
     setGameState(initialState);
     setGameResult(null);
@@ -441,9 +523,15 @@ export default function RotationGameManager() {
     }
   }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
+  // SHADOW SECURITY: Enhanced cleanup effect
   useEffect(() => {
     return () => {
       cleanupRotationGame(gameStateRef.current);
+
+      // SHADOW SECURITY: Cleanup shadow security manager
+      if (shadowSecurityRef.current) {
+        shadowSecurityRef.current.cleanup();
+      }
     };
   }, []);
 
@@ -643,8 +731,8 @@ export default function RotationGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
-                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                  : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
+                ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
                 }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}

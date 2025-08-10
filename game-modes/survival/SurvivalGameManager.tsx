@@ -170,7 +170,6 @@ export default function SurvivalGameManager() {
     [user],
   );
 
-  // SHADOW SECURITY: Enhanced save game result function to include suspicious activity submission
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
       setSaveStatus((prev) => ({
@@ -182,9 +181,7 @@ export default function SurvivalGameManager() {
         showRetryDetails: false,
       }));
 
-      // SHADOW SECURITY: Process and submit suspicious activity data
       const processSuspiciousActivity = async () => {
-        // FIXED: Proper null check for shadowSecurityRef.current
         if (!shadowSecurityRef.current || !user) {
           return;
         }
@@ -196,12 +193,7 @@ export default function SurvivalGameManager() {
           );
 
           if (suspiciousActivityData) {
-            console.log(
-              `Shadow Security: Submitting suspicious activity data for user ${user.telegram_id}: ` +
-              `${suspiciousActivityData.suspiciousClicksCount}/${suspiciousActivityData.totalClicks} suspicious clicks`
-            );
 
-            // Submit suspicious activity in parallel with game result
             const suspiciousActivityResponse = await makeAuthenticatedRequest(
               "/api/security/suspicious-activity",
               {
@@ -215,20 +207,9 @@ export default function SurvivalGameManager() {
 
             if (!suspiciousActivityResponse.ok) {
               const errorData = await suspiciousActivityResponse.json().catch(() => ({}));
-              console.warn(
-                `Shadow Security: Failed to submit suspicious activity data: ${errorData.error || 'Unknown error'}. ` +
-                "Continuing with game save."
-              );
-            } else {
-              console.log("Shadow Security: Successfully submitted suspicious activity data");
             }
-          } else {
-            console.log("Shadow Security: No suspicious activity detected, no submission needed");
           }
-        } catch (error) {
-          console.warn("Shadow Security: Error processing suspicious activity data:", error);
-          // Don't fail the entire game save process due to security tracking issues
-        }
+        } catch (error) { }
       };
 
       let attemptCount = 1;
@@ -484,15 +465,6 @@ export default function SurvivalGameManager() {
           const clickedCircle = currentState.circles.find(c => c.id === circleId);
           if (clickedCircle && clickedCircle.isActive && !clickedCircle.isDecoy) {
             shadowSecurityRef.current.recordCircleClick(circleId, clickTime);
-
-            // Optional: Log click for debugging (remove in production)
-            if (process.env.NODE_ENV === 'development') {
-              const stats = shadowSecurityRef.current.getCurrentStats();
-              console.log(
-                `Shadow Security: Recorded click on circle ${circleId}. ` +
-                `Total clicks: ${stats.totalClicks}, Suspicious: ${stats.suspiciousClicks}`
-              );
-            }
           }
         }
 
@@ -529,13 +501,6 @@ export default function SurvivalGameManager() {
       GameMode.SURVIVAL,
       newGameState.gameStartTime
     );
-
-    // Optional: Log initialization for debugging (remove in production)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(
-        `Shadow Security: Initialized for survival game starting at ${new Date(newGameState.gameStartTime).toISOString()}`
-      );
-    }
 
     setGameState(newGameState);
     setGameResult(null);
@@ -642,10 +607,6 @@ export default function SurvivalGameManager() {
       // SHADOW SECURITY: Cleanup shadow security manager
       // FIXED: Proper null check for shadowSecurityRef.current
       if (shadowSecurityRef.current) {
-        if (process.env.NODE_ENV === 'development') {
-          const sessionSummary = shadowSecurityRef.current.getSessionSummary();
-          console.log("Shadow Security: Game session summary:", sessionSummary);
-        }
         shadowSecurityRef.current.cleanup();
       }
     };

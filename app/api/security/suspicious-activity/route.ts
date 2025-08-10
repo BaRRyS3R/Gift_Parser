@@ -107,13 +107,6 @@ export async function POST(
             );
         }
 
-        // Log the submission for monitoring purposes
-        console.log(
-            `Shadow Security: Processing submission from user ${telegramIdNumber}: ` +
-            `${suspiciousActivity.suspiciousClicksCount}/${suspiciousActivity.totalClicks} suspicious clicks ` +
-            `in ${suspiciousActivity.gameMode} mode`
-        );
-
         // Submit suspicious activity data to the database
         const result = await shadowSecurityService.submitSuspiciousActivity(suspiciousActivity);
 
@@ -333,8 +326,8 @@ function validateSuspiciousActivityData(data: SuspiciousActivityData): {
     }
 
     // Validate that minimum reaction time is reasonable for suspicious activity
-    // Since we're flagging <250ms as suspicious, min should typically be quite low 600 FOR TEST
-    const suspiciousThreshold = 600;
+    // Since we're flagging <250ms as suspicious, min should typically be quite low
+    const suspiciousThreshold = 250;
     if (data.suspiciousClicksCount > 0 && data.minReactionTime >= suspiciousThreshold) {
         return {
             isValid: false,

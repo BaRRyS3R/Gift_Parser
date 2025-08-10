@@ -27,7 +27,7 @@ export class ShadowSecurityManager {
             circleActivationTimes: new Map(),
             gameMode,
             gameStartTime,
-            suspiciousThreshold: 600, // 250ms threshold for suspicious activity 600 FOR TEST!!!
+            suspiciousThreshold: 250, // 250ms threshold for suspicious activity
         };
     }
 

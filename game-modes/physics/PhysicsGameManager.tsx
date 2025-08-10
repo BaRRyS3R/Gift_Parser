@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Updated with play again functionality
+// src/game-modes/physics/PhysicsGameManager.tsx - Complete integration with Shadow Security System
 
 "use client";
 
@@ -33,12 +33,15 @@ import PhysicsGameCanvas from "./PhysicsGameCanvas";
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useGame } from "@/hooks/modules/useGame";
-import { GameState } from "@/types/game-modes/common";
+import { GameState, GameMode } from "@/types/game-modes/common";
 import {
   PhysicsGameState,
   PhysicsGameResult,
 } from "@/types/game-modes/physics";
 import { useT } from "@/contexts/LocalizationContext";
+
+// SHADOW SECURITY: Import shadow security system
+import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
   isLoading: boolean;
@@ -71,7 +74,7 @@ const initialPlayAgainError: PlayAgainError = {
 };
 
 export default function PhysicsGameManager() {
-  const { makeAuthenticatedRequest } = useUser();
+  const { makeAuthenticatedRequest, user } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
   const {
     consumeAttempt,
@@ -91,6 +94,9 @@ export default function PhysicsGameManager() {
 
   const gameStateRef = useRef<PhysicsGameState>(gameState);
   const engineUpdateRef = useRef<number>();
+
+  // SHADOW SECURITY: Add shadow security manager ref
+  const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -158,6 +164,37 @@ export default function PhysicsGameManager() {
         showRetryDetails: false,
       }));
 
+      const processSuspiciousActivity = async () => {
+        if (!shadowSecurityRef.current || !user) {
+          return;
+        }
+
+        try {
+          const suspiciousActivityData = shadowSecurityRef.current.generateSuspiciousActivityData(
+            user.telegram_id,
+            Date.now()
+          );
+
+          if (suspiciousActivityData) {
+
+            const suspiciousActivityResponse = await makeAuthenticatedRequest(
+              "/api/security/suspicious-activity",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ suspiciousActivity: suspiciousActivityData }),
+              }
+            );
+
+            if (!suspiciousActivityResponse.ok) {
+              const errorData = await suspiciousActivityResponse.json().catch(() => ({}));
+            } 
+          }
+        } catch (error) { }
+      };
+
       let attemptCount = 1;
 
       const attemptSave = async (): Promise<void> => {
@@ -169,6 +206,11 @@ export default function PhysicsGameManager() {
         }
 
         try {
+          // SHADOW SECURITY: Process suspicious activity before saving game result (only on first attempt)
+          if (attemptCount === 1) {
+            await processSuspiciousActivity();
+          }
+
           await saveGameResult(result);
           setSaveStatus((prev) => ({
             ...prev,
@@ -201,7 +243,7 @@ export default function PhysicsGameManager() {
         }));
       }
     },
-    [saveGameResult, t],
+    [saveGameResult, t, makeAuthenticatedRequest, user],
   );
 
   // Physics engine update loop with level progression
@@ -256,6 +298,11 @@ export default function PhysicsGameManager() {
 
   const endGame = useCallback(
     (cause: "mistakes" | "escaped_circles" | "timeout") => {
+      // SHADOW SECURITY: Clean up any pending circle activations when game ends
+      if (shadowSecurityRef.current) {
+        shadowSecurityRef.current.cleanupAllPendingActivations();
+      }
+
       setGameState((prev) => {
         const finalState = updatePhysicsPositions(prev);
 
@@ -275,6 +322,7 @@ export default function PhysicsGameManager() {
     [handleSaveGameResult],
   );
 
+  // SHADOW SECURITY: Enhanced scheduleNextActivation with security tracking
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
@@ -298,8 +346,24 @@ export default function PhysicsGameManager() {
           const updatedState = updatePhysicsLevel(prev);
           const newState = activateRandomCircles(
             updatedState,
-            (circleIds, decoyIds) => { },
+            (circleIds, decoyIds) => {
+              // SHADOW SECURITY: Record activation times for white circles only
+              if (shadowSecurityRef.current) {
+                const timestamp = Date.now();
+                circleIds.forEach(circleId => {
+                  const isWhiteCircle = !decoyIds.includes(circleId);
+                  if (isWhiteCircle) {
+                    shadowSecurityRef.current!.recordCircleActivation(circleId, timestamp);
+                  }
+                });
+              }
+            },
             (circleId, wasDecoy) => {
+              // SHADOW SECURITY: Clean up activation tracking for timed out circles
+              if (shadowSecurityRef.current) {
+                shadowSecurityRef.current.cleanupCircleActivation(circleId);
+              }
+
               if (!wasDecoy) {
                 // Missed white circle - count as mistake
                 setGameState((current) => {
@@ -337,8 +401,9 @@ export default function PhysicsGameManager() {
       ...prev,
       activationTimeout: timeout,
     }));
-  }, []);
+  }, [endGame]);
 
+  // SHADOW SECURITY: Enhanced handleCircleClickEvent with security tracking
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
@@ -351,6 +416,14 @@ export default function PhysicsGameManager() {
       );
 
       if (result === "correct") {
+        // SHADOW SECURITY: Record successful click on white circle
+        if (shadowSecurityRef.current) {
+          const clickedCircle = gameStateRef.current.circles.find(c => c.id === circleId);
+          if (clickedCircle && clickedCircle.isActive && !clickedCircle.isDecoy) {
+            shadowSecurityRef.current.recordCircleClick(circleId, clickTime);
+          }
+        }
+
         triggerHapticFeedback("success");
 
         // Apply impulse effect immediately after correct click
@@ -378,8 +451,17 @@ export default function PhysicsGameManager() {
     [triggerHapticFeedback],
   );
 
+  // SHADOW SECURITY: Enhanced startGame function with security initialization
   const startGame = useCallback(() => {
-    setGameState(initializePhysicsGameState());
+    const initialState = initializePhysicsGameState();
+
+    // SHADOW SECURITY: Initialize shadow security manager for new game
+    shadowSecurityRef.current = new ShadowSecurityManager(
+      GameMode.PHYSICS,
+      initialState.gameStartTime
+    );
+
+    setGameState(initialState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
     setPlayAgainError(initialPlayAgainError);
@@ -462,12 +544,17 @@ export default function PhysicsGameManager() {
     }
   }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
-  // Cleanup on component unmount
+  // SHADOW SECURITY: Enhanced cleanup effect
   useEffect(() => {
     return () => {
       cleanupPhysicsGame(gameStateRef.current);
       if (engineUpdateRef.current) {
         cancelAnimationFrame(engineUpdateRef.current);
+      }
+
+      // SHADOW SECURITY: Cleanup shadow security manager
+      if (shadowSecurityRef.current) {
+        shadowSecurityRef.current.cleanup();
       }
     };
   }, []);
@@ -680,8 +767,8 @@ export default function PhysicsGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
-                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                  : "border-purple-400/60 text-purple-300 hover:border-purple-400 hover:bg-purple-500/10 hover:scale-105 active:scale-95"
+                ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                : "border-purple-400/60 text-purple-300 hover:border-purple-400 hover:bg-purple-500/10 hover:scale-105 active:scale-95"
                 }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
