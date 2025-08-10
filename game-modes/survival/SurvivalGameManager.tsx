@@ -177,33 +177,12 @@ export default function SurvivalGameManager() {
         }
 
         try {
-
           const suspiciousActivityData = shadowSecurityRef.current.generateSuspiciousActivityData(
             user.telegram_id,
             Date.now()
           );
 
           if (suspiciousActivityData) {
-            // Perform validation logic similar to API
-            const hasSuspiciousClicks = suspiciousActivityData.suspiciousClicksCount > 0;
-            const hasSuspiciousGyroscope = suspiciousActivityData.gyroscopeEnabled && suspiciousActivityData.gyroscopeSuspicious;
-            const hasGyroscopeUnavailability = !suspiciousActivityData.gyroscopeEnabled &&
-              suspiciousActivityData.gyroscopeErrorReason !== null &&
-              suspiciousActivityData.gyroscopeErrorReason !== "ios_optimization_disabled";
-
-            const shouldSubmit = hasSuspiciousClicks || hasSuspiciousGyroscope || hasGyroscopeUnavailability;
-
-            let reason = "";
-            if (!shouldSubmit) {
-              reason = "No suspicious activity detected - neither suspicious clicks, suspicious gyroscope activity, nor gyroscope unavailability found";
-            } else {
-              const reasons = [];
-              if (hasSuspiciousClicks) reasons.push("suspicious clicks detected");
-              if (hasSuspiciousGyroscope) reasons.push("suspicious gyroscope activity");
-              if (hasGyroscopeUnavailability) reasons.push("gyroscope unavailability");
-              reason = `Should submit: ${reasons.join(", ")}`;
-            }
-
             const suspiciousActivityResponse = await makeAuthenticatedRequest(
               "/api/security/suspicious-activity",
               {
@@ -215,18 +194,8 @@ export default function SurvivalGameManager() {
               }
             );
 
-            let responseBody = null;
-            try {
-              responseBody = await suspiciousActivityResponse.json();
-            } catch (e) {
-              responseBody = { error: "Failed to parse response JSON" };
-            }
-
             if (!suspiciousActivityResponse.ok) {
-              const errorData = responseBody || {};
-            } else {
             }
-          } else {
           }
         } catch (error) {
         }
@@ -510,7 +479,7 @@ export default function SurvivalGameManager() {
       {
         enabled: true,
         sensitivityThreshold: 1.0,
-        suspiciousMovementThreshold: 80.0,
+        suspiciousMovementThreshold: 70.0,
         maxCheckInterval: 3000,
         minCheckInterval: 3000,
         requirePermissionCheck: false

@@ -440,9 +440,9 @@ export default function PhysicsGameManager() {
       {
         enabled: true,
         sensitivityThreshold: 1.0,
-        suspiciousMovementThreshold: 10.0,
-        maxCheckInterval: 5000,
-        minCheckInterval: 1000,
+        suspiciousMovementThreshold: 70.0,
+        maxCheckInterval: 3000,
+        minCheckInterval: 3000,
         requirePermissionCheck: false
       }
     );

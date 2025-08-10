@@ -407,9 +407,9 @@ export default function RotationGameManager() {
       {
         enabled: true,
         sensitivityThreshold: 1.0,
-        suspiciousMovementThreshold: 10.0,
+        suspiciousMovementThreshold: 70.0,
         maxCheckInterval: 5000,
-        minCheckInterval: 1000,
+        minCheckInterval: 5000,
         requirePermissionCheck: false
       }
     );
