@@ -373,14 +373,21 @@ function validateSuspiciousActivityData(data: SuspiciousActivityData): {
     }
 
     // FIXED: Enhanced business logic validation to accept suspicious clicks, suspicious gyroscope activity, OR gyroscope unavailability
+    // Excludes iOS devices with intentionally disabled gyroscope from being considered suspicious
     const hasSuspiciousClicks = data.suspiciousClicksCount > 0;
     const hasSuspiciousGyroscope = data.gyroscopeEnabled && data.gyroscopeSuspicious;
-    const hasGyroscopeUnavailability = !data.gyroscopeEnabled && data.gyroscopeErrorReason !== null;
+    const hasGyroscopeUnavailability = !data.gyroscopeEnabled && 
+                                      data.gyroscopeErrorReason !== null &&
+                                      data.gyroscopeErrorReason !== "ios_optimization_disabled"; // Exclude iOS optimization
 
     if (!hasSuspiciousClicks && !hasSuspiciousGyroscope && !hasGyroscopeUnavailability) {
+        const skipReason = (!data.gyroscopeEnabled && data.gyroscopeErrorReason === "ios_optimization_disabled")
+            ? "iOS device with intentionally disabled gyroscope - not considered suspicious"
+            : "No suspicious activity detected - neither suspicious clicks, suspicious gyroscope activity, nor gyroscope unavailability found";
+        
         return {
             isValid: false,
-            error: "No suspicious activity detected - neither suspicious clicks, suspicious gyroscope activity, nor gyroscope unavailability found",
+            error: skipReason,
         };
     }
 

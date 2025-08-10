@@ -1,27 +1,5 @@
 // src/locales/ru/game.ts - Game modes and gameplay (Updated with play again functionality)
 export const game = {
-  gyroscope: {
-    modal: {
-      title: "ДОСТУП К ГИРОСКОПУ",
-      description: "Для новых игровых режимов требуется доступ к датчику ориентации устройства.",
-      manualTitle: "ВКЛЮЧИТЕ В НАСТРОЙКАХ",
-      manualDescription: "Доступ к гироскопу был отклонён. Включите его вручную в настройках браузера.",
-      requirement: "СИСТЕМНОЕ ТРЕБОВАНИЕ",
-      manualRequired: "РУЧНАЯ НАСТРОЙКА",
-      explanation: "Предоставьте разрешение для использования расширенных функций игры в будущих обновлениях.",
-      manualInstructions: "Для включения доступа к гироскопу перейдите в настройки Safari:",
-      safariPath: "Настройки → Safari → Движение и Ориентация → Разрешить",
-      manualHelp: "После включения в настройках нажмите 'Проверить снова'",
-      error: "ОШИБКА",
-      requesting: "ЗАПРОС РАЗРЕШЕНИЯ...",
-      checking: "ПРОВЕРКА...",
-      grantAccess: "ПРЕДОСТАВИТЬ ДОСТУП",
-      recheckAccess: "ПРОВЕРИТЬ СНОВА",
-      skipForNow: "ПРОПУСТИТЬ ПОКА",
-      instructions: "Подтвердите разрешение в системном диалоге",
-      required: "ОБЯЗАТЕЛЬНО ДЛЯ НОВЫХ РЕЖИМОВ",
-    },
-  },
   modes: {
     title: "МОД",
     subtitle: "Выберите испытание",
