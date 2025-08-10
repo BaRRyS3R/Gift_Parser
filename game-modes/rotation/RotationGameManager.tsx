@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Complete integration with Shadow Security System
+// src/game-modes/rotation/RotationGameManager.tsx - Enhanced with complete gyroscope monitoring security system
 
 "use client";
 
@@ -35,7 +35,6 @@ import {
 import RotatingCircleGrid from "@/components/RotatingCircleGrid";
 import { useT } from "@/contexts/LocalizationContext";
 
-// SHADOW SECURITY: Import shadow security system
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
@@ -68,7 +67,7 @@ const initialPlayAgainError: PlayAgainError = {
   redirecting: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 100; // Update level/time every 100ms
+const LEVEL_UPDATE_INTERVAL = 100;
 
 export default function RotationGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -88,21 +87,16 @@ export default function RotationGameManager() {
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] =
-    useState<number>(0);
+  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
   const gameStateRef = useRef<RotationGameState>(gameState);
-
-  // SHADOW SECURITY: Add shadow security manager ref
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Setup Telegram WebApp back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -119,7 +113,6 @@ export default function RotationGameManager() {
     }
   }, [router]);
 
-  // Auto-start game on component mount
   useEffect(() => {
     const timer = setTimeout(() => {
       startGame();
@@ -128,7 +121,6 @@ export default function RotationGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Handle play again error auto-redirect
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -148,7 +140,6 @@ export default function RotationGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -176,7 +167,6 @@ export default function RotationGameManager() {
           );
 
           if (suspiciousActivityData) {
-
             const suspiciousActivityResponse = await makeAuthenticatedRequest(
               "/api/security/suspicious-activity",
               {
@@ -190,7 +180,7 @@ export default function RotationGameManager() {
 
             if (!suspiciousActivityResponse.ok) {
               const errorData = await suspiciousActivityResponse.json().catch(() => ({}));
-            } 
+            }
           }
         } catch (error) { }
       };
@@ -206,7 +196,6 @@ export default function RotationGameManager() {
         }
 
         try {
-          // SHADOW SECURITY: Process suspicious activity before saving game result (only on first attempt)
           if (attemptCount === 1) {
             await processSuspiciousActivity();
           }
@@ -240,7 +229,6 @@ export default function RotationGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -265,7 +253,6 @@ export default function RotationGameManager() {
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
-      // SHADOW SECURITY: Clean up any pending circle activations when game ends
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanupAllPendingActivations();
       }
@@ -306,7 +293,6 @@ export default function RotationGameManager() {
     [handleSaveGameResult],
   );
 
-  // SHADOW SECURITY: Enhanced scheduleNextActivation with security tracking
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
@@ -330,7 +316,6 @@ export default function RotationGameManager() {
             (circleIds, redCircleIds) => {
               const timestamp = Date.now();
 
-              // SHADOW SECURITY: Record activation times for white circles only
               if (shadowSecurityRef.current) {
                 circleIds.forEach(circleId => {
                   const isWhiteCircle = !redCircleIds.includes(circleId);
@@ -348,7 +333,6 @@ export default function RotationGameManager() {
               }, 450);
             },
             (circleId, wasDecoy) => {
-              // SHADOW SECURITY: Clean up activation tracking for timed out circles
               if (shadowSecurityRef.current) {
                 shadowSecurityRef.current.cleanupCircleActivation(circleId);
               }
@@ -376,7 +360,6 @@ export default function RotationGameManager() {
     }));
   }, [endGame]);
 
-  // SHADOW SECURITY: Enhanced handleCircleClickEvent with security tracking
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
@@ -389,7 +372,6 @@ export default function RotationGameManager() {
       );
 
       if (result === "correct") {
-        // SHADOW SECURITY: Record successful click on white circle
         if (shadowSecurityRef.current) {
           const clickedCircle = gameStateRef.current.circles.find(c => c.id === circleId);
           if (clickedCircle && clickedCircle.isActive && !clickedCircle.isDecoy) {
@@ -416,14 +398,20 @@ export default function RotationGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
-  // SHADOW SECURITY: Enhanced startGame function with security initialization
   const startGame = useCallback(() => {
     const initialState = initializeRotationGameState();
 
-    // SHADOW SECURITY: Initialize shadow security manager for new game
     shadowSecurityRef.current = new ShadowSecurityManager(
       GameMode.ROTATION,
-      initialState.gameStartTime
+      initialState.gameStartTime || Date.now(),
+      {
+        enabled: true,
+        sensitivityThreshold: 1.0,
+        suspiciousMovementThreshold: 10.0,
+        maxCheckInterval: 5000,
+        minCheckInterval: 1000,
+        requirePermissionCheck: false
+      }
     );
 
     setGameState(initialState);
@@ -441,12 +429,10 @@ export default function RotationGameManager() {
     setTimeout(() => {
       setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-      // Start level update interval (for time tracking and level progression)
       const levelInterval = setInterval(() => {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
-
             return current;
           }
 
@@ -471,10 +457,8 @@ export default function RotationGameManager() {
     setIsPlayingAgain(true);
 
     try {
-      // Get current attempts status directly from server
       const currentAttemptsStatus = await fetchAttemptsStatus(true);
 
-      // Use the fresh data from the fetch result, not the hook state
       if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
         setPlayAgainError({
           show: true,
@@ -485,10 +469,8 @@ export default function RotationGameManager() {
         return;
       }
 
-      // Consume attempt and verify the operation succeeded
       const consumeResult = await consumeAttempt();
 
-      // Verify that the consume operation was successful
       if (!consumeResult) {
         setPlayAgainError({
           show: true,
@@ -499,7 +481,6 @@ export default function RotationGameManager() {
         return;
       }
 
-      // Additional safety check: verify we have valid remaining attempts
       if (consumeResult.attemptsRemaining < 0) {
         setPlayAgainError({
           show: true,
@@ -510,10 +491,8 @@ export default function RotationGameManager() {
         return;
       }
 
-      // All checks passed - start new game
       startGame();
     } catch (error) {
-      console.error("Error starting new rotation game:", error);
       setPlayAgainError({
         show: true,
         message: t("game.modes.rotation.playAgain.error"),
@@ -523,12 +502,10 @@ export default function RotationGameManager() {
     }
   }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
-  // SHADOW SECURITY: Enhanced cleanup effect
   useEffect(() => {
     return () => {
       cleanupRotationGame(gameStateRef.current);
 
-      // SHADOW SECURITY: Cleanup shadow security manager
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanup();
       }
@@ -622,7 +599,6 @@ export default function RotationGameManager() {
             </div>
           </div>
 
-          {/* Save Status Display */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
@@ -699,7 +675,6 @@ export default function RotationGameManager() {
               </div>
             )}
 
-          {/* Play Again Error Display */}
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">

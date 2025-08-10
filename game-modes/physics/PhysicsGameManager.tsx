@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Complete integration with Shadow Security System
+// src/game-modes/physics/PhysicsGameManager.tsx - Enhanced with complete gyroscope monitoring security system
 
 "use client";
 
@@ -40,7 +40,6 @@ import {
 } from "@/types/game-modes/physics";
 import { useT } from "@/contexts/LocalizationContext";
 
-// SHADOW SECURITY: Import shadow security system
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
@@ -94,15 +93,12 @@ export default function PhysicsGameManager() {
 
   const gameStateRef = useRef<PhysicsGameState>(gameState);
   const engineUpdateRef = useRef<number>();
-
-  // SHADOW SECURITY: Add shadow security manager ref
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Setup Telegram WebApp back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -119,7 +115,6 @@ export default function PhysicsGameManager() {
     }
   }, [router]);
 
-  // Auto-start game on component mount
   useEffect(() => {
     const timer = setTimeout(() => {
       startGame();
@@ -128,7 +123,6 @@ export default function PhysicsGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Handle play again error auto-redirect
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -148,7 +142,6 @@ export default function PhysicsGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -176,7 +169,6 @@ export default function PhysicsGameManager() {
           );
 
           if (suspiciousActivityData) {
-
             const suspiciousActivityResponse = await makeAuthenticatedRequest(
               "/api/security/suspicious-activity",
               {
@@ -190,7 +182,7 @@ export default function PhysicsGameManager() {
 
             if (!suspiciousActivityResponse.ok) {
               const errorData = await suspiciousActivityResponse.json().catch(() => ({}));
-            } 
+            }
           }
         } catch (error) { }
       };
@@ -206,7 +198,6 @@ export default function PhysicsGameManager() {
         }
 
         try {
-          // SHADOW SECURITY: Process suspicious activity before saving game result (only on first attempt)
           if (attemptCount === 1) {
             await processSuspiciousActivity();
           }
@@ -223,7 +214,6 @@ export default function PhysicsGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -246,7 +236,6 @@ export default function PhysicsGameManager() {
     [saveGameResult, t, makeAuthenticatedRequest, user],
   );
 
-  // Physics engine update loop with level progression
   const updatePhysicsEngine = useCallback(() => {
     const currentState = gameStateRef.current;
 
@@ -262,15 +251,12 @@ export default function PhysicsGameManager() {
       return;
     }
 
-    // Update Matter.js engine
     Matter.Engine.update(currentState.engine, 16.67);
 
-    // Update game state with physics and level progression
     setGameState((prev) => {
       const updatedState = updatePhysicsPositions(prev);
       const levelUpdatedState = updatePhysicsLevel(updatedState);
 
-      // Check win/loss conditions - mistakes first priority
       const tooManyMistakes =
         levelUpdatedState.stats.currentMistakes >=
         levelUpdatedState.config.maxMistakes;
@@ -298,7 +284,6 @@ export default function PhysicsGameManager() {
 
   const endGame = useCallback(
     (cause: "mistakes" | "escaped_circles" | "timeout") => {
-      // SHADOW SECURITY: Clean up any pending circle activations when game ends
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanupAllPendingActivations();
       }
@@ -322,7 +307,6 @@ export default function PhysicsGameManager() {
     [handleSaveGameResult],
   );
 
-  // SHADOW SECURITY: Enhanced scheduleNextActivation with security tracking
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
@@ -347,7 +331,6 @@ export default function PhysicsGameManager() {
           const newState = activateRandomCircles(
             updatedState,
             (circleIds, decoyIds) => {
-              // SHADOW SECURITY: Record activation times for white circles only
               if (shadowSecurityRef.current) {
                 const timestamp = Date.now();
                 circleIds.forEach(circleId => {
@@ -359,13 +342,11 @@ export default function PhysicsGameManager() {
               }
             },
             (circleId, wasDecoy) => {
-              // SHADOW SECURITY: Clean up activation tracking for timed out circles
               if (shadowSecurityRef.current) {
                 shadowSecurityRef.current.cleanupCircleActivation(circleId);
               }
 
               if (!wasDecoy) {
-                // Missed white circle - count as mistake
                 setGameState((current) => {
                   const updatedStats = {
                     ...current.stats,
@@ -381,7 +362,6 @@ export default function PhysicsGameManager() {
                   return deactivatePhysicsCircle(newState, circleId);
                 });
               } else {
-                // Decoy timed out - just deactivate without penalty
                 setGameState((current) =>
                   deactivatePhysicsCircle(current, circleId),
                 );
@@ -403,7 +383,6 @@ export default function PhysicsGameManager() {
     }));
   }, [endGame]);
 
-  // SHADOW SECURITY: Enhanced handleCircleClickEvent with security tracking
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
@@ -416,7 +395,6 @@ export default function PhysicsGameManager() {
       );
 
       if (result === "correct") {
-        // SHADOW SECURITY: Record successful click on white circle
         if (shadowSecurityRef.current) {
           const clickedCircle = gameStateRef.current.circles.find(c => c.id === circleId);
           if (clickedCircle && clickedCircle.isActive && !clickedCircle.isDecoy) {
@@ -426,10 +404,8 @@ export default function PhysicsGameManager() {
 
         triggerHapticFeedback("success");
 
-        // Apply impulse effect immediately after correct click
         const stateWithImpulse = applyImpulse(gameStateRef.current, circleId);
 
-        // Combine updated stats with impulse effects and immediately deactivate
         const finalState = deactivatePhysicsCircle(
           {
             ...newState,
@@ -442,7 +418,6 @@ export default function PhysicsGameManager() {
       } else if (result === "decoy" || result === "wrong") {
         triggerHapticFeedback("error");
 
-        // Update state with mistake count and immediately deactivate
         const finalState = deactivatePhysicsCircle(newState, circleId);
 
         setGameState(finalState);
@@ -451,14 +426,20 @@ export default function PhysicsGameManager() {
     [triggerHapticFeedback],
   );
 
-  // SHADOW SECURITY: Enhanced startGame function with security initialization
   const startGame = useCallback(() => {
     const initialState = initializePhysicsGameState();
 
-    // SHADOW SECURITY: Initialize shadow security manager for new game
     shadowSecurityRef.current = new ShadowSecurityManager(
       GameMode.PHYSICS,
-      initialState.gameStartTime
+      initialState.gameStartTime || Date.now(),
+      {
+        enabled: true,
+        sensitivityThreshold: 1.0,
+        suspiciousMovementThreshold: 10.0,
+        maxCheckInterval: 5000,
+        minCheckInterval: 1000,
+        requirePermissionCheck: false
+      }
     );
 
     setGameState(initialState);
@@ -474,12 +455,10 @@ export default function PhysicsGameManager() {
     setTimeout(() => {
       setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-      // Start physics engine update loop immediately
       setTimeout(() => {
         updatePhysicsEngine();
       }, 100);
 
-      // Schedule first circle activation
       setTimeout(() => {
         scheduleNextActivation();
       }, 1000);
@@ -492,10 +471,8 @@ export default function PhysicsGameManager() {
     setIsPlayingAgain(true);
 
     try {
-      // Get current attempts status directly from server
       const currentAttemptsStatus = await fetchAttemptsStatus(true);
 
-      // Use the fresh data from the fetch result, not the hook state
       if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
         setPlayAgainError({
           show: true,
@@ -506,10 +483,8 @@ export default function PhysicsGameManager() {
         return;
       }
 
-      // Consume attempt and verify the operation succeeded
       const consumeResult = await consumeAttempt();
 
-      // Verify that the consume operation was successful
       if (!consumeResult) {
         setPlayAgainError({
           show: true,
@@ -520,7 +495,6 @@ export default function PhysicsGameManager() {
         return;
       }
 
-      // Additional safety check: verify we have valid remaining attempts
       if (consumeResult.attemptsRemaining < 0) {
         setPlayAgainError({
           show: true,
@@ -531,10 +505,8 @@ export default function PhysicsGameManager() {
         return;
       }
 
-      // All checks passed - start new game
       startGame();
     } catch (error) {
-      console.error("Error starting new physics game:", error);
       setPlayAgainError({
         show: true,
         message: t("game.modes.physics.playAgain.error"),
@@ -544,7 +516,6 @@ export default function PhysicsGameManager() {
     }
   }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
-  // SHADOW SECURITY: Enhanced cleanup effect
   useEffect(() => {
     return () => {
       cleanupPhysicsGame(gameStateRef.current);
@@ -552,7 +523,6 @@ export default function PhysicsGameManager() {
         cancelAnimationFrame(engineUpdateRef.current);
       }
 
-      // SHADOW SECURITY: Cleanup shadow security manager
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanup();
       }
@@ -655,7 +625,6 @@ export default function PhysicsGameManager() {
             </div>
           </div>
 
-          {/* Save Status Display */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
@@ -735,7 +704,6 @@ export default function PhysicsGameManager() {
               </div>
             )}
 
-          {/* Play Again Error Display */}
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">
@@ -795,7 +763,6 @@ export default function PhysicsGameManager() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Game area - fills screen minus info panel */}
       <div
         className="flex-1 flex items-start justify-center"
         style={{ height: `calc(100vh - 140px)` }}
@@ -808,7 +775,6 @@ export default function PhysicsGameManager() {
         />
       </div>
 
-      {/* Fixed info panel - exactly 140px height */}
       <div
         className="fixed bottom-0 left-0 right-0 z-10 bg-black/95 backdrop-blur-sm border-t border-purple-400/30 safe-area-inset-bottom"
         style={{ height: "140px" }}
