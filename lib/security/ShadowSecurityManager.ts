@@ -30,7 +30,7 @@ export class ShadowSecurityManager {
     // Configuration constants
     private static readonly DEFAULT_SUSPICIOUS_CLICK_THRESHOLD = 250; // milliseconds
     private static readonly DEFAULT_GYROSCOPE_SENSITIVITY = 1.0; // degrees - MUCH MORE SENSITIVE than Nebula's 12 degrees
-    private static readonly DEFAULT_GYROSCOPE_SUSPICIOUS_THRESHOLD = 10.0; // percentage - configurable threshold
+    private static readonly DEFAULT_GYROSCOPE_SUSPICIOUS_THRESHOLD = 50.0; // percentage - configurable threshold
     private static readonly FIXED_CHECK_INTERVAL = 3000; // Fixed 3 seconds interval
 
     constructor(
