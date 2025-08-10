@@ -57,6 +57,16 @@ interface PlayAgainError {
   redirecting: boolean;
 }
 
+interface SecurityDebugInfo {
+  clickMonitoring: boolean;
+  gyroscopeMonitoring: boolean;
+  gyroscopeError: string | null;
+  totalClicks: number;
+  suspiciousClicks: number;
+  gyroscopeChecks: number;
+  gyroscopeMovements: number;
+}
+
 const initialSaveStatus: SaveStatus = {
   isLoading: false,
   attempt: 0,
@@ -72,7 +82,18 @@ const initialPlayAgainError: PlayAgainError = {
   redirecting: false,
 };
 
+const initialSecurityDebugInfo: SecurityDebugInfo = {
+  clickMonitoring: false,
+  gyroscopeMonitoring: false,
+  gyroscopeError: null,
+  totalClicks: 0,
+  suspiciousClicks: 0,
+  gyroscopeChecks: 0,
+  gyroscopeMovements: 0,
+};
+
 const LEVEL_UPDATE_INTERVAL = 200;
+const DEBUG_UPDATE_INTERVAL = 1000; // Update debug info every second
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -93,6 +114,10 @@ export default function SurvivalGameManager() {
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
+  // Debug panel state
+  const [showDebugPanel, setShowDebugPanel] = useState(true);
+  const [securityDebugInfo, setSecurityDebugInfo] = useState<SecurityDebugInfo>(initialSecurityDebugInfo);
+
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
@@ -101,6 +126,7 @@ export default function SurvivalGameManager() {
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
+  const debugUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -143,6 +169,37 @@ export default function SurvivalGameManager() {
     }
   }, [playAgainError.show, playAgainError.redirecting, router]);
 
+  // Debug info update effect
+  useEffect(() => {
+    if (gameState.gameState === GameState.PLAYING && shadowSecurityRef.current) {
+      debugUpdateIntervalRef.current = setInterval(() => {
+        if (shadowSecurityRef.current) {
+          const status = shadowSecurityRef.current.getMonitoringStatus();
+          setSecurityDebugInfo({
+            clickMonitoring: status.clickMonitoring,
+            gyroscopeMonitoring: status.gyroscopeMonitoring,
+            gyroscopeError: status.gyroscopeError,
+            totalClicks: status.totalClicks,
+            suspiciousClicks: status.suspiciousClicks,
+            gyroscopeChecks: status.gyroscopeChecks,
+            gyroscopeMovements: status.gyroscopeMovements,
+          });
+        }
+      }, DEBUG_UPDATE_INTERVAL);
+    } else {
+      if (debugUpdateIntervalRef.current) {
+        clearInterval(debugUpdateIntervalRef.current);
+        debugUpdateIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (debugUpdateIntervalRef.current) {
+        clearInterval(debugUpdateIntervalRef.current);
+        debugUpdateIntervalRef.current = null;
+      }
+    };
+  }, [gameState.gameState]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -283,6 +340,12 @@ export default function SurvivalGameManager() {
 
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanupAllPendingActivations();
+      }
+
+      // Stop debug updates
+      if (debugUpdateIntervalRef.current) {
+        clearInterval(debugUpdateIntervalRef.current);
+        debugUpdateIntervalRef.current = null;
       }
 
       setGameState((prev) => {
@@ -501,6 +564,7 @@ export default function SurvivalGameManager() {
     setIsNewBestScore(false);
     setInstantlyDeactivatedCircles([]);
     setIsPlayingAgain(false);
+    setSecurityDebugInfo(initialSecurityDebugInfo);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -595,6 +659,10 @@ export default function SurvivalGameManager() {
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanup();
       }
+
+      if (debugUpdateIntervalRef.current) {
+        clearInterval(debugUpdateIntervalRef.current);
+      }
     };
   }, []);
 
@@ -624,6 +692,100 @@ export default function SurvivalGameManager() {
       causeKeyMapping.timeout;
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
+  };
+
+  const renderDebugPanel = () => {
+    if (!showDebugPanel || gameState.gameState !== GameState.PLAYING) {
+      return null;
+    }
+
+    return (
+      <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-sm border-t border-white/20 p-3 text-xs font-mono z-50">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-2">
+            <span className="text-yellow-400 font-bold">DEBUG: Security Monitor</span>
+            <button
+              onClick={() => setShowDebugPanel(false)}
+              className="text-white/60 hover:text-white transition-colors"
+            >
+              <EyeOff size={14} />
+            </button>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3">
+          {/* Click Monitoring */}
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <MousePointer size={12} className="text-blue-400" />
+              <span className="text-white/80">Click Monitor</span>
+              {securityDebugInfo.clickMonitoring ? (
+                <CheckCircle size={12} className="text-green-400" />
+              ) : (
+                <AlertCircle size={12} className="text-red-400" />
+              )}
+            </div>
+            <div className="text-white/60 ml-6">
+              <div>Total: {securityDebugInfo.totalClicks}</div>
+              <div>Suspicious: {securityDebugInfo.suspiciousClicks}</div>
+            </div>
+          </div>
+
+          {/* Gyroscope Monitoring */}
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <Smartphone size={12} className="text-purple-400" />
+              <span className="text-white/80">Gyroscope</span>
+              {securityDebugInfo.gyroscopeMonitoring ? (
+                <CheckCircle size={12} className="text-green-400" />
+              ) : (
+                <AlertCircle size={12} className="text-red-400" />
+              )}
+            </div>
+            <div className="text-white/60 ml-6">
+              <div>Checks: {securityDebugInfo.gyroscopeChecks}</div>
+              <div>Movements: {securityDebugInfo.gyroscopeMovements}</div>
+              {securityDebugInfo.gyroscopeError && (
+                <div className="text-red-400 text-xs mt-1">
+                  Error: {securityDebugInfo.gyroscopeError}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Movement Percentage */}
+        {securityDebugInfo.gyroscopeChecks > 0 && (
+          <div className="mt-2 pt-2 border-t border-white/20">
+            <div className="flex items-center justify-between">
+              <span className="text-white/80">Movement Rate:</span>
+              <span className={`font-bold ${
+                (securityDebugInfo.gyroscopeMovements / securityDebugInfo.gyroscopeChecks) * 100 < 10
+                  ? 'text-red-400' 
+                  : 'text-green-400'
+              }`}>
+                {((securityDebugInfo.gyroscopeMovements / securityDebugInfo.gyroscopeChecks) * 100).toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderDebugToggle = () => {
+    if (showDebugPanel || gameState.gameState !== GameState.PLAYING) {
+      return null;
+    }
+
+    return (
+      <button
+        onClick={() => setShowDebugPanel(true)}
+        className="fixed bottom-4 right-4 bg-black/80 backdrop-blur-sm border border-white/20 rounded-lg p-2 text-white/60 hover:text-white transition-colors z-40"
+      >
+        <Eye size={16} />
+      </button>
+    );
   };
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
@@ -856,6 +1018,12 @@ export default function SurvivalGameManager() {
           instantlyDeactivatedCircles={instantlyDeactivatedCircles}
         />
       </div>
+
+      {/* Debug Panel */}
+      {renderDebugPanel()}
+      
+      {/* Debug Toggle Button */}
+      {renderDebugToggle()}
     </div>
   );
 }
