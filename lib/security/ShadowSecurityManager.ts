@@ -392,22 +392,25 @@ export class ShadowSecurityManager {
 
     /**
      * Generate comprehensive suspicious activity data for server submission
-     * Now triggers with minimum 1 gyroscope check or any suspicious clicks
+     * Now triggers with minimum 1 gyroscope check, suspicious clicks, or gyroscope errors/unavailability
      */
     public generateSuspiciousActivityData(telegramId: number, gameEndTime: number): SuspiciousActivityData | null {
         const clickRecords = this.state.clickRecords;
         const suspiciousClicks = clickRecords.filter(record => record.isSuspicious);
         const gyroscopeResult = this.generateGyroscopeResult();
 
-        // Check for suspicious activity with lowered threshold for gyroscope checks
+        // Check for suspicious activity with multiple criteria
         const hasSuspiciousClicks = suspiciousClicks.length > 0;
         const hasSuspiciousGyroscope = this.state.gyroscopeMonitoring.enabled &&
-            gyroscopeResult.totalChecks >= 1 && // Minimum 1 check required
+            gyroscopeResult.totalChecks >= 1 &&
             gyroscopeResult.isSuspicious;
+        const hasGyroscopeIssues = this.gyroscopeConfig.enabled &&
+            !this.state.gyroscopeMonitoring.enabled &&
+            this.state.gyroscopeMonitoring.errorReason !== null;
 
-        // Always generate data if there are any suspicious activities OR if gyroscope monitoring detected low movement
-        if (!hasSuspiciousClicks && !hasSuspiciousGyroscope) {
-            console.log("Shadow Security: No suspicious activity detected - skipping submission");
+        // Generate data if there are suspicious activities OR gyroscope unavailability/errors
+        if (!hasSuspiciousClicks && !hasSuspiciousGyroscope && !hasGyroscopeIssues) {
+            console.log("Shadow Security: No suspicious activity or gyroscope issues detected - skipping submission");
             return null;
         }
 
@@ -447,7 +450,7 @@ export class ShadowSecurityManager {
             gameEndTime
         };
 
-        console.log(`Shadow Security: Generated activity data - Clicks: ${hasSuspiciousClicks}, Gyroscope: ${hasSuspiciousGyroscope}, Movement: ${gyroscopeResult.movementPercentage}%`);
+        console.log(`Shadow Security: Generated activity data - Clicks: ${hasSuspiciousClicks}, Gyroscope: ${hasSuspiciousGyroscope}, Issues: ${hasGyroscopeIssues}, Movement: ${gyroscopeResult.movementPercentage}%`);
 
         return activityData;
     }

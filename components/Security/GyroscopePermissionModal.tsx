@@ -1,24 +1,32 @@
-// src/components/Security/GyroscopePermissionModal.tsx - Модальное окно для запроса разрешения гироскопа
+// src/components/Security/GyroscopePermissionModal.tsx - Обновленное модальное окно с обработкой отклоненных разрешений
 
 "use client";
 
 import { useEffect } from "react";
-import { Compass, Shield, Settings } from "lucide-react";
+import { Compass, Shield, Settings, AlertTriangle, RefreshCw, X } from "lucide-react";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface GyroscopePermissionModalProps {
     isOpen: boolean;
     isRequesting: boolean;
+    permissionDenied: boolean;
+    needsManualEnable: boolean;
     error: string | null;
     onRequestPermission: () => Promise<void>;
+    onRecheckPermission: () => Promise<void>;
+    onSkipPermission: () => void;
     onClose?: () => void; // Опциональное закрытие для случаев когда гироскоп недоступен
 }
 
 export default function GyroscopePermissionModal({
     isOpen,
     isRequesting,
+    permissionDenied,
+    needsManualEnable,
     error,
     onRequestPermission,
+    onRecheckPermission,
+    onSkipPermission,
     onClose,
 }: GyroscopePermissionModalProps): JSX.Element | null {
     const t = useT();
@@ -51,6 +59,10 @@ export default function GyroscopePermissionModal({
         return null;
     }
 
+    // Определение текущего состояния для отображения
+    const isManualEnableMode = permissionDenied && needsManualEnable;
+    const isInitialRequest = !permissionDenied && !needsManualEnable;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop с размытием */}
@@ -71,39 +83,86 @@ export default function GyroscopePermissionModal({
                     {/* Анимированная рамка */}
                     <div className="absolute inset-0 border border-blue-400/20 pointer-events-none animate-pulse" />
 
+                    {/* Кнопка закрытия (только если доступна функция закрытия) */}
+                    {onClose && (
+                        <button
+                            className="absolute top-4 right-4 z-20 p-2 text-blue-400/60 hover:text-blue-400 transition-colors"
+                            onClick={onClose}
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
+
                     {/* Контент */}
                     <div className="relative z-10 p-6 space-y-6">
                         {/* Заголовок с иконкой */}
                         <div className="text-center space-y-4">
-                            <div className="w-16 h-16 mx-auto bg-blue-500/20 rounded-lg flex items-center justify-center border border-blue-400/30">
-                                <Compass className="text-blue-400" size={32} />
+                            <div className={`w-16 h-16 mx-auto rounded-lg flex items-center justify-center border ${isManualEnableMode
+                                    ? "bg-orange-500/20 border-orange-400/30"
+                                    : "bg-blue-500/20 border-blue-400/30"
+                                }`}>
+                                {isManualEnableMode ? (
+                                    <Settings className="text-orange-400" size={32} />
+                                ) : (
+                                    <Compass className="text-blue-400" size={32} />
+                                )}
                             </div>
 
                             <div>
-                                <h3 className="text-xl font-bold tracking-wider text-blue-300 mb-2">
-                                    {t("game.gyroscope.modal.title")}
+                                <h3 className={`text-xl font-bold tracking-wider mb-2 ${isManualEnableMode ? "text-orange-300" : "text-blue-300"
+                                    }`}>
+                                    {isManualEnableMode
+                                        ? t("game.gyroscope.modal.manualTitle")
+                                        : t("game.gyroscope.modal.title")
+                                    }
                                 </h3>
-                                <p className="text-blue-200/80 text-sm leading-relaxed">
-                                    {t("game.gyroscope.modal.description")}
+                                <p className={`text-sm leading-relaxed ${isManualEnableMode ? "text-orange-200/80" : "text-blue-200/80"
+                                    }`}>
+                                    {isManualEnableMode
+                                        ? t("game.gyroscope.modal.manualDescription")
+                                        : t("game.gyroscope.modal.description")
+                                    }
                                 </p>
                             </div>
                         </div>
 
                         {/* Разделитель */}
-                        <div className="h-px bg-gradient-to-r from-transparent via-blue-400/30 to-transparent" />
+                        <div className={`h-px bg-gradient-to-r from-transparent to-transparent ${isManualEnableMode ? "via-orange-400/30" : "via-blue-400/30"
+                            }`} />
 
                         {/* Информационный блок */}
-                        <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-4 space-y-3">
-                            <div className="flex items-center space-x-2">
-                                <Shield className="text-blue-400 flex-shrink-0" size={16} />
-                                <span className="text-blue-300 font-mono text-sm tracking-wider uppercase">
-                                    {t("game.gyroscope.modal.requirement")}
-                                </span>
+                        {isManualEnableMode ? (
+                            <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-4 space-y-3">
+                                <div className="flex items-center space-x-2">
+                                    <AlertTriangle className="text-orange-400 flex-shrink-0" size={16} />
+                                    <span className="text-orange-300 font-mono text-sm tracking-wider uppercase">
+                                        {t("game.gyroscope.modal.manualRequired")}
+                                    </span>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-orange-200/70 text-xs leading-relaxed">
+                                        {t("game.gyroscope.modal.manualInstructions")}
+                                    </p>
+                                    <div className="bg-orange-500/10 border border-orange-400/20 rounded p-2">
+                                        <p className="text-orange-200 text-xs font-mono">
+                                            {t("game.gyroscope.modal.safariPath")}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-blue-200/70 text-xs leading-relaxed">
-                                {t("game.gyroscope.modal.explanation")}
-                            </p>
-                        </div>
+                        ) : (
+                            <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-4 space-y-3">
+                                <div className="flex items-center space-x-2">
+                                    <Shield className="text-blue-400 flex-shrink-0" size={16} />
+                                    <span className="text-blue-300 font-mono text-sm tracking-wider uppercase">
+                                        {t("game.gyroscope.modal.requirement")}
+                                    </span>
+                                </div>
+                                <p className="text-blue-200/70 text-xs leading-relaxed">
+                                    {t("game.gyroscope.modal.explanation")}
+                                </p>
+                            </div>
+                        )}
 
                         {/* Ошибка, если есть */}
                         {error && (
@@ -114,33 +173,82 @@ export default function GyroscopePermissionModal({
                             </div>
                         )}
 
-                        {/* Кнопка действия */}
+                        {/* Кнопки действий */}
                         <div className="space-y-3">
-                            <button
-                                className={`w-full px-6 py-4 border-2 rounded-lg font-mono text-sm tracking-wider uppercase transition-all duration-300 flex items-center justify-center space-x-2 ${isRequesting
-                                        ? "border-blue-400/30 text-blue-400/50 cursor-not-allowed"
-                                        : "border-blue-400/60 text-blue-300 hover:border-blue-400 hover:bg-blue-500/10 hover:scale-105 active:scale-95"
-                                    }`}
-                                disabled={isRequesting}
-                                onClick={onRequestPermission}
-                            >
-                                {isRequesting ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                                        <span>{t("game.gyroscope.modal.requesting")}</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Settings size={16} />
-                                        <span>{t("game.gyroscope.modal.grantAccess")}</span>
-                                    </>
-                                )}
-                            </button>
+                            {isManualEnableMode ? (
+                                <>
+                                    {/* Кнопка повторной проверки */}
+                                    <button
+                                        className={`w-full px-6 py-4 border-2 rounded-lg font-mono text-sm tracking-wider uppercase transition-all duration-300 flex items-center justify-center space-x-2 ${isRequesting
+                                                ? "border-orange-400/30 text-orange-400/50 cursor-not-allowed"
+                                                : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
+                                            }`}
+                                        disabled={isRequesting}
+                                        onClick={onRecheckPermission}
+                                    >
+                                        {isRequesting ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                                                <span>{t("game.gyroscope.modal.checking")}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <RefreshCw size={16} />
+                                                <span>{t("game.gyroscope.modal.recheckAccess")}</span>
+                                            </>
+                                        )}
+                                    </button>
+
+                                    {/* Кнопка пропуска */}
+                                    <button
+                                        className="w-full px-6 py-3 border border-gray-600/60 text-gray-400 rounded-lg font-mono text-xs tracking-wider uppercase transition-all duration-300 hover:border-gray-500 hover:text-gray-300"
+                                        onClick={onSkipPermission}
+                                    >
+                                        {t("game.gyroscope.modal.skipForNow")}
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Кнопка первичного запроса */}
+                                    <button
+                                        className={`w-full px-6 py-4 border-2 rounded-lg font-mono text-sm tracking-wider uppercase transition-all duration-300 flex items-center justify-center space-x-2 ${isRequesting
+                                                ? "border-blue-400/30 text-blue-400/50 cursor-not-allowed"
+                                                : "border-blue-400/60 text-blue-300 hover:border-blue-400 hover:bg-blue-500/10 hover:scale-105 active:scale-95"
+                                            }`}
+                                        disabled={isRequesting}
+                                        onClick={onRequestPermission}
+                                    >
+                                        {isRequesting ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                                                <span>{t("game.gyroscope.modal.requesting")}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Settings size={16} />
+                                                <span>{t("game.gyroscope.modal.grantAccess")}</span>
+                                            </>
+                                        )}
+                                    </button>
+
+                                    {/* Кнопка пропуска */}
+                                    <button
+                                        className="w-full px-6 py-3 border border-gray-600/60 text-gray-400 rounded-lg font-mono text-xs tracking-wider uppercase transition-all duration-300 hover:border-gray-500 hover:text-gray-300"
+                                        onClick={onSkipPermission}
+                                    >
+                                        {t("game.gyroscope.modal.skipForNow")}
+                                    </button>
+                                </>
+                            )}
 
                             {/* Дополнительная информация */}
                             <div className="text-center">
-                                <p className="text-blue-200/50 text-xs">
-                                    {t("game.gyroscope.modal.instructions")}
+                                <p className={`text-xs ${isManualEnableMode ? "text-orange-200/50" : "text-blue-200/50"
+                                    }`}>
+                                    {isManualEnableMode
+                                        ? t("game.gyroscope.modal.manualHelp")
+                                        : t("game.gyroscope.modal.instructions")
+                                    }
                                 </p>
                             </div>
                         </div>

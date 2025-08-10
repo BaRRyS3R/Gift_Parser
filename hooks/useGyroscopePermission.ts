@@ -1,4 +1,4 @@
-// src/hooks/useGyroscopePermission.ts - Хук для проверки доступности и разрешений гироскопа
+// src/hooks/useGyroscopePermission.ts - Исправленный хук с обработкой отклоненных разрешений
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -7,6 +7,8 @@ interface GyroscopePermissionState {
     isAvailable: boolean;
     permissionGranted: boolean;
     permissionRequested: boolean;
+    permissionDenied: boolean;
+    needsManualEnable: boolean;
     isLoading: boolean;
     error: string | null;
     showModal: boolean;
@@ -14,9 +16,15 @@ interface GyroscopePermissionState {
 
 interface GyroscopePermissionActions {
     requestPermission: () => Promise<void>;
+    skipPermission: () => void;
+    recheckPermission: () => Promise<void>;
     hideModal: () => void;
     checkPermission: () => Promise<void>;
 }
+
+const PERMISSION_STORAGE_KEY = "gyroscope_permission_status";
+
+type PermissionStatus = "granted" | "denied" | "prompt" | "unknown";
 
 export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePermissionActions {
     const [state, setState] = useState<GyroscopePermissionState>({
@@ -24,10 +32,35 @@ export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePe
         isAvailable: false,
         permissionGranted: false,
         permissionRequested: false,
+        permissionDenied: false,
+        needsManualEnable: false,
         isLoading: true,
         error: null,
         showModal: false,
     });
+
+    /**
+     * Сохранение статуса разрешения в localStorage
+     */
+    const savePermissionStatus = useCallback((status: PermissionStatus): void => {
+        try {
+            localStorage.setItem(PERMISSION_STORAGE_KEY, status);
+        } catch (error) {
+            console.warn("Failed to save permission status:", error);
+        }
+    }, []);
+
+    /**
+     * Получение сохраненного статуса разрешения
+     */
+    const getSavedPermissionStatus = useCallback((): PermissionStatus => {
+        try {
+            const saved = localStorage.getItem(PERMISSION_STORAGE_KEY);
+            return (saved as PermissionStatus) || "unknown";
+        } catch (error) {
+            return "unknown";
+        }
+    }, []);
 
     /**
      * Проверка поддержки гироскопа устройством
@@ -74,26 +107,58 @@ export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePe
                     window.removeEventListener("deviceorientation", testListener);
                     resolve(false);
                 }
-            }, 2000);
+            }, 3000);
         });
     }, []);
 
     /**
-     * Проверка статуса разрешений
+     * Проверка актуального статуса разрешений
      */
-    const checkPermissionStatus = useCallback(async (): Promise<boolean> => {
+    const checkCurrentPermissionStatus = useCallback(async (): Promise<{
+        hasPermission: boolean;
+        isDenied: boolean;
+        needsManualEnable: boolean;
+    }> => {
         const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
 
         // Если не требуется разрешение (Android/старые iOS)
         if (typeof DeviceOrientationEvent.requestPermission !== "function") {
-            // Проверяем доступность данных напрямую
-            return await checkDataAvailability();
+            const dataAvailable = await checkDataAvailability();
+            return {
+                hasPermission: dataAvailable,
+                isDenied: false,
+                needsManualEnable: false,
+            };
         }
 
-        // Для iOS 13+ - сначала проверяем данные, затем при необходимости запрашиваем разрешение
+        // Для iOS 13+ - сначала проверяем данные
         const dataAvailable = await checkDataAvailability();
-        return dataAvailable;
-    }, [checkDataAvailability]);
+
+        if (dataAvailable) {
+            return {
+                hasPermission: true,
+                isDenied: false,
+                needsManualEnable: false,
+            };
+        }
+
+        // Если данных нет, проверяем сохраненный статус
+        const savedStatus = getSavedPermissionStatus();
+
+        if (savedStatus === "denied") {
+            return {
+                hasPermission: false,
+                isDenied: true,
+                needsManualEnable: true,
+            };
+        }
+
+        return {
+            hasPermission: false,
+            isDenied: false,
+            needsManualEnable: false,
+        };
+    }, [checkDataAvailability, getSavedPermissionStatus]);
 
     /**
      * Запрос разрешения на использование гироскопа
@@ -114,21 +179,43 @@ export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePe
 
             // Если функция requestPermission доступна (iOS 13+)
             if (typeof DeviceOrientationEvent.requestPermission === "function") {
-                const permission = await DeviceOrientationEvent.requestPermission();
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
 
-                if (permission === "granted") {
+                    if (permission === "granted") {
+                        savePermissionStatus("granted");
+                        setState(prev => ({
+                            ...prev,
+                            permissionGranted: true,
+                            permissionDenied: false,
+                            needsManualEnable: false,
+                            showModal: false,
+                            error: null,
+                            permissionRequested: false,
+                        }));
+                    } else {
+                        // Пользователь отклонил разрешение
+                        savePermissionStatus("denied");
+                        setState(prev => ({
+                            ...prev,
+                            permissionGranted: false,
+                            permissionDenied: true,
+                            needsManualEnable: true,
+                            permissionRequested: false,
+                            error: null,
+                        }));
+                    }
+                } catch (error) {
+                    // Ошибка означает что разрешение было отклонено ранее
+                    console.warn("Permission request failed (likely denied before):", error);
+                    savePermissionStatus("denied");
                     setState(prev => ({
                         ...prev,
-                        permissionGranted: true,
-                        showModal: false,
-                        error: null,
-                    }));
-                } else {
-                    // Если разрешение не получено, сбрасываем флаг запроса для повторной попытки
-                    setState(prev => ({
-                        ...prev,
+                        permissionGranted: false,
+                        permissionDenied: true,
+                        needsManualEnable: true,
                         permissionRequested: false,
-                        error: "Permission denied. Please try again.",
+                        error: null,
                     }));
                 }
             } else {
@@ -137,8 +224,11 @@ export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePe
                 setState(prev => ({
                     ...prev,
                     permissionGranted: dataAvailable,
+                    permissionDenied: !dataAvailable,
+                    needsManualEnable: false,
                     showModal: !dataAvailable,
                     error: dataAvailable ? null : "Gyroscope data not available",
+                    permissionRequested: false,
                 }));
             }
         } catch (error) {
@@ -146,10 +236,71 @@ export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePe
             setState(prev => ({
                 ...prev,
                 permissionRequested: false,
-                error: error instanceof Error ? error.message : "Failed to request permission",
+                permissionDenied: true,
+                needsManualEnable: true,
+                error: "Failed to request permission",
             }));
         }
-    }, [state.permissionRequested, checkDataAvailability]);
+    }, [state.permissionRequested, checkDataAvailability, savePermissionStatus]);
+
+    /**
+     * Пропуск запроса разрешения (для необязательной функциональности)
+     */
+    const skipPermission = useCallback((): void => {
+        savePermissionStatus("denied");
+        setState(prev => ({
+            ...prev,
+            showModal: false,
+            permissionDenied: true,
+            needsManualEnable: false,
+            error: null,
+        }));
+    }, [savePermissionStatus]);
+
+    /**
+     * Повторная проверка разрешения (после ручного включения в настройках)
+     */
+    const recheckPermission = useCallback(async (): Promise<void> => {
+        setState(prev => ({
+            ...prev,
+            isLoading: true,
+            error: null,
+            permissionRequested: false
+        }));
+
+        try {
+            const status = await checkCurrentPermissionStatus();
+
+            if (status.hasPermission) {
+                savePermissionStatus("granted");
+                setState(prev => ({
+                    ...prev,
+                    permissionGranted: true,
+                    permissionDenied: false,
+                    needsManualEnable: false,
+                    showModal: false,
+                    isLoading: false,
+                    error: null,
+                }));
+            } else {
+                setState(prev => ({
+                    ...prev,
+                    permissionGranted: false,
+                    permissionDenied: status.isDenied,
+                    needsManualEnable: status.needsManualEnable,
+                    showModal: true,
+                    isLoading: false,
+                }));
+            }
+        } catch (error) {
+            console.error("Error rechecking permission:", error);
+            setState(prev => ({
+                ...prev,
+                isLoading: false,
+                error: error instanceof Error ? error.message : "Failed to recheck permission",
+            }));
+        }
+    }, [checkCurrentPermissionStatus, savePermissionStatus]);
 
     /**
      * Скрытие модального окна (только для случаев когда гироскоп недоступен)
@@ -182,15 +333,17 @@ export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePe
                 return;
             }
 
-            // 2. Проверяем статус разрешений
-            const permissionGranted = await checkPermissionStatus();
+            // 2. Проверяем актуальный статус разрешений
+            const status = await checkCurrentPermissionStatus();
 
             setState(prev => ({
                 ...prev,
                 isSupported: true,
                 isAvailable: true,
-                permissionGranted,
-                showModal: !permissionGranted, // Показываем модал только если нет разрешения
+                permissionGranted: status.hasPermission,
+                permissionDenied: status.isDenied,
+                needsManualEnable: status.needsManualEnable,
+                showModal: !status.hasPermission, // Показываем модал только если нет разрешения
                 isLoading: false,
             }));
 
@@ -206,7 +359,7 @@ export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePe
                 error: error instanceof Error ? error.message : "Failed to check gyroscope",
             }));
         }
-    }, [checkDeviceSupport, checkPermissionStatus]);
+    }, [checkDeviceSupport, checkCurrentPermissionStatus]);
 
     /**
      * Инициализация при монтировании компонента
@@ -221,18 +374,20 @@ export function useGyroscopePermission(): GyroscopePermissionState & GyroscopePe
      */
     useEffect(() => {
         const handleFocus = () => {
-            if (state.isSupported && !state.permissionGranted) {
-                checkPermission();
+            if (state.isSupported && !state.permissionGranted && state.needsManualEnable) {
+                recheckPermission();
             }
         };
 
         window.addEventListener("focus", handleFocus);
         return () => window.removeEventListener("focus", handleFocus);
-    }, [state.isSupported, state.permissionGranted, checkPermission]);
+    }, [state.isSupported, state.permissionGranted, state.needsManualEnable, recheckPermission]);
 
     return {
         ...state,
         requestPermission,
+        skipPermission,
+        recheckPermission,
         hideModal,
         checkPermission,
     };

@@ -372,14 +372,15 @@ function validateSuspiciousActivityData(data: SuspiciousActivityData): {
         };
     }
 
-    // FIXED: Enhanced business logic validation to accept EITHER suspicious clicks OR suspicious gyroscope activity
+    // FIXED: Enhanced business logic validation to accept suspicious clicks, suspicious gyroscope activity, OR gyroscope unavailability
     const hasSuspiciousClicks = data.suspiciousClicksCount > 0;
     const hasSuspiciousGyroscope = data.gyroscopeEnabled && data.gyroscopeSuspicious;
+    const hasGyroscopeUnavailability = !data.gyroscopeEnabled && data.gyroscopeErrorReason !== null;
 
-    if (!hasSuspiciousClicks && !hasSuspiciousGyroscope) {
+    if (!hasSuspiciousClicks && !hasSuspiciousGyroscope && !hasGyroscopeUnavailability) {
         return {
             isValid: false,
-            error: "No suspicious activity detected - neither suspicious clicks nor suspicious gyroscope activity found",
+            error: "No suspicious activity detected - neither suspicious clicks, suspicious gyroscope activity, nor gyroscope unavailability found",
         };
     }
 
