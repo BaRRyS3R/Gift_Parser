@@ -91,6 +91,9 @@ export default function SurvivalGameManager() {
   const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
 
+  // DEBUG: Temporary gyroscope monitoring debug state
+  const [gyroscopeDebugInfo, setGyroscopeDebugInfo] = useState<any>(null);
+
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
@@ -99,6 +102,29 @@ export default function SurvivalGameManager() {
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // DEBUG: Temporary effect to update gyroscope debug information
+  useEffect(() => {
+    const updateDebugInfo = () => {
+      if (shadowSecurityRef.current) {
+        const status = shadowSecurityRef.current.getMonitoringStatus();
+        setGyroscopeDebugInfo({
+          ...status,
+          timestamp: new Date().toISOString(),
+          gameActive: gameState.gameState === GameState.PLAYING,
+          gameTime: Date.now() - gameState.gameStartTime,
+        });
+      }
+    };
+
+    // Update immediately
+    updateDebugInfo();
+
+    // Update every 2 seconds during gameplay
+    const interval = setInterval(updateDebugInfo, 2000);
+    
+    return () => clearInterval(interval);
+  }, [gameState.gameState, gameState.gameStartTime]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
