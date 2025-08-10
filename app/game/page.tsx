@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Обновленная страница игр с интеграцией проверки гироскопа
+// src/app/game/page.tsx - Исправленная страница игр с автозагрузкой попыток и Future Tech стилистикой
 
 "use client";
 
@@ -17,10 +17,9 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
-import { useGyroscopePermission } from "@/hooks/useGyroscopePermission";
 import { useT } from "@/contexts/LocalizationContext";
+import AuthGuard from "@/components/Auth/AuthGuard";
 import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
-import GyroscopePermissionModal from "@/components/Security/GyroscopePermissionModal";
 
 interface GameMode {
   id: string;
@@ -165,21 +164,6 @@ function GamePageContent() {
     consumeAttempt,
     clearError,
   } = useAttempts(makeAuthenticatedRequest);
-  
-  // Хук для проверки гироскопа
-  const {
-    isSupported: gyroscopeSupported,
-    isAvailable: gyroscopeAvailable,
-    permissionGranted: gyroscopePermissionGranted,
-    permissionRequested: gyroscopePermissionRequested,
-    isLoading: gyroscopeLoading,
-    error: gyroscopeError,
-    showModal: showGyroscopeModal,
-    requestPermission: requestGyroscopePermission,
-    hideModal: hideGyroscopeModal,
-    checkPermission: checkGyroscopePermission,
-  } = useGyroscopePermission();
-
   const t = useT();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
@@ -204,6 +188,7 @@ function GamePageContent() {
     async (mode: GameMode) => {
       if (loadingModeId || !canPlay) {
         console.warn("Cannot start game:", { loadingModeId, canPlay });
+
         return;
       }
 
@@ -245,15 +230,6 @@ function GamePageContent() {
     fetchAttemptsStatus(true);
   }, [clearError, fetchAttemptsStatus]);
 
-  // Обработка запроса разрешения гироскопа
-  const handleGyroscopePermissionRequest = useCallback(async () => {
-    try {
-      await requestGyroscopePermission();
-    } catch (error) {
-      console.error("Error requesting gyroscope permission:", error);
-    }
-  }, [requestGyroscopePermission]);
-
   // Clear consume error when attempts change
   useEffect(() => {
     if (consumeError && attemptsStatus) {
@@ -279,196 +255,187 @@ function GamePageContent() {
   }, [router]);
 
   return (
-    <>
-      <div
-        className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
-          loadingModeId
-            ? "opacity-0 transition-opacity duration-500 ease-in"
-            : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
-      >
-        <div className="px-4">
-          <div className="text-center space-y-4 mb-8">
-            <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-              {t("game.modes.title")}
-            </h1>
-            <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-              {t("game.modes.subtitle")}
-            </p>
-          </div>
+    <div
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
+        loadingModeId
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
+      }`}
+    >
+      <div className="px-4">
+        <div className="text-center space-y-4 mb-8">
+          <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+            {t("game.modes.title")}
+          </h1>
+          <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+            {t("game.modes.subtitle")}
+          </p>
+        </div>
 
-          {/* Отображение ошибки потребления попыток */}
-          {consumeError && (
-            <div className="mb-6 animate-fade-in">
-              <div
-                className="bg-black/90 backdrop-blur-xl border-2 border-red-400/40 text-white w-full relative overflow-hidden"
-                style={{
-                  clipPath:
-                    "polygon(15px 0, 100% 0, calc(100% - 15px) 100%, 0 100%)",
-                }}
-              >
-                <div className="absolute inset-0 bg-red-500/10 pointer-events-none" />
-                <div className="relative z-10 p-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <AlertTriangle className="text-red-400" size={16} />
-                    <span className="text-red-400 font-mono text-sm tracking-wider uppercase">
-                      {t("common.error")}
-                    </span>
-                  </div>
-                  <div className="h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent mb-2" />
-                  <p className="text-red-300 font-mono text-xs mb-2">
-                    {consumeError}
-                  </p>
-                  <button
-                    className="font-mono text-xs tracking-wider text-red-300 hover:text-red-200 transition-colors underline"
-                    onClick={handleAttemptsRetry}
-                  >
-                    {t("common.retry")}
-                  </button>
+        {/* Отображение ошибки потребления попыток */}
+        {consumeError && (
+          <div className="mb-6 animate-fade-in">
+            <div
+              className="bg-black/90 backdrop-blur-xl border-2 border-red-400/40 text-white w-full relative overflow-hidden"
+              style={{
+                clipPath:
+                  "polygon(15px 0, 100% 0, calc(100% - 15px) 100%, 0 100%)",
+              }}
+            >
+              <div className="absolute inset-0 bg-red-500/10 pointer-events-none" />
+              <div className="relative z-10 p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <AlertTriangle className="text-red-400" size={16} />
+                  <span className="text-red-400 font-mono text-sm tracking-wider uppercase">
+                    {t("common.error")}
+                  </span>
                 </div>
+                <div className="h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent mb-2" />
+                <p className="text-red-300 font-mono text-xs mb-2">
+                  {consumeError}
+                </p>
+                <button
+                  className="font-mono text-xs tracking-wider text-red-300 hover:text-red-200 transition-colors underline"
+                  onClick={handleAttemptsRetry}
+                >
+                  {t("common.retry")}
+                </button>
               </div>
             </div>
-          )}
-
-          {/* Future Tech стилистика для отображения попыток */}
-          <div className="mb-8 animate-fade-in">
-            <FutureTechAttemptsDisplay
-              attemptsRemaining={attemptsRemaining}
-              attemptsStatus={attemptsStatus}
-              canPlay={canPlay}
-              error={attemptsError}
-              isLoading={attemptsLoading}
-              showShopButton={true}
-              onRetry={handleAttemptsRetry}
-            />
           </div>
-        </div>
+        )}
 
-        {/* Горизонтальная прокрутка карточек без padding */}
+        {/* Future Tech стилистика для отображения попыток */}
         <div className="mb-8 animate-fade-in">
-          <div className="overflow-x-auto scrollbar-hide">
-            <div className="flex space-x-4 px-4" style={{ width: "max-content" }}>
-              {GAME_MODES.map((mode) => {
-                const Icon = mode.icon;
-                const isCurrentModeLoading = loadingModeId === mode.id;
-                const isAnyModeLoading = loadingModeId !== null;
-                const isDisabled = !canPlay;
+          <FutureTechAttemptsDisplay
+            attemptsRemaining={attemptsRemaining}
+            attemptsStatus={attemptsStatus}
+            canPlay={canPlay}
+            error={attemptsError}
+            isLoading={attemptsLoading}
+            showShopButton={true}
+            onRetry={handleAttemptsRetry}
+          />
+        </div>
+      </div>
 
-                return (
-                  <div key={mode.id} className="relative">
-                    <Card
-                      isFooterBlurred
-                      className={`w-[280px] h-[400px] transition-all duration-300 ${
-                        isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                      }`}
-                    >
-                      <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
-                            <Icon className={mode.color.primary} size={20} />
-                          </div>
-                          <div>
-                            <h4
-                              className={`font-bold text-xl ${mode.color.primary}`}
-                            >
-                              {t(mode.nameKey as any)}
-                            </h4>
-                            <div className="flex items-center space-x-2 text-xs">
-                              <span className={mode.color.accent}>
-                                {t(mode.durationKey as any)}
-                              </span>
-                              <div className="w-1 h-1 rounded-full bg-white/40" />
-                              <span className={mode.color.accent}>
-                                {mode.difficulty}
-                              </span>
-                            </div>
-                          </div>
+      {/* Горизонтальная прокрутка карточек без padding */}
+      <div className="mb-8 animate-fade-in">
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex space-x-4 px-4" style={{ width: "max-content" }}>
+            {GAME_MODES.map((mode) => {
+              const Icon = mode.icon;
+              const isCurrentModeLoading = loadingModeId === mode.id;
+              const isAnyModeLoading = loadingModeId !== null;
+              const isDisabled = !canPlay;
+
+              return (
+                <div key={mode.id} className="relative">
+                  <Card
+                    isFooterBlurred
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${
+                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                    }`}
+                  >
+                    <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                          <Icon className={mode.color.primary} size={20} />
                         </div>
-
-                        <p
-                          className={`text-sm ${mode.color.secondary} leading-relaxed`}
-                        >
-                          {t(mode.descriptionKey as any)}
-                        </p>
-                      </CardHeader>
-
-                      <Image
-                        removeWrapper
-                        alt={`${mode.id}_game_card`}
-                        className="z-0 w-full h-full object-cover"
-                        fallbackSrc="/game-placeholder.jpg"
-                        src={mode.imageUrl}
-                      />
-
-                      <CardFooter className="absolute bg-black/40 backdrop-blur-sm bottom-0 border-t-1 border-white/20 z-10 justify-between">
-                        <Button
-                          className="text-tiny min-w-[80px]"
-                          color={mode.color.buttonColor}
-                          isDisabled={isAnyModeLoading || isDisabled}
-                          isLoading={isCurrentModeLoading}
-                          radius="full"
-                          size="sm"
-                          startContent={
-                            !isCurrentModeLoading && !isAnyModeLoading ? (
-                              isDisabled ? (
-                                <Shield size={14} />
-                              ) : (
-                                <Play size={14} />
-                              )
-                            ) : null
-                          }
-                          onClick={() => handleModeStart(mode)}
-                        >
-                          {isCurrentModeLoading
-                            ? t("common.loading")
-                            : isAnyModeLoading && !isCurrentModeLoading
-                              ? t("game.general.lock")
-                              : isDisabled
-                                ? t("game.general.lock")
-                                : t("common.play")}
-                        </Button>
-                      </CardFooter>
-                    </Card>
-
-                    {/* Overlay для заблокированного состояния */}
-                    {isDisabled && !isAnyModeLoading && (
-                      <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
-                        <div className="text-center space-y-2">
-                          <Shield className="text-white/60 mx-auto" size={32} />
-                          <p className="text-white/80 text-sm font-bold">
-                            {t("game.general.noAttemptsLeft")}
-                          </p>
+                        <div>
+                          <h4
+                            className={`font-bold text-xl ${mode.color.primary}`}
+                          >
+                            {t(mode.nameKey as any)}
+                          </h4>
+                          <div className="flex items-center space-x-2 text-xs">
+                            <span className={mode.color.accent}>
+                              {t(mode.durationKey as any)}
+                            </span>
+                            <div className="w-1 h-1 rounded-full bg-white/40" />
+                            <span className={mode.color.accent}>
+                              {mode.difficulty}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
 
-        <div className="px-4">
-          <div className="text-center space-y-2 animate-fade-in pb-8">
-            <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
+                      <p
+                        className={`text-sm ${mode.color.secondary} leading-relaxed`}
+                      >
+                        {t(mode.descriptionKey as any)}
+                      </p>
+                    </CardHeader>
+
+                    <Image
+                      removeWrapper
+                      alt={`${mode.id}_game_card`}
+                      className="z-0 w-full h-full object-cover"
+                      fallbackSrc="/game-placeholder.jpg"
+                      src={mode.imageUrl}
+                    />
+
+                    <CardFooter className="absolute bg-black/40 backdrop-blur-sm bottom-0 border-t-1 border-white/20 z-10 justify-between">
+                      <Button
+                        className="text-tiny min-w-[80px]"
+                        color={mode.color.buttonColor}
+                        isDisabled={isAnyModeLoading || isDisabled}
+                        isLoading={isCurrentModeLoading}
+                        radius="full"
+                        size="sm"
+                        startContent={
+                          !isCurrentModeLoading && !isAnyModeLoading ? (
+                            isDisabled ? (
+                              <Shield size={14} />
+                            ) : (
+                              <Play size={14} />
+                            )
+                          ) : null
+                        }
+                        onClick={() => handleModeStart(mode)}
+                      >
+                        {isCurrentModeLoading
+                          ? t("common.loading")
+                          : isAnyModeLoading && !isCurrentModeLoading
+                            ? t("game.general.lock")
+                            : isDisabled
+                              ? t("game.general.lock")
+                              : t("common.play")}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+
+                  {/* Overlay для заблокированного состояния */}
+                  {isDisabled && !isAnyModeLoading && (
+                    <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
+                      <div className="text-center space-y-2">
+                        <Shield className="text-white/60 mx-auto" size={32} />
+                        <p className="text-white/80 text-sm font-bold">
+                          {t("game.general.noAttemptsLeft")}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* Модальное окно для запроса разрешения гироскопа */}
-      <GyroscopePermissionModal
-        isOpen={showGyroscopeModal}
-        isRequesting={gyroscopePermissionRequested}
-        error={gyroscopeError}
-        onRequestPermission={handleGyroscopePermissionRequest}
-        onClose={!gyroscopeSupported ? hideGyroscopeModal : undefined}
-      />
-    </>
+      <div className="px-4">
+        <div className="text-center space-y-2 animate-fade-in pb-8">
+          <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function GamePage() {
   return (
+    <AuthGuard requireCompleteAuth={true} showError={true}>
       <GamePageContent />
+    </AuthGuard>
   );
 }
