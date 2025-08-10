@@ -44,21 +44,14 @@ export class ShadowSecurityManager {
 
         // Initialize gyroscope configuration with conditional enabling
         this.gyroscopeConfig = {
-            enabled: shouldEnableGyroscope,
             sensitivityThreshold: ShadowSecurityManager.DEFAULT_GYROSCOPE_SENSITIVITY,
             suspiciousMovementThreshold: ShadowSecurityManager.DEFAULT_GYROSCOPE_SUSPICIOUS_THRESHOLD,
             maxCheckInterval: ShadowSecurityManager.FIXED_CHECK_INTERVAL,
             minCheckInterval: ShadowSecurityManager.FIXED_CHECK_INTERVAL,
-            requirePermissionCheck: false, // We assume permission is already granted from the game page
+            requirePermissionCheck: false,
             ...gyroscopeConfig,
+            enabled: shouldEnableGyroscope // Force override to ensure iOS devices have gyroscope disabled
         };
-
-        // Log device detection and gyroscope decision
-        if (isIOSDevice) {
-            console.log("Shadow Security: iOS device detected - gyroscope monitoring disabled for performance optimization");
-        } else {
-            console.log(`Shadow Security: Non-iOS device detected - gyroscope monitoring ${shouldEnableGyroscope ? 'enabled' : 'disabled'}`);
-        }
 
         // Initialize shadow security state with iOS-aware gyroscope monitoring
         this.state = {
@@ -72,7 +65,7 @@ export class ShadowSecurityManager {
                 enabled: this.gyroscopeConfig.enabled,
                 permissionGranted: false,
                 dataAvailable: false,
-                errorReason: isIOSDevice ? "ios_optimization_disabled" : null, // Special marker for iOS devices
+                errorReason: isIOSDevice ? "ios_optimization_disabled" : null,
                 checkIntervals: [],
                 movementRecords: [],
                 lastCheckTime: 0,
@@ -81,9 +74,25 @@ export class ShadowSecurityManager {
             }
         };
 
-        // Initialize gyroscope monitoring if enabled (will be false for iOS)
-        if (this.gyroscopeConfig.enabled) {
+        // Log device detection and gyroscope decision with detailed info
+        if (isIOSDevice) {
+            console.log("Shadow Security: iOS device detected - gyroscope monitoring disabled for performance optimization", {
+                userAgent: window?.navigator?.userAgent,
+                gyroscopeEnabled: this.gyroscopeConfig.enabled,
+                errorReason: this.state.gyroscopeMonitoring.errorReason
+            });
+        } else {
+            console.log(`Shadow Security: Non-iOS device detected - gyroscope monitoring ${shouldEnableGyroscope ? 'enabled' : 'disabled'}`, {
+                userAgent: window?.navigator?.userAgent,
+                gyroscopeEnabled: this.gyroscopeConfig.enabled
+            });
+        }
+
+        // IMPORTANT: Only initialize gyroscope monitoring if explicitly enabled AND not iOS device
+        if (this.gyroscopeConfig.enabled && !isIOSDevice) {
             this.initializeGyroscopeMonitoring();
+        } else if (isIOSDevice) {
+            console.log("Shadow Security: Skipping gyroscope initialization for iOS device optimization");
         }
     }
 
@@ -447,10 +456,15 @@ export class ShadowSecurityManager {
 
     /**
      * Generate comprehensive suspicious activity data for server submission
-     * Now triggers with minimum 1 gyroscope check, suspicious clicks, or gyroscope errors/unavailability
-     * iOS devices with intentionally disabled gyroscope are not considered suspicious
+     * iOS devices with disabled gyroscope optimization should not generate any suspicious activity records
      */
     public generateSuspiciousActivityData(telegramId: number, gameEndTime: number): SuspiciousActivityData | null {
+        // Early return for iOS devices - no suspicious activity tracking
+        if (this.state.gyroscopeMonitoring.errorReason === "ios_optimization_disabled") {
+            console.log("Shadow Security: iOS device optimization - skipping all suspicious activity tracking");
+            return null;
+        }
+
         const clickRecords = this.state.clickRecords;
         const suspiciousClicks = clickRecords.filter(record => record.isSuspicious);
         const gyroscopeResult = this.generateGyroscopeResult();
@@ -469,10 +483,7 @@ export class ShadowSecurityManager {
 
         // Generate data if there are suspicious activities OR gyroscope unavailability/errors (excluding iOS optimization)
         if (!hasSuspiciousClicks && !hasSuspiciousGyroscope && !hasGyroscopeIssues) {
-            const skipReason = this.state.gyroscopeMonitoring.errorReason === "ios_optimization_disabled"
-                ? "iOS optimization - gyroscope intentionally disabled"
-                : "no suspicious activity or gyroscope issues detected";
-            console.log(`Shadow Security: ${skipReason} - skipping submission`);
+            console.log("Shadow Security: No suspicious activity or gyroscope issues detected - skipping submission");
             return null;
         }
 
