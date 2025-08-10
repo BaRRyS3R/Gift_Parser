@@ -91,6 +91,8 @@ export default function PhysicsGameManager() {
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
+  const isGameEndingRef = useRef(false);
+
   const gameStateRef = useRef<PhysicsGameState>(gameState);
   const engineUpdateRef = useRef<number>();
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
@@ -282,30 +284,32 @@ export default function PhysicsGameManager() {
     engineUpdateRef.current = requestAnimationFrame(updatePhysicsEngine);
   }, []);
 
-  const endGame = useCallback(
-    (cause: "mistakes" | "escaped_circles" | "timeout") => {
-      if (shadowSecurityRef.current) {
-        shadowSecurityRef.current.cleanupAllPendingActivations();
-      }
+  const endGame = useCallback((cause: "mistakes" | "escaped_circles" | "timeout") => {
+  if (isGameEndingRef.current) {
+    return; // Предотвращаем повторные вызовы
+  }
 
-      setGameState((prev) => {
-        const finalState = updatePhysicsPositions(prev);
+  isGameEndingRef.current = true;
 
-        const result = createPhysicsGameResult(finalState, cause);
+  if (shadowSecurityRef.current) {
+    shadowSecurityRef.current.cleanupAllPendingActivations();
+  }
 
-        setGameResult(result);
-        handleSaveGameResult(result);
-        cleanupPhysicsGame(finalState);
+  setGameState((prev) => {
+    const finalState = updatePhysicsPositions(prev);
+    const result = createPhysicsGameResult(finalState, cause);
 
-        return {
-          ...finalState,
-          gameState: GameState.FINISHED,
-          isActive: false,
-        };
-      });
-    },
-    [handleSaveGameResult],
-  );
+    setGameResult(result);
+    handleSaveGameResult(result);
+    cleanupPhysicsGame(finalState);
+
+    return {
+      ...finalState,
+      gameState: GameState.FINISHED,
+      isActive: false,
+    };
+  });
+}, [handleSaveGameResult]);
 
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
@@ -427,6 +431,7 @@ export default function PhysicsGameManager() {
   );
 
   const startGame = useCallback(() => {
+    isGameEndingRef.current = false;
     const initialState = initializePhysicsGameState();
 
     shadowSecurityRef.current = new ShadowSecurityManager(
