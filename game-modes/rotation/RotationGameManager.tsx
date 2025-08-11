@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Enhanced with comprehensive debug logging UI
+// src/game-modes/rotation/RotationGameManager.tsx - Rebuilt with reliable Survival patterns
 
 "use client";
 
@@ -138,7 +138,6 @@ const generateDebugReport = (debugLog: GameDebugLog, gameStartTime: number): str
     report.push("");
   }
 
-  // Chronological event log
   const allEvents: Array<{ timestamp: number; type: string; entry: any }> = [];
   
   debugLog.activations.forEach(entry => 
@@ -160,7 +159,6 @@ const generateDebugReport = (debugLog: GameDebugLog, gameStartTime: number): str
   report.push("");
   report.push("=== DETAILED ANALYSIS ===");
   
-  // Reaction time analysis
   const reactionTimes = debugLog.clicks
     .filter(click => click.reactionTime && click.clickResult === "correct")
     .map(click => click.reactionTime!);
@@ -173,13 +171,11 @@ const generateDebugReport = (debugLog: GameDebugLog, gameStartTime: number): str
     report.push(`Reaction Times: Avg:${avgReaction.toFixed(1)}ms Min:${minReaction}ms Max:${maxReaction}ms`);
   }
 
-  // Click accuracy
   const totalClicks = debugLog.clicks.length;
   const correctClicks = debugLog.clicks.filter(c => c.clickResult === "correct").length;
   const accuracy = totalClicks > 0 ? (correctClicks / totalClicks * 100).toFixed(1) : "0";
   report.push(`Click Accuracy: ${correctClicks}/${totalClicks} (${accuracy}%)`);
 
-  // Debounced clicks
   const debouncedClicks = debugLog.clicks.filter(c => c.debounceBlocked).length;
   if (debouncedClicks > 0) {
     report.push(`Debounced Clicks: ${debouncedClicks}`);
@@ -216,6 +212,9 @@ export default function RotationGameManager() {
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
 
+  // CRITICAL: Survival-inspired state management
+  const isSchedulingActivationRef = useRef(false);
+  const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<RotationGameState>(gameState);
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
 
@@ -402,11 +401,22 @@ export default function RotationGameManager() {
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
+      // Atomic game ending flag (Survival pattern)
+      if (isGameEndingRef.current) {
+        return;
+      }
+      isGameEndingRef.current = true;
+
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanupAllPendingActivations();
       }
 
       setGameState((prev) => {
+        // Double-check isGameEnding in state (Survival pattern)
+        if (prev.isGameEnding) {
+          return prev;
+        }
+
         const finalState = updateRotationLevel(prev, Date.now());
 
         let updatedStats = { ...finalState.stats };
@@ -427,6 +437,7 @@ export default function RotationGameManager() {
           ...finalState,
           gameState: GameState.FINISHED,
           isActive: false,
+          isGameEnding: true, // Set isGameEnding flag
           stats: updatedStats,
         };
 
@@ -442,11 +453,25 @@ export default function RotationGameManager() {
     [handleSaveGameResult],
   );
 
+  // Simplified scheduling based on Survival patterns
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    if (!currentState.isActive || currentState.gameState !== GameState.PLAYING)
+    // Simplified state checks (Survival pattern)
+    if (isSchedulingActivationRef.current) {
       return;
+    }
+
+    if (
+      !currentState.isActive ||
+      currentState.gameState !== GameState.PLAYING ||
+      currentState.isGameEnding ||
+      isGameEndingRef.current
+    ) {
+      return;
+    }
+
+    isSchedulingActivationRef.current = true;
 
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
@@ -455,54 +480,90 @@ export default function RotationGameManager() {
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
+      isSchedulingActivationRef.current = false;
+
+      // Double-check state before activation (Survival pattern)
       if (
-        gameStateRef.current.isActive &&
-        gameStateRef.current.gameState === GameState.PLAYING
+        !gameStateRef.current.isActive ||
+        gameStateRef.current.gameState !== GameState.PLAYING ||
+        gameStateRef.current.isGameEnding ||
+        isGameEndingRef.current
       ) {
-        setGameState((prev) => {
-          const newState = activateRotationCircles(
-            prev,
-            (circleIds, redCircleIds) => {
-              const timestamp = Date.now();
+        return;
+      }
 
-              if (shadowSecurityRef.current) {
-                circleIds.forEach((circleId) => {
-                  const isWhiteCircle = !redCircleIds.includes(circleId);
+      setGameState((prev) => {
+        // Triple-check state in callback (Survival pattern)
+        if (
+          !prev.isActive ||
+          prev.gameState !== GameState.PLAYING ||
+          prev.isGameEnding
+        ) {
+          return prev;
+        }
 
-                  if (isWhiteCircle) {
-                    shadowSecurityRef.current!.recordCircleActivation(
-                      circleId,
-                      timestamp,
-                    );
-                  }
-                });
-              }
+        const newState = activateRotationCircles(
+          prev,
+          (circleIds, redCircleIds) => {
+            const timestamp = Date.now();
 
-              setActivatedCircles(circleIds);
-              setLastActivationTimestamp(timestamp);
+            if (shadowSecurityRef.current) {
+              circleIds.forEach((circleId) => {
+                const isWhiteCircle = !redCircleIds.includes(circleId);
 
-              setTimeout(() => {
-                setActivatedCircles([]);
-              }, 450);
-            },
-            (circleId, wasDecoy) => {
-              if (shadowSecurityRef.current) {
-                shadowSecurityRef.current.cleanupCircleActivation(circleId);
-              }
+                if (isWhiteCircle) {
+                  shadowSecurityRef.current!.recordCircleActivation(
+                    circleId,
+                    timestamp,
+                  );
+                }
+              });
+            }
 
-              if (!wasDecoy) {
-                endGame("miss");
-              } else {
-                setGameState((current) =>
-                  deactivateRotationCircle(current, circleId, "timeout"),
-                );
+            setActivatedCircles(circleIds);
+            setLastActivationTimestamp(timestamp);
+
+            setTimeout(() => {
+              setActivatedCircles([]);
+            }, 450);
+          },
+          (circleId, wasDecoy) => {
+            // Check if game is ending before processing timeout (Survival pattern)
+            if (isGameEndingRef.current || prev.isGameEnding) {
+              return;
+            }
+
+            if (shadowSecurityRef.current) {
+              shadowSecurityRef.current.cleanupCircleActivation(circleId);
+            }
+
+            if (!wasDecoy) {
+              endGame("miss");
+            } else {
+              setGameState((current) =>
+                deactivateRotationCircle(current, circleId, "timeout"),
+              );
+              // Schedule next only if game is still active (Survival pattern)
+              if (
+                !isGameEndingRef.current &&
+                !gameStateRef.current.isGameEnding
+              ) {
                 scheduleNextActivation();
               }
-            },
-          );
+            }
+          },
+        );
 
-          return newState;
-        });
+        return newState;
+      });
+
+      // Schedule next activation (Survival pattern)
+      if (
+        gameStateRef.current.isActive &&
+        gameStateRef.current.gameState === GameState.PLAYING &&
+        !gameStateRef.current.isGameEnding &&
+        !isGameEndingRef.current
+      ) {
         scheduleNextActivation();
       }
     }, delay);
@@ -511,22 +572,35 @@ export default function RotationGameManager() {
       ...prev,
       activationTimeout: timeout,
     }));
+
+    // Reset scheduling flag after timeout is set (Survival pattern)
+    setTimeout(() => {
+      isSchedulingActivationRef.current = false;
+    }, 50);
   }, [endGame]);
 
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
-      if (gameStateRef.current.gameState !== GameState.PLAYING) return;
+      const currentState = gameStateRef.current;
+
+      // Enhanced state validation (Survival pattern)
+      if (
+        currentState.gameState !== GameState.PLAYING ||
+        isGameEndingRef.current
+      ) {
+        return;
+      }
 
       const clickTime = Date.now();
       const { newState, result } = handleRotationCircleClick(
-        gameStateRef.current,
+        currentState,
         circleId,
         clickTime,
       );
 
       if (result === "correct") {
         if (shadowSecurityRef.current) {
-          const clickedCircle = gameStateRef.current.circles.find(
+          const clickedCircle = currentState.circles.find(
             (c) => c.id === circleId,
           );
 
@@ -542,12 +616,12 @@ export default function RotationGameManager() {
         triggerHapticFeedback("success");
         setGameState(newState);
 
-        // Immediate deactivation without animation delay
+        // Immediate deactivation (Survival pattern)
         setTimeout(() => {
           setGameState((current) =>
             deactivateRotationCircle(current, circleId, "correct_click"),
           );
-        }, 50); // Reduced from 300ms to 50ms for instant feedback
+        }, 50);
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");
@@ -560,11 +634,15 @@ export default function RotationGameManager() {
   );
 
   const startGame = useCallback(() => {
-    const initialState = initializeRotationGameState();
+    // Reset atomic flags (Survival pattern)
+    isGameEndingRef.current = false;
+    isSchedulingActivationRef.current = false;
+
+    const newGameState = initializeRotationGameState();
 
     shadowSecurityRef.current = new ShadowSecurityManager(
       GameMode.ROTATION,
-      initialState.gameStartTime || Date.now(),
+      newGameState.gameStartTime || Date.now(),
       {
         enabled: true,
         sensitivityThreshold: 1.0,
@@ -575,7 +653,7 @@ export default function RotationGameManager() {
       },
     );
 
-    setGameState(initialState);
+    setGameState(newGameState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
     setPlayAgainError(initialPlayAgainError);
@@ -594,7 +672,13 @@ export default function RotationGameManager() {
 
       const levelInterval = setInterval(() => {
         setGameState((current) => {
-          if (!current.isActive || current.gameState !== GameState.PLAYING) {
+          // Enhanced state check with isGameEnding (Survival pattern)
+          if (
+            !current.isActive ||
+            current.gameState !== GameState.PLAYING ||
+            current.isGameEnding ||
+            isGameEndingRef.current
+          ) {
             clearInterval(levelInterval);
             return current;
           }
@@ -603,6 +687,7 @@ export default function RotationGameManager() {
         });
       }, LEVEL_UPDATE_INTERVAL);
 
+      // Start activation scheduling (Survival pattern)
       setTimeout(() => {
         scheduleNextActivation();
       }, 1000);
@@ -718,6 +803,11 @@ export default function RotationGameManager() {
           <div className="flex items-center space-x-2">
             <Bug className="text-blue-400" size={18} />
             <span className="text-blue-400 font-bold">Debug Log</span>
+            {debugLog.errors.length > 0 && (
+              <span className="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs">
+                {debugLog.errors.length} errors
+              </span>
+            )}
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -766,11 +856,16 @@ export default function RotationGameManager() {
               <div className="bg-red-900/20 border border-red-700/30 rounded-lg p-3">
                 <div className="text-red-400 font-bold text-xs mb-2">Errors ({debugLog.errors.length})</div>
                 <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
-                  {debugLog.errors.map((error, index) => (
+                  {debugLog.errors.slice(0, 10).map((error, index) => (
                     <div key={index} className="text-red-300 text-xs font-mono">
                       [{formatLogTime(error.timestamp, gameStartTime)}] {error.error}
                     </div>
                   ))}
+                  {debugLog.errors.length > 10 && (
+                    <div className="text-red-400/60 text-xs">
+                      ... and {debugLog.errors.length - 10} more errors
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -1,4 +1,4 @@
-// src/types/game-modes/rotation.ts - Game result types for rotation mode with comprehensive logging
+// src/types/game-modes/rotation.ts - Enhanced with reliable Survival patterns
 
 import { BaseGameResult, GameState, GameMode, Circle } from "./common";
 
@@ -10,7 +10,7 @@ export interface RotationCircle extends Circle {
 export interface RotationGameConfig {
   id: string;
   name: string;
-  circleCount: number; // 14 circles
+  circleCount: number; // 8 circles
   radius: number; // Radius of the rotation circle
   initialRotationSpeed: number; // Initial rotation speed (radians per frame)
   initialActivationTimeMin: number; // 1500ms
@@ -140,4 +140,7 @@ export interface RotationGameState {
   isActive: boolean;
   gameStartTime?: number;
   currentRotationSpeed: number;
+  // CRITICAL: Survival-inspired improvements
+  isGameEnding: boolean; // Atomic flag to prevent operations during game end
+  pendingActivationTimeouts: Set<NodeJS.Timeout>; // Track all pending timeouts
 }
