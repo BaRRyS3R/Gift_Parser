@@ -752,8 +752,9 @@ body {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
-  transform: scale(0) !important;
-  z-index: -1 !important;
+  /* Удалить: display: none */
+  /* Удалить: z-index: -10 */
+  /* Опционально: оставить transform: scale(0) для визуального эффекта */
 }
 
 /* Override any conflicting animations for instant deactivation */
