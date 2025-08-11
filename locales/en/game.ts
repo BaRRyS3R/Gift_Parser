@@ -190,6 +190,7 @@ export const game = {
         escapedCircles: "Circles escaped the container. Getting away from you.",
         timeout: "Time's up. No idea how, since it's infinite.",
         default: "Totally owned physics. Well done.",
+        appMinimized: "App Minimized or Closed. -_-",
       },
     },
     rotation: {

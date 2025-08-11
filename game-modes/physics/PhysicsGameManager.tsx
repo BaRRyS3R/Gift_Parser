@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Enhanced with complete gyroscope monitoring security system
+// src/game-modes/physics/PhysicsGameManager.tsx - Enhanced with auto-end on visibility loss
 
 "use client";
 
@@ -10,6 +10,7 @@ import {
   Clock,
   RotateCcw,
   TrendingDown,
+  EyeOff,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as Matter from "matter-js";
@@ -91,14 +92,97 @@ export default function PhysicsGameManager() {
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   const isGameEndingRef = useRef(false);
-
   const gameStateRef = useRef<PhysicsGameState>(gameState);
   const engineUpdateRef = useRef<number>();
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
+  const lastVisibilityState = useRef<boolean>(true);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // Обработка событий видимости приложения
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === "visible";
+      
+      // Если приложение стало невидимым и игра активна
+      if (!isVisible && lastVisibilityState.current && 
+          gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+        
+        console.log("[PhysicsGame] App minimized/hidden - ending game");
+        endGame("app_minimized");
+      }
+      
+      lastVisibilityState.current = isVisible;
+    };
+
+    const handleBlur = () => {
+      // Дополнительная проверка при потере фокуса окна
+      if (gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+        console.log("[PhysicsGame] Window lost focus - ending game");
+        endGame("app_minimized");
+      }
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Завершение игры при попытке закрыть/обновить страницу
+      if (gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+        endGame("app_minimized");
+      }
+    };
+
+    // Специфичная обработка для Telegram Web App
+    const handleTelegramEvents = () => {
+      if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+        const tg = window.Telegram.WebApp;
+        
+        // Обработка событий Telegram
+        tg.onEvent("viewportChanged", (params: any) => {
+          if (params.isStateStable === false && 
+              gameStateRef.current.gameState === GameState.PLAYING) {
+            console.log("[PhysicsGame] Telegram viewport changed - ending game");
+            endGame("app_minimized");
+          }
+        });
+
+        tg.onEvent("themeChanged", () => {
+          // При смене темы также может означать сворачивание
+          if (gameStateRef.current.gameState === GameState.PLAYING && 
+              document.visibilityState !== "visible") {
+            endGame("app_minimized");
+          }
+        });
+      }
+    };
+
+    // Подписка на события
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    
+    // Инициализация Telegram событий
+    handleTelegramEvents();
+
+    // Дополнительная проверка для мобильных устройств
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      // Обработка событий блокировки экрана на мобильных устройствах
+      window.addEventListener("pagehide", () => {
+        if (gameStateRef.current.gameState === GameState.PLAYING) {
+          endGame("app_minimized");
+        }
+      });
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -143,7 +227,6 @@ export default function PhysicsGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -291,9 +374,9 @@ export default function PhysicsGameManager() {
   }, []);
 
   const endGame = useCallback(
-    (cause: "mistakes" | "escaped_circles" | "timeout") => {
+    (cause: "mistakes" | "escaped_circles" | "timeout" | "app_minimized") => {
       if (isGameEndingRef.current) {
-        return; // Предотвращаем повторные вызовы
+        return;
       }
 
       isGameEndingRef.current = true;
@@ -304,7 +387,7 @@ export default function PhysicsGameManager() {
 
       setGameState((prev) => {
         const finalState = updatePhysicsPositions(prev);
-        const result = createPhysicsGameResult(finalState, cause);
+        const result = createPhysicsGameResult(finalState, cause as any);
 
         setGameResult(result);
         handleSaveGameResult(result);
@@ -566,6 +649,8 @@ export default function PhysicsGameManager() {
         return <TrendingDown className="text-orange-400" size={20} />;
       case "timeout":
         return <Clock className="text-yellow-400" size={20} />;
+      case "app_minimized":
+        return <EyeOff className="text-gray-400" size={20} />;
       default:
         return <Crosshair className="text-red-400" size={20} />;
     }
@@ -576,6 +661,7 @@ export default function PhysicsGameManager() {
       mistakes: "game.modes.physics.deathCauses.mistakes",
       escaped_circles: "game.modes.physics.deathCauses.escapedCircles",
       timeout: "game.modes.physics.deathCauses.timeout",
+      app_minimized: "game.modes.physics.deathCauses.appMinimized",
     };
 
     const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping];
