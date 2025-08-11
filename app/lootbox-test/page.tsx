@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import { Package, Gift, Sparkles, Zap, ArrowLeft, Star, Crown, Gem } from "lucide-react";
 import ConfettiExplosion from "react-confetti-explosion";
+import Lottie from "lottie-react";
 
 // Типы для системы лутбоксов
 enum CardRarity {
@@ -136,9 +137,10 @@ interface PageState {
   isOpening: boolean;
   openingResult: LootboxOpenResult | null;
   showResult: boolean;
-  animationPhase: "anticipation" | "opening" | "reveal" | "complete";
+  animationPhase: "anticipation" | "tgs-animation" | "reveal" | "complete";
   revealedCards: Card[];
   showConfetti: boolean;
+  lottieData: any | null;
 }
 
 function LootboxPageContent() {
@@ -151,10 +153,31 @@ function LootboxPageContent() {
     showResult: false,
     animationPhase: "anticipation",
     revealedCards: [],
-    showConfetti: false
+    showConfetti: false,
+    lottieData: null
   });
 
   const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, delay: number}>>([]);
+
+  // Загрузка TGS файла
+  useEffect(() => {
+    const loadTGS = async () => {
+      try {
+        const response = await fetch('https://cdn.changes.tg/gifts/models/Stellar%20Rocket/Doomsday.tgs');
+        const arrayBuffer = await response.arrayBuffer();
+        // TGS файлы - это сжатые JSON файлы, их нужно распаковать
+        const decoder = new TextDecoder();
+        const jsonString = decoder.decode(arrayBuffer);
+        const lottieData = JSON.parse(jsonString);
+        setState(prev => ({ ...prev, lottieData }));
+      } catch (error) {
+        console.error('Failed to load TGS animation:', error);
+        // Fallback - используем null, чтобы показать текстовую заглушку
+      }
+    };
+
+    loadTGS();
+  }, []);
 
   // Настройка Telegram WebApp back button
   useEffect(() => {
@@ -254,20 +277,12 @@ function LootboxPageContent() {
       showConfetti: false
     }));
 
-    // Генерируем частицы для анимации
-    const newParticles = Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      delay: Math.random() * 1000
-    }));
-    setParticles(newParticles);
-
-    // Последовательность анимации
+    // Фаза ожидания - 1 секунда
     setTimeout(() => {
-      setState(prev => ({ ...prev, animationPhase: "opening" }));
-    }, 1500);
+      setState(prev => ({ ...prev, animationPhase: "tgs-animation" }));
+    }, 1000);
 
+    // TGS анимация играет около 3-4 секунд, затем переходим к reveal
     setTimeout(() => {
       setState(prev => ({ ...prev, animationPhase: "reveal" }));
       
@@ -288,7 +303,7 @@ function LootboxPageContent() {
           }
         }, index * 800);
       });
-    }, 3000);
+    }, 4500); // Увеличено время для TGS анимации
 
     setTimeout(() => {
       setState(prev => ({ 
@@ -297,7 +312,7 @@ function LootboxPageContent() {
         showResult: true,
         isOpening: false 
       }));
-    }, 3000 + result.cards.length * 800 + 1000);
+    }, 4500 + result.cards.length * 800 + 1000);
   };
 
   const handleCloseResult = () => {
@@ -391,22 +406,6 @@ function LootboxPageContent() {
       {/* Анимация открытия лутбокса */}
       {state.isOpening && state.selectedLootbox && (
         <div className="fixed inset-0 bg-black z-40 flex items-center justify-center">
-          {/* Фоновые частицы */}
-          <div className="absolute inset-0 overflow-hidden">
-            {particles.map((particle) => (
-              <div
-                key={particle.id}
-                className="absolute w-2 h-2 bg-white rounded-full opacity-60"
-                style={{
-                  left: `${particle.x}%`,
-                  top: `${particle.y}%`,
-                  animation: `float-gentle 3s ease-in-out infinite`,
-                  animationDelay: `${particle.delay}ms`
-                }}
-              />
-            ))}
-          </div>
-
           <div className="text-center space-y-8 relative z-10">
             {/* Фаза ожидания */}
             {state.animationPhase === "anticipation" && (
@@ -420,28 +419,34 @@ function LootboxPageContent() {
                       <Package size={48} className="text-white" />
                     </div>
                   </div>
-                  {/* Пульсирующее кольцо */}
                   <div className="absolute inset-0 rounded-xl border-4 border-white/60 animate-ping" />
                 </div>
               </div>
             )}
 
-            {/* Фаза открытия */}
-            {state.animationPhase === "opening" && (
+            {/* TGS анимация */}
+            {state.animationPhase === "tgs-animation" && (
               <div className="space-y-6 animate-fade-in">
                 <div className="text-3xl font-bold text-white font-bpdots animate-pulse">
                   Opening...
                 </div>
-                <div className="w-40 h-40 mx-auto relative">
-                  <div className={`w-full h-full rounded-xl bg-gradient-to-br ${getLootboxTypeColor(state.selectedLootbox.type)} animate-spin-slow border-4 border-white/50`}>
+                <div className="w-80 h-80 mx-auto">
+                  {state.lottieData ? (
+                    <Lottie
+                      animationData={state.lottieData}
+                      loop={false}
+                      autoplay={true}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Sparkles size={56} className="text-white animate-pulse" />
+                      <div className={`w-40 h-40 rounded-xl bg-gradient-to-br ${getLootboxTypeColor(state.selectedLootbox.type)} animate-spin-slow border-4 border-white/50`}>
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Sparkles size={56} className="text-white animate-pulse" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  {/* Множественные пульсирующие кольца */}
-                  <div className="absolute inset-0 rounded-xl border-4 border-white/80 animate-ping" />
-                  <div className="absolute inset-2 rounded-xl border-2 border-white/60 animate-ping" style={{ animationDelay: "0.5s" }} />
-                  <div className="absolute inset-4 rounded-xl border-2 border-white/40 animate-ping" style={{ animationDelay: "1s" }} />
+                  )}
                 </div>
               </div>
             )}
