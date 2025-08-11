@@ -1,475 +1,735 @@
-"use client";
+// Enhanced Lootbox Test Page with OGL and Advanced Effects - TypeScript Fixed
 
-import React, { useState, useEffect, useRef } from "react";
-import {
-  Card,
-  CardBody,
-  Button,
-  Chip,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-} from "@nextui-org/react";
-import {
-  Gift,
-  Star,
-  Zap,
-  Sparkles,
-  Crown,
-  Diamond,
-  LucideIcon,
-} from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrowLeft, Package, Sparkles, Zap, Star, Gift, Lock, ChevronRight, Gem, Crown, Shield, Swords } from 'lucide-react';
+import * as OGL from 'ogl';
 
-// ==== CONFIG ====
-type RarityType = "common" | "rare" | "legendary" | "epic";
-type LootboxType = "common" | "rare" | "legendary" | "epic";
-type RewardType = "card" | "attempts" | "gift";
+// Type definitions
+type RarityType = 'common' | 'rare' | 'legendary' | 'epic';
 
 interface RarityConfig {
   name: string;
+  gradient: string;
   color: string;
-  bgColor: string;
+  glowColor: string;
   borderColor: string;
-  icon: LucideIcon;
-  chance: number;
+  bgPattern: string;
+  particleColor: string;
+  meshColor: [number, number, number];
+  emissive: [number, number, number];
 }
 
-interface LootboxConfig {
-  name: string;
-  price: number;
+interface Lootbox {
+  id: number;
   rarity: RarityType;
-  description: string;
+  name: string;
+  count: number;
+  locked: boolean;
+  icon: React.ElementType;
 }
 
 interface Reward {
-  id: string;
-  type: RewardType;
-  rarity: RarityType;
+  id?: number;
+  type: 'card' | 'attempts' | 'gift';
   name: string;
-  quantity: number;
+  icon: string;
+  rarity?: RarityType;
+  description: string;
+  value?: number;
 }
 
-const RARITIES: Record<RarityType, RarityConfig> = {
+interface FloatingElement {
+  id: number;
+  size: number;
+  x: number;
+  y: number;
+  duration: number;
+  delay: number;
+}
+
+// Rarity configuration with enhanced visuals
+const RARITY_CONFIG: Record<RarityType, RarityConfig> = {
   common: {
-    name: "Common",
-    color: "#9CA3AF",
-    bgColor: "from-gray-400/20 to-gray-600/20",
-    borderColor: "border-gray-400/50",
-    icon: Star,
-    chance: 60,
+    name: 'Common',
+    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: 'from-slate-400 via-gray-400 to-slate-500',
+    glowColor: 'rgba(148, 163, 184, 0.6)',
+    borderColor: 'border-slate-400/50',
+    bgPattern: 'bg-gradient-to-br from-slate-900/90 via-gray-900/90 to-slate-800/90',
+    particleColor: '#94a3b8',
+    meshColor: [0.4, 0.45, 0.5],
+    emissive: [0.1, 0.1, 0.15]
   },
   rare: {
-    name: "Rare",
-    color: "#3B82F6",
-    bgColor: "from-blue-400/20 to-blue-600/20",
-    borderColor: "border-blue-400/50",
-    icon: Zap,
-    chance: 25,
+    name: 'Rare',
+    gradient: 'linear-gradient(135deg, #00c9ff 0%, #92fe9d 100%)',
+    color: 'from-blue-400 via-cyan-400 to-blue-500',
+    glowColor: 'rgba(6, 182, 212, 0.7)',
+    borderColor: 'border-cyan-400/60',
+    bgPattern: 'bg-gradient-to-br from-blue-950/90 via-cyan-900/90 to-blue-900/90',
+    particleColor: '#06b6d4',
+    meshColor: [0.2, 0.6, 0.9],
+    emissive: [0.1, 0.3, 0.5]
   },
   legendary: {
-    name: "Legendary",
-    color: "#A855F7",
-    bgColor: "from-purple-400/20 to-purple-600/20",
-    borderColor: "border-purple-400/50",
-    icon: Crown,
-    chance: 12,
+    name: 'Legendary',
+    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    color: 'from-purple-400 via-pink-400 to-purple-500',
+    glowColor: 'rgba(192, 132, 252, 0.8)',
+    borderColor: 'border-purple-400/70',
+    bgPattern: 'bg-gradient-to-br from-purple-950/90 via-pink-900/90 to-purple-900/90',
+    particleColor: '#c084fc',
+    meshColor: [0.7, 0.3, 0.9],
+    emissive: [0.4, 0.2, 0.5]
   },
   epic: {
-    name: "Epic",
-    color: "#F59E0B",
-    bgColor: "from-amber-400/20 to-orange-600/20",
-    borderColor: "border-amber-400/50",
-    icon: Diamond,
-    chance: 3,
-  },
-};
-
-const LOOTBOX_TYPES: Record<LootboxType, LootboxConfig> = {
-  common: {
-    name: "Common Lootbox",
-    price: 50,
-    rarity: "common",
-    description: "Basic rewards and surprises",
-  },
-  rare: {
-    name: "Rare Lootbox",
-    price: 150,
-    rarity: "rare",
-    description: "Better chances for valuable items",
-  },
-  legendary: {
-    name: "Legendary Lootbox",
-    price: 500,
-    rarity: "legendary",
-    description: "High-tier collectibles guaranteed",
-  },
-  epic: {
-    name: "Epic Lootbox",
-    price: 1500,
-    rarity: "epic",
-    description: "The rarest treasures await",
-  },
-};
-
-const REWARD_TYPES: Record<RewardType, string> = {
-  card: "Collectible Card",
-  attempts: "Game Attempts",
-  gift: "Telegram Gift",
-};
-
-const generateRewards = (lootboxType: LootboxType): Reward[] => {
-  const rewards: Reward[] = [];
-  const numRewards = Math.floor(Math.random() * 3) + 1;
-
-  for (let i = 0; i < numRewards; i++) {
-    const rewardType: RewardType =
-      Math.random() < 0.5
-        ? "card"
-        : Math.random() < 0.7
-        ? "attempts"
-        : "gift";
-
-    let rarity: RarityType;
-    const rand = Math.random() * 100;
-    const rarityMultiplier =
-      lootboxType === "epic"
-        ? 3
-        : lootboxType === "legendary"
-        ? 2
-        : lootboxType === "rare"
-        ? 1.5
-        : 1;
-
-    if (rand < RARITIES.epic.chance * rarityMultiplier) {
-      rarity = "epic";
-    } else if (
-      rand <
-      (RARITIES.epic.chance + RARITIES.legendary.chance) * rarityMultiplier
-    ) {
-      rarity = "legendary";
-    } else if (
-      rand <
-      (RARITIES.epic.chance +
-        RARITIES.legendary.chance +
-        RARITIES.rare.chance) *
-        rarityMultiplier
-    ) {
-      rarity = "rare";
-    } else {
-      rarity = "common";
-    }
-
-    rewards.push({
-      id: Math.random().toString(36).substr(2, 9),
-      type: rewardType,
-      rarity,
-      name:
-        rewardType === "card"
-          ? `${RARITIES[rarity].name} Card #${Math.floor(
-              Math.random() * 1000
-            )}`
-          : rewardType === "attempts"
-          ? `${Math.floor(Math.random() * 10) + 1} Game Attempts`
-          : `Telegram ${RARITIES[rarity].name} Gift`,
-      quantity: rewardType === "attempts" ? Math.floor(Math.random() * 10) + 1 : 1,
-    });
+    name: 'Epic',
+    gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    color: 'from-amber-400 via-orange-400 to-red-500',
+    glowColor: 'rgba(251, 191, 36, 0.9)',
+    borderColor: 'border-amber-400/80',
+    bgPattern: 'bg-gradient-to-br from-orange-950/90 via-amber-900/90 to-red-900/90',
+    particleColor: '#fbbf24',
+    meshColor: [1.0, 0.7, 0.2],
+    emissive: [0.6, 0.4, 0.1]
   }
-
-  return rewards;
 };
 
-// ==== ANIMATED BACKGROUND (Ripple Grid style from ReactBits) ====
-const AnimatedBackground = () => (
-  <div className="absolute inset-0 z-0 overflow-hidden">
-    <div className="absolute inset-0 bg-black" />
-    <div
-      className="absolute inset-0"
-      style={{
-        backgroundImage: `
-          radial-gradient(circle at center, rgba(255,255,255,0.05) 2px, transparent 2px),
-          linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px),
-          linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)
-        `,
-        backgroundSize: "60px 60px, 40px 40px, 40px 40px",
-        animation: "rippleGrid 6s ease-in-out infinite, gridPan 20s linear infinite",
-      }}
-    />
-    <style>{`
-      @keyframes gridPan {
-        from { background-position: 0 0, 0 0, 0 0; }
-        to { background-position: 0 0, 40px 40px, 40px 40px; }
-      }
-      @keyframes rippleGrid {
-        0%, 100% { background-size: 60px 60px, 40px 40px, 40px 40px; }
-        50% { background-size: 65px 65px, 40px 40px, 40px 40px; }
-      }
-    `}</style>
-  </div>
-);
+// Enhanced lootbox data
+const LOOTBOXES: Lootbox[] = [
+  { id: 1, rarity: 'common', name: 'Starter Cache', count: 5, locked: false, icon: Shield },
+  { id: 2, rarity: 'rare', name: 'Mystic Vault', count: 3, locked: false, icon: Gem },
+  { id: 3, rarity: 'legendary', name: 'Royal Treasury', count: 1, locked: false, icon: Crown },
+  { id: 4, rarity: 'epic', name: 'Eternal Nexus', count: 0, locked: true, icon: Swords }
+];
 
-// ==== PORTAL + PARTICLES ====
-const PortalEffectWithParticles: React.FC<{ rarity: RarityType }> = ({
-  rarity,
-}) => {
+// Enhanced rewards with better categorization
+const POSSIBLE_REWARDS: Record<RarityType, Reward[]> = {
+  common: [
+    { type: 'card', name: 'Shadow Walker', icon: '🌙', rarity: 'common', description: 'Basic stealth unit' },
+    { type: 'attempts', name: 'Energy Boost', icon: '⚡', value: 2, description: '+2 game attempts' },
+    { type: 'card', name: 'Iron Guardian', icon: '🛡️', rarity: 'common', description: 'Defensive unit' }
+  ],
+  rare: [
+    { type: 'card', name: 'Crystal Phoenix', icon: '🔷', rarity: 'rare', description: 'Mythical creature' },
+    { type: 'attempts', name: 'Power Surge', icon: '⚡', value: 5, description: '+5 game attempts' },
+    { type: 'gift', name: 'Blue Diamond', icon: '💎', description: 'Telegram premium gift' }
+  ],
+  legendary: [
+    { type: 'card', name: 'Void Emperor', icon: '👑', rarity: 'legendary', description: 'Ultimate ruler' },
+    { type: 'attempts', name: 'Mega Charge', icon: '⚡', value: 10, description: '+10 game attempts' },
+    { type: 'gift', name: 'Golden Crown', icon: '👑', description: 'Exclusive Telegram gift' }
+  ],
+  epic: [
+    { type: 'card', name: 'Cosmic Destroyer', icon: '🌌', rarity: 'epic', description: 'Reality bender' },
+    { type: 'attempts', name: 'Infinite Power', icon: '⚡', value: 20, description: '+20 game attempts' },
+    { type: 'gift', name: 'Eternal Flame', icon: '🔥', description: 'Legendary Telegram gift' }
+  ]
+};
+
+// OGL 3D Box Component Props
+interface LootboxCanvasProps {
+  isOpening: boolean;
+  rarity: RarityType;
+  onAnimationComplete?: () => void;
+}
+
+// OGL 3D Box Component
+function LootboxCanvas({ isOpening, rarity, onAnimationComplete }: LootboxCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rendererRef = useRef<OGL.Renderer | null>(null);
+  const sceneRef = useRef<OGL.Transform | null>(null);
+  const meshRef = useRef<OGL.Mesh | null>(null);
+  const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!canvasRef.current) return;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const config = RARITY_CONFIG[rarity];
+    
+    // Create renderer
+    const renderer = new OGL.Renderer({
+      canvas: canvasRef.current,
+      width: 300,
+      height: 300,
+      dpr: 2,
+      alpha: true,
+      antialias: true
+    });
+    rendererRef.current = renderer;
+    
+    const gl = renderer.gl;
+    gl.clearColor(0, 0, 0, 0);
 
-    const particles: any[] = [];
-    let frame = 0;
+    // Create camera
+    const camera = new OGL.Camera(gl, { fov: 45 });
+    camera.position.set(0, 0, 5);
 
-    const createParticles = () => {
-      for (let i = 0; i < 8; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 4 + 2;
-        particles.push({
-          x: canvas.width / 2,
-          y: canvas.height / 2,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: 1,
-          size: Math.random() * 3 + 2,
-        });
+    // Create scene
+    const scene = new OGL.Transform();
+    sceneRef.current = scene;
+
+    // Create geometry
+    const geometry = new OGL.Box(gl, { width: 1.5, height: 1.5, depth: 1.5 });
+
+    // Create shader program with emissive glow
+    const program = new OGL.Program(gl, {
+      vertex: `
+        attribute vec3 position;
+        attribute vec3 normal;
+        attribute vec2 uv;
+        
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
+        uniform mat3 normalMatrix;
+        
+        varying vec3 vNormal;
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vUv = uv;
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragment: `
+        precision highp float;
+        
+        uniform vec3 uColor;
+        uniform vec3 uEmissive;
+        uniform float uTime;
+        uniform float uOpening;
+        
+        varying vec3 vNormal;
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        
+        void main() {
+          vec3 normal = normalize(vNormal);
+          vec3 light = normalize(vec3(0.5, 1.0, 0.3));
+          float shading = dot(normal, light) * 0.5 + 0.5;
+          
+          // Edge glow effect
+          float fresnel = pow(1.0 - abs(dot(normal, vec3(0.0, 0.0, 1.0))), 2.0);
+          
+          // Pulsing emissive
+          float pulse = sin(uTime * 2.0) * 0.5 + 0.5;
+          vec3 emissive = uEmissive * (1.0 + pulse * 0.5) * (1.0 + fresnel);
+          
+          // Opening effect
+          float openGlow = uOpening * 2.0;
+          emissive += vec3(1.0, 1.0, 1.0) * openGlow * fresnel;
+          
+          // Holographic effect
+          float hologram = sin(vPosition.y * 10.0 + uTime * 3.0) * 0.1 + 0.9;
+          
+          vec3 color = uColor * shading * hologram + emissive;
+          float alpha = 0.9 + fresnel * 0.1 - uOpening * 0.5;
+          
+          gl_FragColor = vec4(color, alpha);
+        }
+      `,
+      uniforms: {
+        uColor: { value: config.meshColor },
+        uEmissive: { value: config.emissive },
+        uTime: { value: 0 },
+        uOpening: { value: 0 }
       }
-    };
+    });
 
+    // Create mesh
+    const mesh = new OGL.Mesh(gl, { geometry, program });
+    mesh.setParent(scene);
+    meshRef.current = mesh;
+
+    // Animation loop
+    let startTime = Date.now();
     const animate = () => {
-      frame++;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Portal ring
-      const radius = 100 + Math.sin(frame * 0.1) * 20;
-      const gradient = ctx.createRadialGradient(
-        canvas.width / 2,
-        canvas.height / 2,
-        radius * 0.2,
-        canvas.width / 2,
-        canvas.height / 2,
-        radius
-      );
-      gradient.addColorStop(0, RARITIES[rarity].color + "AA");
-      gradient.addColorStop(0.5, RARITIES[rarity].color + "55");
-      gradient.addColorStop(1, "transparent");
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Spawn new particles every few frames
-      if (frame % 5 === 0) createParticles();
-
-      // Draw particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= 0.02;
-
-        ctx.globalAlpha = p.life;
-        ctx.fillStyle = RARITIES[rarity].color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (p.life <= 0) particles.splice(i, 1);
+      frameRef.current = requestAnimationFrame(animate);
+      
+      const time = (Date.now() - startTime) * 0.001;
+      program.uniforms.uTime.value = time;
+      
+      if (isOpening) {
+        // Opening animation
+        const openProgress = Math.min(time / 2, 1);
+        program.uniforms.uOpening.value = openProgress;
+        
+        mesh.rotation.x = time * 2;
+        mesh.rotation.y = time * 3;
+        mesh.scale.set(1 + openProgress * 0.5);
+        
+        if (openProgress >= 1 && onAnimationComplete) {
+          onAnimationComplete();
+        }
+      } else {
+        // Idle animation
+        mesh.rotation.x = time * 0.3;
+        mesh.rotation.y = time * 0.5;
+        mesh.rotation.z = Math.sin(time) * 0.1;
       }
-
-      ctx.globalAlpha = 1;
-      requestAnimationFrame(animate);
+      
+      renderer.render({ scene, camera });
     };
-
+    
     animate();
-  }, [rarity]);
+
+    // Cleanup
+    return () => {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+      }
+      if (rendererRef.current) {
+        rendererRef.current = null;
+      }
+    };
+  }, [isOpening, rarity, onAnimationComplete]);
 
   return (
-    <canvas
+    <canvas 
       ref={canvasRef}
-      className="fixed inset-0 z-40 pointer-events-none"
+      className="w-[300px] h-[300px]"
+      style={{ touchAction: 'none' }}
     />
   );
-};
+}
 
-// ==== LOOTBOX CARD ====
-const LootboxCard: React.FC<{ type: LootboxType; onOpen: (t: LootboxType) => void }> = ({
-  type,
-  onOpen,
-}) => {
-  const lootbox = LOOTBOX_TYPES[type];
-  const rarityConfig = RARITIES[lootbox.rarity];
-  const Icon = rarityConfig.icon;
-
-  return (
-    <Card
-      className={`bg-gradient-to-br ${rarityConfig.bgColor} border-2 ${rarityConfig.borderColor} hover:shadow-[0_0_20px_${rarityConfig.color}] transition-all cursor-pointer hover:scale-105`}
-    >
-      <CardBody className="p-6 text-center">
-        <div className="flex justify-center mb-4">
-          <div
-            className={`w-16 h-16 rounded-full bg-gradient-to-br ${rarityConfig.bgColor} flex items-center justify-center border-2 ${rarityConfig.borderColor}`}
-          >
-            <Icon size={32} color={rarityConfig.color} />
-          </div>
-        </div>
-        <h3 className="text-xl font-bold text-white mb-2">{lootbox.name}</h3>
-        <p className="text-white/70 text-sm mb-4">{lootbox.description}</p>
-        <div className="flex items-center justify-center space-x-2 mb-4">
-          <Star className="text-yellow-400" size={16} />
-          <span className="text-white font-bold">{lootbox.price}</span>
-        </div>
-        <Chip
-          size="sm"
-          style={{
-            backgroundColor: rarityConfig.color + "40",
-            color: rarityConfig.color,
-          }}
-        >
-          {rarityConfig.name}
-        </Chip>
-        <Button
-          className="w-full mt-4 bg-white/20 text-white border border-white/40 hover:bg-white/30"
-          onClick={() => onOpen(type)}
-        >
-          Open Lootbox
-        </Button>
-      </CardBody>
-    </Card>
-  );
-};
-
-// ==== REWARD DISPLAY ====
-const RewardDisplay: React.FC<{ reward: Reward }> = ({ reward }) => {
-  const rarityConfig = RARITIES[reward.rarity];
-  return (
-    <div
-      className={`p-4 rounded-lg bg-gradient-to-br ${rarityConfig.bgColor} border-2 ${rarityConfig.borderColor} text-center transform transition-all duration-500 hover:scale-105`}
-    >
-      <div
-        className={`w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br ${rarityConfig.bgColor} flex items-center justify-center border ${rarityConfig.borderColor}`}
-      >
-        {reward.type === "card" && <Gift size={24} color={rarityConfig.color} />}
-        {reward.type === "attempts" && <Zap size={24} color={rarityConfig.color} />}
-        {reward.type === "gift" && (
-          <Sparkles size={24} color={rarityConfig.color} />
-        )}
-      </div>
-      <h4 className="font-bold text-white text-sm mb-1">{reward.name}</h4>
-      <p className="text-white/70 text-xs">{REWARD_TYPES[reward.type]}</p>
-      {reward.quantity > 1 && (
-        <div className="mt-2">
-          <Chip
-            size="sm"
-            style={{
-              backgroundColor: rarityConfig.color + "40",
-              color: rarityConfig.color,
-            }}
-          >
-            x{reward.quantity}
-          </Chip>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ==== MAIN ====
-export default function LootboxDemo() {
+// Main Component
+export default function EnhancedLootboxPage() {
+  const [selectedLootbox, setSelectedLootbox] = useState<Lootbox | null>(null);
   const [isOpening, setIsOpening] = useState(false);
+  const [revealedRewards, setRevealedRewards] = useState<Reward[]>([]);
   const [showRewards, setShowRewards] = useState(false);
-  const [currentRewards, setCurrentRewards] = useState<Reward[]>([]);
-  const [openingLootbox, setOpeningLootbox] = useState<LootboxType | null>(null);
+  const [lootboxInventory, setLootboxInventory] = useState<Lootbox[]>(LOOTBOXES);
+  const [totalOpened, setTotalOpened] = useState(12);
+  const [cardsFound, setCardsFound] = useState(8);
+  const [floatingElements, setFloatingElements] = useState<FloatingElement[]>([]);
 
-  const handleOpenLootbox = (type: LootboxType) => {
+  // Generate floating background elements
+  useEffect(() => {
+    const elements: FloatingElement[] = Array.from({ length: 15 }, (_, i) => ({
+      id: i,
+      size: Math.random() * 30 + 10,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      duration: Math.random() * 20 + 10,
+      delay: Math.random() * 5
+    }));
+    setFloatingElements(elements);
+  }, []);
+
+  const handleOpenLootbox = useCallback((lootbox: Lootbox) => {
+    if (lootbox.locked || lootbox.count === 0) return;
+    
+    // Haptic feedback for mobile
+    if (window.navigator?.vibrate) {
+      window.navigator.vibrate(50);
+    }
+    
+    setSelectedLootbox(lootbox);
     setIsOpening(true);
-    setOpeningLootbox(type);
+    setRevealedRewards([]);
+    setShowRewards(false);
+  }, []);
 
-    setTimeout(() => {
-      const rewards = generateRewards(type);
-      setCurrentRewards(rewards);
-      setIsOpening(false);
-      setShowRewards(true);
-    }, 2500);
-  };
+  const handleOpeningComplete = useCallback(() => {
+    if (!selectedLootbox) return;
+    
+    // Generate rewards
+    const possibleRewards = POSSIBLE_REWARDS[selectedLootbox.rarity];
+    const numRewards = selectedLootbox.rarity === 'epic' ? 3 : selectedLootbox.rarity === 'legendary' ? 2 : 1;
+    const rewards: Reward[] = [];
+    
+    for (let i = 0; i < numRewards; i++) {
+      const randomReward = possibleRewards[Math.floor(Math.random() * possibleRewards.length)];
+      rewards.push({ ...randomReward, id: Date.now() + i });
+    }
+    
+    setRevealedRewards(rewards);
+    setShowRewards(true);
+    setTotalOpened(prev => prev + 1);
+    setCardsFound(prev => prev + rewards.filter(r => r.type === 'card').length);
+    
+    // Update inventory
+    setLootboxInventory(prev => 
+      prev.map(box => 
+        box.id === selectedLootbox.id 
+          ? { ...box, count: Math.max(0, box.count - 1) }
+          : box
+      )
+    );
+  }, [selectedLootbox]);
+
+  const handleClose = useCallback(() => {
+    setSelectedLootbox(null);
+    setIsOpening(false);
+    setShowRewards(false);
+    setRevealedRewards([]);
+  }, []);
 
   return (
-    <div className="relative min-h-screen bg-black text-white overflow-hidden">
-      <AnimatedBackground />
+    <div className="min-h-screen bg-black text-white overflow-hidden relative">
+      {/* Dynamic background with floating elements */}
+      <div className="fixed inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-950/40 via-black to-blue-950/40" />
+        {floatingElements.map(element => (
+          <div
+            key={element.id}
+            className="absolute rounded-full bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-sm"
+            style={{
+              width: `${element.size}px`,
+              height: `${element.size}px`,
+              left: `${element.x}%`,
+              top: `${element.y}%`,
+              animation: `floatBubble ${element.duration}s ease-in-out infinite`,
+              animationDelay: `${element.delay}s`
+            }}
+          />
+        ))}
+        {/* Mesh gradient overlay */}
+        <div className="absolute inset-0" style={{
+          background: `
+            radial-gradient(ellipse at top left, rgba(120, 119, 198, 0.15) 0%, transparent 50%),
+            radial-gradient(ellipse at bottom right, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+            radial-gradient(ellipse at center, rgba(168, 85, 247, 0.1) 0%, transparent 50%)
+          `
+        }} />
+      </div>
 
-      <div className="max-w-6xl mx-auto relative z-10 p-6">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">🎁 Lootbox Portal Demo</h1>
-          <p className="text-white/70">
-            Experience the thrill of opening collectible lootboxes
-          </p>
+      {/* Main content */}
+      <div className="relative z-10 p-4 pt-12">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <button className="p-3 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-all">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="text-center">
+            <h1 className="text-2xl font-black tracking-wider">
+              <span className="bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
+                LOOTBOXES
+              </span>
+            </h1>
+            <p className="text-xs text-gray-400 mt-1 tracking-widest">COLLECTION SYSTEM</p>
+          </div>
+          <div className="w-11" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {(Object.keys(LOOTBOX_TYPES) as LootboxType[]).map((type) => (
-            <LootboxCard key={type} type={type} onOpen={handleOpenLootbox} />
-          ))}
+        {/* Enhanced stats cards */}
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
+            <div className="relative bg-black/40 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+              <div className="text-xs text-cyan-400 mb-2 uppercase tracking-wider">Opened</div>
+              <div className="text-2xl font-black">{totalOpened}</div>
+              <div className="absolute top-2 right-2 text-cyan-400 opacity-20">
+                <Package size={24} />
+              </div>
+            </div>
+          </div>
+          
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
+            <div className="relative bg-black/40 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+              <div className="text-xs text-purple-400 mb-2 uppercase tracking-wider">Cards</div>
+              <div className="text-2xl font-black">{cardsFound}</div>
+              <div className="absolute top-2 right-2 text-purple-400 opacity-20">
+                <Star size={24} />
+              </div>
+            </div>
+          </div>
+          
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
+            <div className="relative bg-black/40 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+              <div className="text-xs text-amber-400 mb-2 uppercase tracking-wider">Rarest</div>
+              <div className="text-xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Legend</div>
+              <div className="absolute top-2 right-2 text-amber-400 opacity-20">
+                <Crown size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Lootbox Grid with enhanced visuals */}
+        <div className="space-y-4">
+          {lootboxInventory.map((lootbox, index) => {
+            const config = RARITY_CONFIG[lootbox.rarity];
+            const Icon = lootbox.icon;
+            const isAvailable = !lootbox.locked && lootbox.count > 0;
+            
+            return (
+              <div
+                key={lootbox.id}
+                onClick={() => handleOpenLootbox(lootbox)}
+                className={`
+                  relative overflow-hidden rounded-3xl
+                  ${isAvailable ? 'cursor-pointer active:scale-[0.98]' : 'opacity-60'}
+                  transition-all duration-300 group
+                `}
+                style={{
+                  animation: `slideInUp 0.5s ease-out forwards`,
+                  animationDelay: `${index * 0.1}s`,
+                  opacity: 0
+                }}
+              >
+                {/* Gradient background */}
+                <div className="absolute inset-0" style={{ background: config.gradient, opacity: 0.1 }} />
+                
+                {/* Glow effect */}
+                {isAvailable && (
+                  <div 
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{
+                      background: `radial-gradient(ellipse at center, ${config.glowColor} 0%, transparent 70%)`
+                    }}
+                  />
+                )}
+                
+                {/* Content */}
+                <div className="relative bg-black/60 backdrop-blur-xl p-5 border border-white/10 group-hover:border-white/20 transition-all">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      {/* Icon container with animation */}
+                      <div className="relative">
+                        <div className={`
+                          w-14 h-14 rounded-2xl bg-gradient-to-br ${config.color}
+                          flex items-center justify-center shadow-2xl
+                          ${isAvailable ? 'group-hover:scale-110 group-hover:rotate-3' : ''}
+                          transition-all duration-300
+                        `}>
+                          <Icon size={24} className="text-white" />
+                        </div>
+                        {isAvailable && (
+                          <div className={`
+                            absolute inset-0 rounded-2xl bg-gradient-to-br ${config.color}
+                            blur-xl opacity-50 group-hover:opacity-70 transition-opacity
+                          `} />
+                        )}
+                      </div>
+                      
+                      {/* Text */}
+                      <div>
+                        <div className="font-bold text-lg">{lootbox.name}</div>
+                        <div className="text-sm text-gray-400">
+                          <span className={`
+                            inline-block px-2 py-0.5 rounded-full text-xs
+                            bg-gradient-to-r ${config.color} bg-clip-text text-transparent font-bold
+                          `}>
+                            {config.name.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Count or lock status */}
+                    <div className="text-right">
+                      {lootbox.locked ? (
+                        <div className="flex flex-col items-center">
+                          <Lock size={20} className="text-gray-500 mb-1" />
+                          <span className="text-xs text-gray-500">LOCKED</span>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <div className="text-3xl font-black tabular-nums">{lootbox.count}</div>
+                          <div className="text-xs text-gray-400 uppercase tracking-wider">Available</div>
+                          {lootbox.count > 0 && (
+                            <ChevronRight 
+                              size={20} 
+                              className="absolute -right-6 top-1/2 -translate-y-1/2 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all" 
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {isOpening && openingLootbox && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
-          <PortalEffectWithParticles
-            rarity={LOOTBOX_TYPES[openingLootbox].rarity}
-          />
-          <div className="relative z-50 animate-pulse">
-            <div
-              className={`w-40 h-40 rounded-full bg-gradient-to-br ${RARITIES[LOOTBOX_TYPES[openingLootbox].rarity].bgColor} border-4 ${RARITIES[LOOTBOX_TYPES[openingLootbox].rarity].borderColor} flex items-center justify-center animate-spin-slow`}
-            >
-              <Gift
-                size={64}
-                color={RARITIES[LOOTBOX_TYPES[openingLootbox].rarity].color}
-              />
-            </div>
+      {/* Opening Modal with OGL */}
+      {selectedLootbox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl">
+          <div className="relative w-full max-w-md">
+            {!showRewards ? (
+              // Opening animation with OGL
+              <div className="text-center">
+                <div className="flex justify-center mb-8">
+                  <LootboxCanvas 
+                    isOpening={isOpening}
+                    rarity={selectedLootbox.rarity}
+                    onAnimationComplete={handleOpeningComplete}
+                  />
+                </div>
+                
+                <h2 className="text-3xl font-black mb-2">
+                  <span className={`bg-gradient-to-r ${RARITY_CONFIG[selectedLootbox.rarity].color} bg-clip-text text-transparent`}>
+                    {isOpening ? 'OPENING...' : selectedLootbox.name.toUpperCase()}
+                  </span>
+                </h2>
+                <p className="text-gray-400 text-sm tracking-wider">
+                  {isOpening ? 'Revealing treasures...' : 'Tap to continue'}
+                </p>
+                
+                {/* Progress bar */}
+                {isOpening && (
+                  <div className="mt-6 w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full bg-gradient-to-r ${RARITY_CONFIG[selectedLootbox.rarity].color} rounded-full`}
+                      style={{
+                        animation: 'progressFill 2s ease-out forwards'
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Rewards display with enhanced animations
+              <div className="text-center">
+                <div className="mb-6">
+                  <Sparkles className="w-16 h-16 mx-auto text-yellow-400 mb-4" 
+                    style={{ animation: 'sparkleRotate 2s ease-in-out infinite' }} />
+                  <h2 className="text-3xl font-black mb-2">REWARDS UNLOCKED!</h2>
+                  <p className="text-gray-400 text-sm">Tap items to collect</p>
+                </div>
+                
+                <div className="space-y-4 mb-8">
+                  {revealedRewards.map((reward, index) => {
+                    const rewardConfig = RARITY_CONFIG[reward.rarity || selectedLootbox.rarity];
+                    return (
+                      <div
+                        key={reward.id}
+                        className="relative group cursor-pointer"
+                        style={{
+                          animation: `rewardReveal 0.5s ease-out forwards`,
+                          animationDelay: `${index * 0.15}s`,
+                          opacity: 0
+                        }}
+                      >
+                        {/* Glow background */}
+                        <div 
+                          className="absolute inset-0 rounded-2xl opacity-20 group-hover:opacity-40 transition-opacity"
+                          style={{ 
+                            background: `linear-gradient(135deg, ${rewardConfig.glowColor} 0%, transparent 100%)` 
+                          }}
+                        />
+                        
+                        {/* Card content */}
+                        <div className="relative bg-black/40 backdrop-blur-md rounded-2xl p-5 border border-white/20 group-hover:border-white/40 transition-all">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="text-3xl transform group-hover:scale-110 group-hover:rotate-12 transition-transform">
+                                {reward.icon}
+                              </div>
+                              <div className="text-left">
+                                <div className="font-bold text-lg">{reward.name}</div>
+                                <div className="text-xs text-gray-400">{reward.description}</div>
+                                <div className={`
+                                  inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold
+                                  bg-gradient-to-r ${rewardConfig.color} bg-clip-text text-transparent
+                                `}>
+                                  {reward.type.toUpperCase()}
+                                </div>
+                              </div>
+                            </div>
+                            {reward.type === 'attempts' && (
+                              <div className="text-2xl font-black text-green-400 animate-pulse">
+                                +{reward.value}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={handleClose}
+                  className="w-full py-4 rounded-2xl font-black text-lg tracking-wider
+                    bg-gradient-to-r from-purple-600 to-blue-600 
+                    hover:from-purple-500 hover:to-blue-500
+                    transform hover:scale-[1.02] active:scale-[0.98]
+                    transition-all duration-200 shadow-2xl"
+                  style={{
+                    boxShadow: '0 10px 40px rgba(139, 92, 246, 0.3)'
+                  }}
+                >
+                  COLLECT ALL
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <Modal
-        isOpen={showRewards}
-        onClose={() => setShowRewards(false)}
-        size="2xl"
-        classNames={{
-          backdrop: "bg-black/80 backdrop-blur-sm",
-          base: "bg-black border border-white/20",
-          header: "border-b border-white/20",
-          body: "py-6",
-        }}
-      >
-        <ModalContent>
-          <ModalHeader className="text-white">
-            <div className="flex items-center space-x-2">
-              <Gift className="text-yellow-400" size={24} />
-              <span>Congratulations! You received:</span>
-            </div>
-          </ModalHeader>
-          <ModalBody>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {currentRewards.map((reward) => (
-                <RewardDisplay key={reward.id} reward={reward} />
-              ))}
-            </div>
-            <div className="text-center mt-6">
-              <Button
-                className="bg-white/20 text-white border border-white/40 hover:bg-white/30"
-                onClick={() => setShowRewards(false)}
-              >
-                Collect Rewards
-              </Button>
-            </div>
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+      <style jsx>{`
+        @keyframes floatBubble {
+          0%, 100% {
+            transform: translateY(0) translateX(0) scale(1);
+            opacity: 0.5;
+          }
+          25% {
+            transform: translateY(-30px) translateX(20px) scale(1.1);
+            opacity: 0.7;
+          }
+          50% {
+            transform: translateY(-50px) translateX(-20px) scale(0.9);
+            opacity: 0.6;
+          }
+          75% {
+            transform: translateY(-20px) translateX(30px) scale(1.05);
+            opacity: 0.8;
+          }
+        }
+        
+        @keyframes slideInUp {
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+        }
+        
+        @keyframes rewardReveal {
+          0% {
+            opacity: 0;
+            transform: translateY(30px) scale(0.8);
+          }
+          50% {
+            transform: translateY(-10px) scale(1.05);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        
+        @keyframes sparkleRotate {
+          0%, 100% {
+            transform: rotate(0deg) scale(1);
+          }
+          50% {
+            transform: rotate(180deg) scale(1.2);
+          }
+        }
+        
+        @keyframes progressFill {
+          0% {
+            width: 0%;
+          }
+          100% {
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }
