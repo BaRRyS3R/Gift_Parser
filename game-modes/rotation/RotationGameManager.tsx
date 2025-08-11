@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Enhanced with complete gyroscope monitoring security system
+// src/game-modes/rotation/RotationGameManager.tsx - Enhanced with comprehensive debug logging UI
 
 "use client";
 
@@ -9,6 +9,16 @@ import {
   Clock,
   Target,
   RotateCw,
+  Bug,
+  Copy,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp,
+  Activity,
+  MousePointer,
+  Timer,
+  Layers,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -30,6 +40,10 @@ import { GameState, GameMode } from "@/types/game-modes/common";
 import {
   RotationGameState,
   RotationGameResult,
+  GameDebugLog,
+  CircleActivationLog,
+  CircleClickLog,
+  CircleDeactivationLog,
 } from "@/types/game-modes/rotation";
 import RotatingCircleGrid from "@/components/RotatingCircleGrid";
 import { useT } from "@/contexts/LocalizationContext";
@@ -67,6 +81,113 @@ const initialPlayAgainError: PlayAgainError = {
 
 const LEVEL_UPDATE_INTERVAL = 100;
 
+// Debug log formatting utilities
+const formatLogTime = (timestamp: number, gameStartTime: number): string => {
+  const gameTime = timestamp - gameStartTime;
+  return `${(gameTime / 1000).toFixed(3)}s`;
+};
+
+const formatLogEntry = (
+  type: string,
+  entry: any,
+  gameStartTime: number
+): string => {
+  const time = formatLogTime(entry.timestamp, gameStartTime);
+  switch (type) {
+    case "activation":
+      const activation = entry as CircleActivationLog;
+      return `[${time}] ACTIVATE Circle${activation.circleId} (${activation.isDecoy ? "RED" : "WHITE"}) Level${activation.level} Position(${activation.position.x.toFixed(1)},${activation.position.y.toFixed(1)}) Duration:${((activation.scheduledDeactivationTime - activation.timestamp) / 1000).toFixed(1)}s`;
+    
+    case "click":
+      const click = entry as CircleClickLog;
+      const reactionStr = click.reactionTime ? ` Reaction:${click.reactionTime}ms` : "";
+      const debounceStr = click.debounceBlocked ? " [DEBOUNCED]" : "";
+      return `[${time}] CLICK Circle${click.circleId} Result:${click.clickResult.toUpperCase()} Active:${click.circleWasActive} Decoy:${click.circleWasDecoy} Anim:${click.circleWasAnimating}${reactionStr}${debounceStr}`;
+    
+    case "deactivation":
+      const deactivation = entry as CircleDeactivationLog;
+      return `[${time}] DEACTIVATE Circle${deactivation.circleId} Reason:${deactivation.reason.toUpperCase()} WasActive:${deactivation.wasActive} WasDecoy:${deactivation.wasDecoy}`;
+    
+    default:
+      return `[${time}] ${type.toUpperCase()}: ${JSON.stringify(entry)}`;
+  }
+};
+
+const generateDebugReport = (debugLog: GameDebugLog, gameStartTime: number): string => {
+  const report: string[] = [];
+  
+  report.push("=== ROTATION GAME DEBUG LOG ===");
+  report.push(`Generated: ${new Date().toISOString()}`);
+  report.push(`Game Start: ${new Date(gameStartTime).toISOString()}`);
+  report.push("");
+  
+  report.push("=== SUMMARY ===");
+  report.push(`Total Activations: ${debugLog.activations.length}`);
+  report.push(`Total Clicks: ${debugLog.clicks.length}`);
+  report.push(`Total Deactivations: ${debugLog.deactivations.length}`);
+  report.push(`Level Transitions: ${debugLog.levelTransitions.length}`);
+  report.push(`Errors: ${debugLog.errors.length}`);
+  report.push("");
+
+  if (debugLog.errors.length > 0) {
+    report.push("=== ERRORS ===");
+    debugLog.errors.forEach(error => {
+      report.push(`[${formatLogTime(error.timestamp, gameStartTime)}] ERROR: ${error.error}`);
+      report.push(`Context: ${JSON.stringify(error.context, null, 2)}`);
+    });
+    report.push("");
+  }
+
+  // Chronological event log
+  const allEvents: Array<{ timestamp: number; type: string; entry: any }> = [];
+  
+  debugLog.activations.forEach(entry => 
+    allEvents.push({ timestamp: entry.timestamp, type: "activation", entry }));
+  debugLog.clicks.forEach(entry => 
+    allEvents.push({ timestamp: entry.timestamp, type: "click", entry }));
+  debugLog.deactivations.forEach(entry => 
+    allEvents.push({ timestamp: entry.timestamp, type: "deactivation", entry }));
+  debugLog.levelTransitions.forEach(entry => 
+    allEvents.push({ timestamp: entry.timestamp, type: "level_transition", entry }));
+
+  allEvents.sort((a, b) => a.timestamp - b.timestamp);
+
+  report.push("=== CHRONOLOGICAL EVENT LOG ===");
+  allEvents.forEach(event => {
+    report.push(formatLogEntry(event.type, event.entry, gameStartTime));
+  });
+
+  report.push("");
+  report.push("=== DETAILED ANALYSIS ===");
+  
+  // Reaction time analysis
+  const reactionTimes = debugLog.clicks
+    .filter(click => click.reactionTime && click.clickResult === "correct")
+    .map(click => click.reactionTime!);
+  
+  if (reactionTimes.length > 0) {
+    const avgReaction = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
+    const minReaction = Math.min(...reactionTimes);
+    const maxReaction = Math.max(...reactionTimes);
+    
+    report.push(`Reaction Times: Avg:${avgReaction.toFixed(1)}ms Min:${minReaction}ms Max:${maxReaction}ms`);
+  }
+
+  // Click accuracy
+  const totalClicks = debugLog.clicks.length;
+  const correctClicks = debugLog.clicks.filter(c => c.clickResult === "correct").length;
+  const accuracy = totalClicks > 0 ? (correctClicks / totalClicks * 100).toFixed(1) : "0";
+  report.push(`Click Accuracy: ${correctClicks}/${totalClicks} (${accuracy}%)`);
+
+  // Debounced clicks
+  const debouncedClicks = debugLog.clicks.filter(c => c.debounceBlocked).length;
+  if (debouncedClicks > 0) {
+    report.push(`Debounced Clicks: ${debouncedClicks}`);
+  }
+
+  return report.join("\n");
+};
+
 export default function RotationGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
   const { consumeAttempt, fetchAttemptsStatus } = useAttempts(
@@ -85,6 +206,11 @@ export default function RotationGameManager() {
     initialPlayAgainError,
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
+
+  // Debug UI states
+  const [showDebugLog, setShowDebugLog] = useState(false);
+  const [debugLogExpanded, setDebugLogExpanded] = useState(false);
+  const [copiedLog, setCopiedLog] = useState(false);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
@@ -140,10 +266,26 @@ export default function RotationGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
+
+  const copyDebugLog = useCallback(async () => {
+    if (!gameResult) return;
+
+    try {
+      const debugReport = generateDebugReport(
+        gameResult.debugLog,
+        gameResult.createdAt ? new Date(gameResult.createdAt).getTime() - gameResult.survivalTime : Date.now()
+      );
+      
+      await navigator.clipboard.writeText(debugReport);
+      setCopiedLog(true);
+      setTimeout(() => setCopiedLog(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy debug log:", error);
+    }
+  }, [gameResult]);
 
   const handleSaveGameResult = useCallback(
     async (result: RotationGameResult) => {
@@ -352,7 +494,7 @@ export default function RotationGameManager() {
                 endGame("miss");
               } else {
                 setGameState((current) =>
-                  deactivateRotationCircle(current, circleId),
+                  deactivateRotationCircle(current, circleId, "timeout"),
                 );
                 scheduleNextActivation();
               }
@@ -400,11 +542,12 @@ export default function RotationGameManager() {
         triggerHapticFeedback("success");
         setGameState(newState);
 
+        // Immediate deactivation without animation delay
         setTimeout(() => {
           setGameState((current) =>
-            deactivateRotationCircle(current, circleId),
+            deactivateRotationCircle(current, circleId, "correct_click"),
           );
-        }, 300);
+        }, 50); // Reduced from 300ms to 50ms for instant feedback
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");
@@ -439,6 +582,8 @@ export default function RotationGameManager() {
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsPlayingAgain(false);
+    setShowDebugLog(false);
+    setDebugLogExpanded(false);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -451,7 +596,6 @@ export default function RotationGameManager() {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
-
             return current;
           }
 
@@ -562,6 +706,137 @@ export default function RotationGameManager() {
     return t(key as any) || t("game.modes.rotation.deathCauses.default");
   };
 
+  const renderDebugLogSection = () => {
+    if (!gameResult || !showDebugLog) return null;
+
+    const { debugLog } = gameResult;
+    const gameStartTime = new Date(gameResult.createdAt).getTime() - gameResult.survivalTime;
+
+    return (
+      <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Bug className="text-blue-400" size={18} />
+            <span className="text-blue-400 font-bold">Debug Log</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={copyDebugLog}
+              className="flex items-center space-x-1 px-3 py-1 bg-blue-500/20 border border-blue-400/30 text-blue-300 rounded text-xs hover:bg-blue-500/30 transition-colors"
+            >
+              <Copy size={12} />
+              <span>{copiedLog ? "Copied!" : "Copy Log"}</span>
+            </button>
+            <button
+              onClick={() => setDebugLogExpanded(!debugLogExpanded)}
+              className="flex items-center space-x-1 px-3 py-1 bg-gray-500/20 border border-gray-400/30 text-gray-300 rounded text-xs hover:bg-gray-500/30 transition-colors"
+            >
+              {debugLogExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              <span>{debugLogExpanded ? "Collapse" : "Expand"}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Activity className="text-green-400" size={14} />
+              <span className="text-green-400">Activations: {debugLog.activations.length}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <MousePointer className="text-blue-400" size={14} />
+              <span className="text-blue-400">Clicks: {debugLog.clicks.length}</span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Timer className="text-yellow-400" size={14} />
+              <span className="text-yellow-400">Avg Reaction: {gameResult.averageReactionTime.toFixed(1)}ms</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Layers className="text-purple-400" size={14} />
+              <span className="text-purple-400">Errors: {debugLog.errors.length}</span>
+            </div>
+          </div>
+        </div>
+
+        {debugLogExpanded && (
+          <div className="space-y-3">
+            {debugLog.errors.length > 0 && (
+              <div className="bg-red-900/20 border border-red-700/30 rounded-lg p-3">
+                <div className="text-red-400 font-bold text-xs mb-2">Errors ({debugLog.errors.length})</div>
+                <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+                  {debugLog.errors.map((error, index) => (
+                    <div key={index} className="text-red-300 text-xs font-mono">
+                      [{formatLogTime(error.timestamp, gameStartTime)}] {error.error}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gray-800/50 border border-gray-600/30 rounded-lg p-3">
+              <div className="text-gray-300 font-bold text-xs mb-2">Recent Events (Last 20)</div>
+              <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
+                {(() => {
+                  const allEvents: Array<{ timestamp: number; type: string; entry: any }> = [];
+                  
+                  debugLog.activations.forEach(entry => 
+                    allEvents.push({ timestamp: entry.timestamp, type: "activation", entry }));
+                  debugLog.clicks.forEach(entry => 
+                    allEvents.push({ timestamp: entry.timestamp, type: "click", entry }));
+                  debugLog.deactivations.forEach(entry => 
+                    allEvents.push({ timestamp: entry.timestamp, type: "deactivation", entry }));
+
+                  return allEvents
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .slice(0, 20)
+                    .map((event, index) => (
+                      <div key={index} className="text-gray-300 text-xs font-mono">
+                        {formatLogEntry(event.type, event.entry, gameStartTime)}
+                      </div>
+                    ));
+                })()}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-3">
+                <div className="text-green-400 font-bold text-xs mb-2">Click Accuracy</div>
+                <div className="text-green-300 text-xs">
+                  {debugLog.clicks.filter(c => c.clickResult === "correct").length} / {debugLog.clicks.length} 
+                  {debugLog.clicks.length > 0 && (
+                    <span className="text-green-400">
+                      {" "}({((debugLog.clicks.filter(c => c.clickResult === "correct").length / debugLog.clicks.length) * 100).toFixed(1)}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-3">
+                <div className="text-blue-400 font-bold text-xs mb-2">Reaction Times</div>
+                <div className="text-blue-300 text-xs">
+                  {(() => {
+                    const reactionTimes = debugLog.clicks
+                      .filter(click => click.reactionTime && click.clickResult === "correct")
+                      .map(click => click.reactionTime!);
+                    
+                    if (reactionTimes.length === 0) return "No data";
+                    
+                    const min = Math.min(...reactionTimes);
+                    const max = Math.max(...reactionTimes);
+                    
+                    return `${min}ms - ${max}ms`;
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (gameState.gameState === GameState.FINISHED && gameResult) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -619,7 +894,21 @@ export default function RotationGameManager() {
                 {gameResult.maxLevelReached}/10
               </div>
             </div>
+
+            {/* Debug Log Toggle */}
+            <div className="border-t border-orange-400/30 pt-4">
+              <button
+                onClick={() => setShowDebugLog(!showDebugLog)}
+                className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-orange-500/10 border border-orange-400/30 text-orange-300 rounded text-sm hover:bg-orange-500/20 transition-colors"
+              >
+                {showDebugLog ? <EyeOff size={16} /> : <Eye size={16} />}
+                <span>{showDebugLog ? "Hide Debug Info" : "Show Debug Info"}</span>
+              </button>
+            </div>
           </div>
+
+          {/* Debug Log Section */}
+          {renderDebugLogSection()}
 
           {(saveStatus.isLoading ||
             saveStatus.error ||
