@@ -111,7 +111,6 @@ export default function PhysicsGameManager() {
           gameStateRef.current.gameState === GameState.PLAYING && 
           !isGameEndingRef.current) {
         
-        console.log("[PhysicsGame] App minimized/hidden - ending game");
         endGame("app_minimized");
       }
       
@@ -122,7 +121,6 @@ export default function PhysicsGameManager() {
       // Дополнительная проверка при потере фокуса окна
       if (gameStateRef.current.gameState === GameState.PLAYING && 
           !isGameEndingRef.current) {
-        console.log("[PhysicsGame] Window lost focus - ending game");
         endGame("app_minimized");
       }
     };
@@ -144,7 +142,6 @@ export default function PhysicsGameManager() {
         tg.onEvent("viewportChanged", (params: any) => {
           if (params.isStateStable === false && 
               gameStateRef.current.gameState === GameState.PLAYING) {
-            console.log("[PhysicsGame] Telegram viewport changed - ending game");
             endGame("app_minimized");
           }
         });

@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Исправленная версия с логикой защиты от Survival Mode
+// src/game-modes/rotation/RotationGameManager.tsx - Complete version with visibility protection
 
 "use client";
 
@@ -211,8 +211,6 @@ export default function RotationGameManager() {
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
-
-  // Состояние для визуального эффекта мгновенно деактивированных кругов (аналогично Survival)
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] =
     useState<number[]>([]);
 
@@ -221,10 +219,123 @@ export default function RotationGameManager() {
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<RotationGameState>(gameState);
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
+  const lastVisibilityState = useRef<boolean>(true);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // Система обнаружения сворачивания приложения
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === "visible";
+      
+      if (!isVisible && lastVisibilityState.current && 
+          gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+      
+        endGame("app_minimized");
+      }
+      
+      lastVisibilityState.current = isVisible;
+    };
+
+    const handleWindowBlur = () => {
+      setTimeout(() => {
+        if (document.visibilityState !== "visible" &&
+            gameStateRef.current.gameState === GameState.PLAYING && 
+            !isGameEndingRef.current) {
+          endGame("app_minimized");
+        }
+      }, 100);
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+        endGame("app_minimized");
+      }
+    };
+
+    const handlePageHide = () => {
+      if (gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+        endGame("app_minimized");
+      }
+    };
+
+    // Специфичная обработка для Telegram Web App
+    const setupTelegramHandlers = () => {
+      if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+        const tg = window.Telegram.WebApp;
+        
+        const handleViewportChanged = (params: any) => {
+          if (params.isStateStable === false && 
+              gameStateRef.current.gameState === GameState.PLAYING && 
+              !isGameEndingRef.current) {
+            endGame("app_minimized");
+          }
+        };
+
+        const handleThemeChanged = () => {
+          if (gameStateRef.current.gameState === GameState.PLAYING && 
+              document.visibilityState !== "visible" && 
+              !isGameEndingRef.current) {
+            endGame("app_minimized");
+          }
+        };
+
+        tg.onEvent("viewportChanged", handleViewportChanged);
+        tg.onEvent("themeChanged", handleThemeChanged);
+
+        return () => {
+          tg.offEvent("viewportChanged", handleViewportChanged);
+          tg.offEvent("themeChanged", handleThemeChanged);
+        };
+      }
+      return () => {};
+    };
+
+    // Подписка на события
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+
+    const cleanupTelegram = setupTelegramHandlers();
+
+    // Дополнительная проверка для мобильных устройств
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      const handleOrientationChange = () => {
+        setTimeout(() => {
+          if (document.visibilityState !== "visible" &&
+              gameStateRef.current.gameState === GameState.PLAYING && 
+              !isGameEndingRef.current) {
+            endGame("app_minimized");
+          }
+        }, 300);
+      };
+
+      window.addEventListener("orientationchange", handleOrientationChange);
+
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        window.removeEventListener("blur", handleWindowBlur);
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        window.removeEventListener("pagehide", handlePageHide);
+        window.removeEventListener("orientationchange", handleOrientationChange);
+        cleanupTelegram();
+      };
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+      cleanupTelegram();
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -404,7 +515,7 @@ export default function RotationGameManager() {
   );
 
   const endGame = useCallback(
-    (cause: "miss" | "wrong_click" | "decoy_hit") => {
+    (cause: "miss" | "wrong_click" | "decoy_hit" | "app_minimized") => {
       if (isGameEndingRef.current) {
         return;
       }
@@ -433,6 +544,9 @@ export default function RotationGameManager() {
           case "decoy_hit":
             updatedStats.decoyHits = finalState.stats.decoyHits + 1;
             break;
+          case "app_minimized":
+            // Не увеличиваем счетчики ошибок при сворачивании
+            break;
         }
 
         const finalGameState = {
@@ -444,6 +558,10 @@ export default function RotationGameManager() {
         };
 
         const result = createRotationGameResult(finalGameState);
+        // Добавляем причину app_minimized если это было сворачивание
+        if (cause === "app_minimized") {
+          (result as any).deathCause = "app_minimized";
+        }
 
         setGameResult(result);
         handleSaveGameResult(result);
@@ -573,7 +691,6 @@ export default function RotationGameManager() {
     }, 50);
   }, [endGame]);
 
-  // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Упрощенная обработка кликов по образцу Survival Mode
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       const currentState = gameStateRef.current;
@@ -609,7 +726,6 @@ export default function RotationGameManager() {
 
         triggerHapticFeedback("success");
 
-        // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Немедленная визуальная деактивация как в Survival Mode
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
 
         const immediatelyDeactivatedState = deactivateRotationCircle(
@@ -620,7 +736,6 @@ export default function RotationGameManager() {
 
         setGameState(immediatelyDeactivatedState);
 
-        // Визуальный эффект убираем через короткое время
         setTimeout(() => {
           setInstantlyDeactivatedCircles((prev) =>
             prev.filter((id) => id !== circleId),
@@ -774,6 +889,8 @@ export default function RotationGameManager() {
         return <Target className="text-red-400" size={20} />;
       case "decoy_hit":
         return <AlertTriangle className="text-red-400" size={20} />;
+      case "app_minimized":
+        return <EyeOff className="text-gray-400" size={20} />;
       default:
         return <RotateCw className="text-red-400" size={20} />;
     }
@@ -785,6 +902,7 @@ export default function RotationGameManager() {
       wrong_click: "game.modes.rotation.deathCauses.wrongClick",
       decoy_hit: "game.modes.rotation.deathCauses.decoyHit",
       timeout: "game.modes.rotation.deathCauses.default",
+      app_minimized: "game.modes.physics.deathCauses.appMinimized",
     };
 
     const key =

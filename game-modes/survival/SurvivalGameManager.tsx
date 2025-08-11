@@ -1,13 +1,13 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with comprehensive debug panel for security testing
+// src/game-modes/survival/SurvivalGameManager.tsx - Complete version with visibility protection
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-
 import {
   Crosshair,
   AlertTriangle,
   RotateCcw,
+  EyeOff,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -32,7 +32,6 @@ import {
 } from "@/types/game-modes/survival";
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
-
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
@@ -65,7 +64,6 @@ const initialPlayAgainError: PlayAgainError = {
   redirecting: false,
 };
 
-
 const LEVEL_UPDATE_INTERVAL = 200;
 
 export default function SurvivalGameManager() {
@@ -95,10 +93,122 @@ export default function SurvivalGameManager() {
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
+  const lastVisibilityState = useRef<boolean>(true);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // Система обнаружения сворачивания приложения
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === "visible";
+      
+      if (!isVisible && lastVisibilityState.current && 
+          gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+        endGame("app_minimized");
+      }
+      
+      lastVisibilityState.current = isVisible;
+    };
+
+    const handleWindowBlur = () => {
+      setTimeout(() => {
+        if (document.visibilityState !== "visible" &&
+            gameStateRef.current.gameState === GameState.PLAYING && 
+            !isGameEndingRef.current) {
+          endGame("app_minimized");
+        }
+      }, 100);
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+        endGame("app_minimized");
+      }
+    };
+
+    const handlePageHide = () => {
+      if (gameStateRef.current.gameState === GameState.PLAYING && 
+          !isGameEndingRef.current) {
+        endGame("app_minimized");
+      }
+    };
+
+    // Специфичная обработка для Telegram Web App
+    const setupTelegramHandlers = () => {
+      if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+        const tg = window.Telegram.WebApp;
+        
+        const handleViewportChanged = (params: any) => {
+          if (params.isStateStable === false && 
+              gameStateRef.current.gameState === GameState.PLAYING && 
+              !isGameEndingRef.current) {
+            endGame("app_minimized");
+          }
+        };
+
+        const handleThemeChanged = () => {
+          if (gameStateRef.current.gameState === GameState.PLAYING && 
+              document.visibilityState !== "visible" && 
+              !isGameEndingRef.current) {
+            endGame("app_minimized");
+          }
+        };
+
+        tg.onEvent("viewportChanged", handleViewportChanged);
+        tg.onEvent("themeChanged", handleThemeChanged);
+
+        return () => {
+          tg.offEvent("viewportChanged", handleViewportChanged);
+          tg.offEvent("themeChanged", handleThemeChanged);
+        };
+      }
+      return () => {};
+    };
+
+    // Подписка на события
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+
+    const cleanupTelegram = setupTelegramHandlers();
+
+    // Дополнительная проверка для мобильных устройств
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      const handleOrientationChange = () => {
+        setTimeout(() => {
+          if (document.visibilityState !== "visible" &&
+              gameStateRef.current.gameState === GameState.PLAYING && 
+              !isGameEndingRef.current) {
+            endGame("app_minimized");
+          }
+        }, 300);
+      };
+
+      window.addEventListener("orientationchange", handleOrientationChange);
+
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        window.removeEventListener("blur", handleWindowBlur);
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        window.removeEventListener("pagehide", handlePageHide);
+        window.removeEventListener("orientationchange", handleOrientationChange);
+        cleanupTelegram();
+      };
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+      cleanupTelegram();
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -137,7 +247,6 @@ export default function SurvivalGameManager() {
     }
   }, [playAgainError.show, playAgainError.redirecting, router]);
 
-
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
       typeof window !== "undefined" &&
@@ -153,7 +262,6 @@ export default function SurvivalGameManager() {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
         const isNewBest = newScore > previousBest;
-
         setIsNewBestScore(isNewBest);
       }
     },
@@ -195,9 +303,11 @@ export default function SurvivalGameManager() {
             );
 
             if (!suspiciousActivityResponse.ok) {
+              console.warn("Failed to report suspicious activity");
             }
           }
         } catch (error) {
+          console.error("Error processing suspicious activity:", error);
         }
       };
 
@@ -268,7 +378,7 @@ export default function SurvivalGameManager() {
   );
 
   const endGame = useCallback(
-    (cause: "miss" | "wrong_click" | "decoy_hit") => {
+    (cause: "miss" | "wrong_click" | "decoy_hit" | "app_minimized") => {
       if (isGameEndingRef.current) {
         return;
       }
@@ -298,6 +408,9 @@ export default function SurvivalGameManager() {
           case "decoy_hit":
             updatedStats.decoyHits = finalState.stats.decoyHits + 1;
             break;
+          case "app_minimized":
+            // Не увеличиваем счетчики ошибок при сворачивании
+            break;
         }
 
         const finalGameState = {
@@ -309,9 +422,12 @@ export default function SurvivalGameManager() {
         };
 
         const result = createSurvivalGameResult(finalGameState);
+        // Добавляем причину app_minimized если это было сворачивание
+        if (cause === "app_minimized") {
+          (result as any).deathCause = "app_minimized";
+        }
 
         checkForNewBestScore(result.score);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -600,6 +716,8 @@ export default function SurvivalGameManager() {
         return <AlertTriangle className="text-red-400" size={20} />;
       case "decoy_hit":
         return <AlertTriangle className="text-red-400" size={20} />;
+      case "app_minimized":
+        return <EyeOff className="text-gray-400" size={20} />;
       default:
         return <Crosshair className="text-red-400" size={20} />;
     }
@@ -611,6 +729,7 @@ export default function SurvivalGameManager() {
       wrong_click: "game.modes.survival.deathCauses.wrongClick",
       decoy_hit: "game.modes.survival.deathCauses.decoyHit",
       timeout: "game.modes.survival.deathCauses.default",
+      app_minimized: "game.modes.physics.deathCauses.appMinimized",
     };
 
     const key =
