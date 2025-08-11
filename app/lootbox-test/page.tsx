@@ -179,12 +179,32 @@ const generateRewards = (lootboxType: LootboxType): Reward[] => {
   return rewards;
 };
 
-// ==== BACKGROUND ====
-const NeonGrid = () => (
-  <div className="absolute inset-0 z-0">
+// ==== ANIMATED BACKGROUND (Ripple Grid style from ReactBits) ====
+const AnimatedBackground = () => (
+  <div className="absolute inset-0 z-0 overflow-hidden">
     <div className="absolute inset-0 bg-black" />
-    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] animate-slow-pan" />
-    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-500/10 to-purple-500/10 mix-blend-screen" />
+    <div
+      className="absolute inset-0"
+      style={{
+        backgroundImage: `
+          radial-gradient(circle at center, rgba(255,255,255,0.05) 2px, transparent 2px),
+          linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px),
+          linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)
+        `,
+        backgroundSize: "60px 60px, 40px 40px, 40px 40px",
+        animation: "rippleGrid 6s ease-in-out infinite, gridPan 20s linear infinite",
+      }}
+    />
+    <style>{`
+      @keyframes gridPan {
+        from { background-position: 0 0, 0 0, 0 0; }
+        to { background-position: 0 0, 40px 40px, 40px 40px; }
+      }
+      @keyframes rippleGrid {
+        0%, 100% { background-size: 60px 60px, 40px 40px, 40px 40px; }
+        50% { background-size: 65px 65px, 40px 40px, 40px 40px; }
+      }
+    `}</style>
   </div>
 );
 
@@ -203,14 +223,8 @@ const PortalEffectWithParticles: React.FC<{ rarity: RarityType }> = ({
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const particles: {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      life: number;
-      size: number;
-    }[] = [];
+    const particles: any[] = [];
+    let frame = 0;
 
     const createParticles = () => {
       for (let i = 0; i < 8; i++) {
@@ -227,7 +241,6 @@ const PortalEffectWithParticles: React.FC<{ rarity: RarityType }> = ({
       }
     };
 
-    let frame = 0;
     const animate = () => {
       frame++;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -387,7 +400,7 @@ export default function LootboxDemo() {
 
   return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
-      <NeonGrid />
+      <AnimatedBackground />
 
       <div className="max-w-6xl mx-auto relative z-10 p-6">
         <div className="text-center mb-8">
