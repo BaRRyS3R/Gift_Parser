@@ -1,708 +1,763 @@
+// src/app/lootbox/page.tsx - Страница имитации открытия лутбоксов с анимациями
+
 "use client";
 
-// Enhanced Lootbox Test Page with OGL and Advanced Effects - Production Ready
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardBody, Button, Chip } from "@nextui-org/react";
+import { Package, Gift, Sparkles, Zap, ArrowLeft, Star, Crown, Gem } from "lucide-react";
+import ConfettiExplosion from "react-confetti-explosion";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Package, Sparkles, Zap, Star, Gift, Lock, ChevronRight, Gem, Crown, Shield, Swords } from 'lucide-react';
-import * as OGL from 'ogl';
+// Типы для системы лутбоксов
+enum CardRarity {
+  COMMON = "common",
+  RARE = "rare", 
+  LEGENDARY = "legendary",
+  EPIC = "epic"
+}
 
-// Type definitions
-type RarityType = 'common' | 'rare' | 'legendary' | 'epic';
+enum LootboxType {
+  BASIC = "basic",
+  PREMIUM = "premium",
+  ULTIMATE = "ultimate"
+}
 
-interface RarityConfig {
+interface Card {
+  id: string;
   name: string;
-  gradient: string;
-  color: string;
-  glowColor: string;
-  borderColor: string;
-  bgPattern: string;
-  particleColor: string;
-  meshColor: [number, number, number];
-  emissive: [number, number, number];
+  description: string;
+  rarity: CardRarity;
+  imageUrl: string;
+  collectionId: string;
+  issuedCount: number;
+  maxSupply?: number;
 }
 
 interface Lootbox {
-  id: number;
-  rarity: RarityType;
+  id: string;
+  type: LootboxType;
   name: string;
-  count: number;
-  locked: boolean;
-  icon: React.ElementType;
-}
-
-interface Reward {
-  id?: number;
-  type: 'card' | 'attempts' | 'gift';
-  name: string;
-  icon: string;
-  rarity?: RarityType;
   description: string;
-  value?: number;
+  imageUrl: string;
+  price: number;
+  guaranteedRarity?: CardRarity;
+  contents: {
+    cards: { count: number; rarityWeights: Record<CardRarity, number> };
+    bonusAttempts: { min: number; max: number; chance: number };
+    telegramGifts: { chance: number; possibleGifts: string[] };
+  };
 }
 
-interface FloatingElement {
-  id: number;
-  size: number;
-  x: number;
-  y: number;
-  duration: number;
-  delay: number;
+interface LootboxOpenResult {
+  cards: Card[];
+  bonusAttempts: number;
+  telegramGift?: { id: string; name: string; imageUrl: string };
 }
 
-// Rarity configuration with enhanced visuals
-const RARITY_CONFIG: Record<RarityType, RarityConfig> = {
-  common: {
-    name: 'Common',
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'from-slate-400 via-gray-400 to-slate-500',
-    glowColor: 'rgba(148, 163, 184, 0.6)',
-    borderColor: 'border-slate-400/50',
-    bgPattern: 'bg-gradient-to-br from-slate-900/90 via-gray-900/90 to-slate-800/90',
-    particleColor: '#94a3b8',
-    meshColor: [0.4, 0.45, 0.5],
-    emissive: [0.1, 0.1, 0.15]
+// Константы для цветовых схем редкости
+const RARITY_COLORS = {
+  [CardRarity.COMMON]: {
+    primary: "rgb(156, 163, 175)",
+    secondary: "rgb(75, 85, 99)",
+    glow: "rgba(156, 163, 175, 0.3)",
+    gradient: "from-gray-400 to-gray-600",
+    shadow: "shadow-gray-500/30"
   },
-  rare: {
-    name: 'Rare',
-    gradient: 'linear-gradient(135deg, #00c9ff 0%, #92fe9d 100%)',
-    color: 'from-blue-400 via-cyan-400 to-blue-500',
-    glowColor: 'rgba(6, 182, 212, 0.7)',
-    borderColor: 'border-cyan-400/60',
-    bgPattern: 'bg-gradient-to-br from-blue-950/90 via-cyan-900/90 to-blue-900/90',
-    particleColor: '#06b6d4',
-    meshColor: [0.2, 0.6, 0.9],
-    emissive: [0.1, 0.3, 0.5]
+  [CardRarity.RARE]: {
+    primary: "rgb(59, 130, 246)",
+    secondary: "rgb(29, 78, 216)",
+    glow: "rgba(59, 130, 246, 0.4)",
+    gradient: "from-blue-400 to-blue-600",
+    shadow: "shadow-blue-500/40"
   },
-  legendary: {
-    name: 'Legendary',
-    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    color: 'from-purple-400 via-pink-400 to-purple-500',
-    glowColor: 'rgba(192, 132, 252, 0.8)',
-    borderColor: 'border-purple-400/70',
-    bgPattern: 'bg-gradient-to-br from-purple-950/90 via-pink-900/90 to-purple-900/90',
-    particleColor: '#c084fc',
-    meshColor: [0.7, 0.3, 0.9],
-    emissive: [0.4, 0.2, 0.5]
+  [CardRarity.LEGENDARY]: {
+    primary: "rgb(168, 85, 247)",
+    secondary: "rgb(245, 158, 11)",
+    glow: "rgba(168, 85, 247, 0.5)",
+    gradient: "from-purple-500 via-pink-500 to-amber-500",
+    shadow: "shadow-purple-500/50"
   },
-  epic: {
-    name: 'Epic',
-    gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    color: 'from-amber-400 via-orange-400 to-red-500',
-    glowColor: 'rgba(251, 191, 36, 0.9)',
-    borderColor: 'border-amber-400/80',
-    bgPattern: 'bg-gradient-to-br from-orange-950/90 via-amber-900/90 to-red-900/90',
-    particleColor: '#fbbf24',
-    meshColor: [1.0, 0.7, 0.2],
-    emissive: [0.6, 0.4, 0.1]
+  [CardRarity.EPIC]: {
+    primary: "rgb(236, 72, 153)",
+    secondary: "rgb(59, 130, 246)",
+    glow: "rgba(236, 72, 153, 0.6)",
+    gradient: "from-pink-500 via-purple-500 via-blue-500 via-green-500 to-yellow-500",
+    shadow: "shadow-pink-500/60"
   }
 };
 
-// Enhanced lootbox data
-const LOOTBOXES: Lootbox[] = [
-  { id: 1, rarity: 'common', name: 'Starter Cache', count: 5, locked: false, icon: Shield },
-  { id: 2, rarity: 'rare', name: 'Mystic Vault', count: 3, locked: false, icon: Gem },
-  { id: 3, rarity: 'legendary', name: 'Royal Treasury', count: 1, locked: false, icon: Crown },
-  { id: 4, rarity: 'epic', name: 'Eternal Nexus', count: 0, locked: true, icon: Swords }
+// Mock данные
+const MOCK_LOOTBOXES: Lootbox[] = [
+  {
+    id: "basic_box",
+    type: LootboxType.BASIC,
+    name: "Basic Lootbox",
+    description: "Contains 3 cards with basic rewards",
+    imageUrl: "/images/lootbox-basic.png",
+    price: 50,
+    contents: {
+      cards: { count: 3, rarityWeights: { common: 0.7, rare: 0.25, legendary: 0.05, epic: 0 } },
+      bonusAttempts: { min: 1, max: 3, chance: 0.3 },
+      telegramGifts: { chance: 0.1, possibleGifts: ["star", "heart"] }
+    }
+  },
+  {
+    id: "premium_box", 
+    type: LootboxType.PREMIUM,
+    name: "Premium Lootbox",
+    description: "Contains 5 cards with improved odds",
+    imageUrl: "/images/lootbox-premium.png",
+    price: 150,
+    guaranteedRarity: CardRarity.RARE,
+    contents: {
+      cards: { count: 5, rarityWeights: { common: 0.4, rare: 0.45, legendary: 0.13, epic: 0.02 } },
+      bonusAttempts: { min: 3, max: 8, chance: 0.5 },
+      telegramGifts: { chance: 0.25, possibleGifts: ["star", "heart", "gift"] }
+    }
+  },
+  {
+    id: "ultimate_box",
+    type: LootboxType.ULTIMATE, 
+    name: "Ultimate Lootbox",
+    description: "Contains 7 cards with guaranteed legendary",
+    imageUrl: "/images/lootbox-ultimate.png",
+    price: 300,
+    guaranteedRarity: CardRarity.LEGENDARY,
+    contents: {
+      cards: { count: 7, rarityWeights: { common: 0.2, rare: 0.4, legendary: 0.3, epic: 0.1 } },
+      bonusAttempts: { min: 5, max: 15, chance: 0.8 },
+      telegramGifts: { chance: 0.4, possibleGifts: ["star", "heart", "gift", "trophy"] }
+    }
+  }
 ];
 
-// Enhanced rewards with better categorization
-const POSSIBLE_REWARDS: Record<RarityType, Reward[]> = {
-  common: [
-    { type: 'card', name: 'Shadow Walker', icon: '🌙', rarity: 'common', description: 'Basic stealth unit' },
-    { type: 'attempts', name: 'Energy Boost', icon: '⚡', value: 2, description: '+2 game attempts' },
-    { type: 'card', name: 'Iron Guardian', icon: '🛡️', rarity: 'common', description: 'Defensive unit' }
-  ],
-  rare: [
-    { type: 'card', name: 'Crystal Phoenix', icon: '🔷', rarity: 'rare', description: 'Mythical creature' },
-    { type: 'attempts', name: 'Power Surge', icon: '⚡', value: 5, description: '+5 game attempts' },
-    { type: 'gift', name: 'Blue Diamond', icon: '💎', description: 'Telegram premium gift' }
-  ],
-  legendary: [
-    { type: 'card', name: 'Void Emperor', icon: '👑', rarity: 'legendary', description: 'Ultimate ruler' },
-    { type: 'attempts', name: 'Mega Charge', icon: '⚡', value: 10, description: '+10 game attempts' },
-    { type: 'gift', name: 'Golden Crown', icon: '👑', description: 'Exclusive Telegram gift' }
-  ],
-  epic: [
-    { type: 'card', name: 'Cosmic Destroyer', icon: '🌌', rarity: 'epic', description: 'Reality bender' },
-    { type: 'attempts', name: 'Infinite Power', icon: '⚡', value: 20, description: '+20 game attempts' },
-    { type: 'gift', name: 'Eternal Flame', icon: '🔥', description: 'Legendary Telegram gift' }
-  ]
-};
-
-// OGL 3D Box Component Props
-interface LootboxCanvasProps {
+interface PageState {
+  selectedLootbox: Lootbox | null;
   isOpening: boolean;
-  rarity: RarityType;
-  onAnimationComplete?: () => void;
+  openingResult: LootboxOpenResult | null;
+  showResult: boolean;
+  animationPhase: "anticipation" | "opening" | "reveal" | "complete";
+  revealedCards: Card[];
+  showConfetti: boolean;
 }
 
-// OGL 3D Box Component
-function LootboxCanvas({ isOpening, rarity, onAnimationComplete }: LootboxCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<OGL.Renderer | null>(null);
-  const sceneRef = useRef<OGL.Transform | null>(null);
-  const meshRef = useRef<OGL.Mesh | null>(null);
-  const frameRef = useRef<number | null>(null);
+function LootboxPageContent() {
+  const router = useRouter();
 
+  const [state, setState] = useState<PageState>({
+    selectedLootbox: null,
+    isOpening: false, 
+    openingResult: null,
+    showResult: false,
+    animationPhase: "anticipation",
+    revealedCards: [],
+    showConfetti: false
+  });
+
+  const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, delay: number}>>([]);
+
+  // Настройка Telegram WebApp back button
   useEffect(() => {
-    if (!canvasRef.current) return;
-
-    const config = RARITY_CONFIG[rarity];
-    
-    // Create renderer
-    const renderer = new OGL.Renderer({
-      canvas: canvasRef.current,
-      width: 300,
-      height: 300,
-      dpr: 2,
-      alpha: true,
-      antialias: true
-    });
-    rendererRef.current = renderer;
-    
-    const gl = renderer.gl;
-    gl.clearColor(0, 0, 0, 0);
-
-    // Create camera
-    const camera = new OGL.Camera(gl, { fov: 45 });
-    camera.position.set(0, 0, 5);
-
-    // Create scene
-    const scene = new OGL.Transform();
-    sceneRef.current = scene;
-
-    // Create geometry
-    const geometry = new OGL.Box(gl, { width: 1.5, height: 1.5, depth: 1.5 });
-
-    // Create shader program with emissive glow
-    const program = new OGL.Program(gl, {
-      vertex: `
-        attribute vec3 position;
-        attribute vec3 normal;
-        attribute vec2 uv;
-        
-        uniform mat4 modelViewMatrix;
-        uniform mat4 projectionMatrix;
-        uniform mat3 normalMatrix;
-        
-        varying vec3 vNormal;
-        varying vec2 vUv;
-        varying vec3 vPosition;
-        
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vUv = uv;
-          vPosition = position;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragment: `
-        precision highp float;
-        
-        uniform vec3 uColor;
-        uniform vec3 uEmissive;
-        uniform float uTime;
-        uniform float uOpening;
-        
-        varying vec3 vNormal;
-        varying vec2 vUv;
-        varying vec3 vPosition;
-        
-        void main() {
-          vec3 normal = normalize(vNormal);
-          vec3 light = normalize(vec3(0.5, 1.0, 0.3));
-          float shading = dot(normal, light) * 0.5 + 0.5;
-          
-          // Edge glow effect
-          float fresnel = pow(1.0 - abs(dot(normal, vec3(0.0, 0.0, 1.0))), 2.0);
-          
-          // Pulsing emissive
-          float pulse = sin(uTime * 2.0) * 0.5 + 0.5;
-          vec3 emissive = uEmissive * (1.0 + pulse * 0.5) * (1.0 + fresnel);
-          
-          // Opening effect
-          float openGlow = uOpening * 2.0;
-          emissive += vec3(1.0, 1.0, 1.0) * openGlow * fresnel;
-          
-          // Holographic effect
-          float hologram = sin(vPosition.y * 10.0 + uTime * 3.0) * 0.1 + 0.9;
-          
-          vec3 color = uColor * shading * hologram + emissive;
-          float alpha = 0.9 + fresnel * 0.1 - uOpening * 0.5;
-          
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-      uniforms: {
-        uColor: { value: config.meshColor },
-        uEmissive: { value: config.emissive },
-        uTime: { value: 0 },
-        uOpening: { value: 0 }
-      }
-    });
-
-    // Create mesh
-    const mesh = new OGL.Mesh(gl, { geometry, program });
-    mesh.setParent(scene);
-    meshRef.current = mesh;
-
-    // Animation loop
-    let startTime = Date.now();
-    const animate = () => {
-      frameRef.current = requestAnimationFrame(animate);
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
       
-      const time = (Date.now() - startTime) * 0.001;
-      program.uniforms.uTime.value = time;
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        router.push("/main");
+      });
+
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => {});
+      };
+    }
+  }, [router]);
+
+  // Симуляция открытия лутбокса
+  const simulateLootboxOpen = (lootbox: Lootbox): LootboxOpenResult => {
+    const cards = [];
+    const cardsToGenerate = lootbox.contents.cards.count;
+    
+    for (let i = 0; i < cardsToGenerate; i++) {
+      const random = Math.random();
+      let rarity = CardRarity.COMMON;
+      let threshold = 0;
       
-      if (isOpening) {
-        // Opening animation
-        const openProgress = Math.min(time / 2, 1);
-        program.uniforms.uOpening.value = openProgress;
-        
-        mesh.rotation.x = time * 2;
-        mesh.rotation.y = time * 3;
-        mesh.scale.set(1 + openProgress * 0.5);
-        
-        if (openProgress >= 1 && onAnimationComplete) {
-          onAnimationComplete();
+      for (const [rarityKey, weight] of Object.entries(lootbox.contents.cards.rarityWeights)) {
+        threshold += weight;
+        if (random <= threshold) {
+          rarity = rarityKey as CardRarity;
+          break;
         }
-      } else {
-        // Idle animation
-        mesh.rotation.x = time * 0.3;
-        mesh.rotation.y = time * 0.5;
-        mesh.rotation.z = Math.sin(time) * 0.1;
       }
       
-      renderer.render({ scene, camera });
-    };
+      cards.push({
+        id: `card_${Date.now()}_${i}`,
+        name: `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} Card`,
+        description: `A magnificent ${rarity} rarity card from the Circusle collection`,
+        rarity,
+        imageUrl: `/images/card-${rarity}.png`,
+        collectionId: "circusle_collection",
+        issuedCount: Math.floor(Math.random() * 1000) + 1,
+        maxSupply: rarity === CardRarity.EPIC ? 100 : undefined
+      });
+    }
+
+    // Гарантированная редкость
+    if (lootbox.guaranteedRarity) {
+      const hasGuaranteed = cards.some(card => 
+        card.rarity === lootbox.guaranteedRarity ||
+        (lootbox.guaranteedRarity === CardRarity.RARE && 
+         [CardRarity.LEGENDARY, CardRarity.EPIC].includes(card.rarity))
+      );
+      
+      if (!hasGuaranteed && cards.length > 0) {
+        cards[0].rarity = lootbox.guaranteedRarity;
+        cards[0].name = `Guaranteed ${lootbox.guaranteedRarity.charAt(0).toUpperCase() + lootbox.guaranteedRarity.slice(1)} Card`;
+      }
+    }
+
+    // Сортируем по редкости для красивого показа
+    const rarityOrder = [CardRarity.COMMON, CardRarity.RARE, CardRarity.LEGENDARY, CardRarity.EPIC];
+    cards.sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
+
+    const bonusAttempts = Math.random() < lootbox.contents.bonusAttempts.chance
+      ? Math.floor(Math.random() * (lootbox.contents.bonusAttempts.max - lootbox.contents.bonusAttempts.min + 1)) + lootbox.contents.bonusAttempts.min
+      : 0;
+
+    const telegramGift = Math.random() < lootbox.contents.telegramGifts.chance
+      ? {
+          id: "gift_" + Date.now(),
+          name: "Special Telegram Gift",
+          imageUrl: "/images/telegram-gift.png"
+        }
+      : undefined;
+
+    return { cards, bonusAttempts, telegramGift };
+  };
+
+  const handleLootboxSelect = (lootbox: Lootbox) => {
+    setState(prev => ({ ...prev, selectedLootbox: lootbox }));
+  };
+
+  const handleOpenLootbox = async () => {
+    if (!state.selectedLootbox) return;
+
+    const result = simulateLootboxOpen(state.selectedLootbox);
     
-    animate();
+    setState(prev => ({ 
+      ...prev, 
+      isOpening: true, 
+      openingResult: result,
+      animationPhase: "anticipation",
+      revealedCards: [],
+      showConfetti: false
+    }));
 
-    // Cleanup
-    return () => {
-      if (frameRef.current) {
-        cancelAnimationFrame(frameRef.current);
-      }
-      if (rendererRef.current) {
-        rendererRef.current = null;
-      }
-    };
-  }, [isOpening, rarity, onAnimationComplete]);
-
-  return (
-    <canvas 
-      ref={canvasRef}
-      className="w-[300px] h-[300px]"
-      style={{ touchAction: 'none' }}
-    />
-  );
-}
-
-// Animation styles object
-const animationStyles = {
-  floatBubble: (duration: number, delay: number) => ({
-    animation: `lootboxFloatBubble ${duration}s ease-in-out infinite`,
-    animationDelay: `${delay}s`
-  }),
-  slideInUp: (index: number) => ({
-    animation: `lootboxSlideInUp 0.5s ease-out forwards`,
-    animationDelay: `${index * 0.1}s`,
-    opacity: 0
-  }),
-  rewardReveal: (index: number) => ({
-    animation: `lootboxRewardReveal 0.5s ease-out forwards`,
-    animationDelay: `${index * 0.15}s`,
-    opacity: 0
-  }),
-  sparkleRotate: {
-    animation: 'lootboxSparkleRotate 2s ease-in-out infinite'
-  },
-  progressFill: {
-    animation: 'lootboxProgressFill 2s ease-out forwards'
-  }
-};
-
-// Main Component
-export default function EnhancedLootboxPage() {
-  const [selectedLootbox, setSelectedLootbox] = useState<Lootbox | null>(null);
-  const [isOpening, setIsOpening] = useState(false);
-  const [revealedRewards, setRevealedRewards] = useState<Reward[]>([]);
-  const [showRewards, setShowRewards] = useState(false);
-  const [lootboxInventory, setLootboxInventory] = useState<Lootbox[]>(LOOTBOXES);
-  const [totalOpened, setTotalOpened] = useState(12);
-  const [cardsFound, setCardsFound] = useState(8);
-  const [floatingElements, setFloatingElements] = useState<FloatingElement[]>([]);
-
-  // Generate floating background elements
-  useEffect(() => {
-    const elements: FloatingElement[] = Array.from({ length: 15 }, (_, i) => ({
+    // Генерируем частицы для анимации
+    const newParticles = Array.from({ length: 20 }, (_, i) => ({
       id: i,
-      size: Math.random() * 30 + 10,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      duration: Math.random() * 20 + 10,
-      delay: Math.random() * 5
+      delay: Math.random() * 1000
     }));
-    setFloatingElements(elements);
-  }, []);
+    setParticles(newParticles);
 
-  const handleOpenLootbox = useCallback((lootbox: Lootbox) => {
-    if (lootbox.locked || lootbox.count === 0) return;
-    
-    // Haptic feedback for mobile
-    if (window.navigator?.vibrate) {
-      window.navigator.vibrate(50);
+    // Последовательность анимации
+    setTimeout(() => {
+      setState(prev => ({ ...prev, animationPhase: "opening" }));
+    }, 1500);
+
+    setTimeout(() => {
+      setState(prev => ({ ...prev, animationPhase: "reveal" }));
+      
+      // Последовательное раскрытие карточек
+      result.cards.forEach((card, index) => {
+        setTimeout(() => {
+          setState(prev => ({ 
+            ...prev, 
+            revealedCards: [...prev.revealedCards, card] 
+          }));
+          
+          // Показываем конфетти для редких карточек
+          if ([CardRarity.LEGENDARY, CardRarity.EPIC].includes(card.rarity)) {
+            setState(prev => ({ ...prev, showConfetti: true }));
+            setTimeout(() => {
+              setState(prev => ({ ...prev, showConfetti: false }));
+            }, 3000);
+          }
+        }, index * 800);
+      });
+    }, 3000);
+
+    setTimeout(() => {
+      setState(prev => ({ 
+        ...prev, 
+        animationPhase: "complete",
+        showResult: true,
+        isOpening: false 
+      }));
+    }, 3000 + result.cards.length * 800 + 1000);
+  };
+
+  const handleCloseResult = () => {
+    setState(prev => ({
+      ...prev,
+      selectedLootbox: null,
+      openingResult: null,
+      showResult: false,
+      revealedCards: [],
+      showConfetti: false
+    }));
+  };
+
+  const getLootboxTypeColor = (type: LootboxType) => {
+    switch (type) {
+      case LootboxType.BASIC:
+        return "from-gray-500 to-gray-700";
+      case LootboxType.PREMIUM:
+        return "from-blue-500 to-purple-600";
+      case LootboxType.ULTIMATE:
+        return "from-purple-600 to-pink-600";
+      default:
+        return "from-gray-500 to-gray-700";
     }
-    
-    setSelectedLootbox(lootbox);
-    setIsOpening(true);
-    setRevealedRewards([]);
-    setShowRewards(false);
-  }, []);
+  };
 
-  const handleOpeningComplete = useCallback(() => {
-    if (!selectedLootbox) return;
-    
-    // Generate rewards
-    const possibleRewards = POSSIBLE_REWARDS[selectedLootbox.rarity];
-    const numRewards = selectedLootbox.rarity === 'epic' ? 3 : selectedLootbox.rarity === 'legendary' ? 2 : 1;
-    const rewards: Reward[] = [];
-    
-    for (let i = 0; i < numRewards; i++) {
-      const randomReward = possibleRewards[Math.floor(Math.random() * possibleRewards.length)];
-      rewards.push({ ...randomReward, id: Date.now() + i });
+  const getLootboxIcon = (type: LootboxType) => {
+    switch (type) {
+      case LootboxType.BASIC:
+        return Package;
+      case LootboxType.PREMIUM:
+        return Gift;
+      case LootboxType.ULTIMATE:
+        return Sparkles;
+      default:
+        return Package;
     }
-    
-    setRevealedRewards(rewards);
-    setShowRewards(true);
-    setTotalOpened(prev => prev + 1);
-    setCardsFound(prev => prev + rewards.filter(r => r.type === 'card').length);
-    
-    // Update inventory
-    setLootboxInventory(prev => 
-      prev.map(box => 
-        box.id === selectedLootbox.id 
-          ? { ...box, count: Math.max(0, box.count - 1) }
-          : box
-      )
-    );
-  }, [selectedLootbox]);
+  };
 
-  const handleClose = useCallback(() => {
-    setSelectedLootbox(null);
-    setIsOpening(false);
-    setShowRewards(false);
-    setRevealedRewards([]);
-  }, []);
+  const getRarityIcon = (rarity: CardRarity) => {
+    switch (rarity) {
+      case CardRarity.COMMON:
+        return Star;
+      case CardRarity.RARE:
+        return Gem;
+      case CardRarity.LEGENDARY:
+        return Crown;
+      case CardRarity.EPIC:
+        return Sparkles;
+      default:
+        return Star;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden relative">
-      {/* Dynamic background with floating elements */}
-      <div className="fixed inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-950/40 via-black to-blue-950/40" />
-        {floatingElements.map(element => (
-          <div
-            key={element.id}
-            className="absolute rounded-full bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-sm"
-            style={{
-              width: `${element.size}px`,
-              height: `${element.size}px`,
-              left: `${element.x}%`,
-              top: `${element.y}%`,
-              ...animationStyles.floatBubble(element.duration, element.delay)
-            }}
+    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset relative overflow-hidden">
+      {/* Конфетти для редких карточек */}
+      {state.showConfetti && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+          <ConfettiExplosion
+            colors={["#FFD700", "#FF69B4", "#00BFFF", "#7B68EE", "#FF4500", "#32CD32"]}
+            duration={3000}
+            force={0.8}
+            particleCount={150}
+            width={600}
+            height={600}
           />
-        ))}
-        {/* Mesh gradient overlay */}
-        <div className="absolute inset-0" style={{
-          background: `
-            radial-gradient(ellipse at top left, rgba(120, 119, 198, 0.15) 0%, transparent 50%),
-            radial-gradient(ellipse at bottom right, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-            radial-gradient(ellipse at center, rgba(168, 85, 247, 0.1) 0%, transparent 50%)
-          `
-        }} />
-      </div>
+        </div>
+      )}
 
-      {/* Main content */}
-      <div className="relative z-10 p-4 pt-8 pb-24 min-h-screen">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <button className="p-3 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-all">
+      {/* Header */}
+      <div className="text-center space-y-4 mb-8 pt-6 relative z-10">
+        <div className="flex items-center justify-center space-x-4">
+          <button
+            onClick={() => router.push("/main")}
+            className="p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-all duration-300 hover:scale-110 border border-white/20"
+            aria-label="Back to main"
+          >
             <ArrowLeft size={20} />
           </button>
-          <div className="text-center">
-            <h1 className="text-2xl font-black tracking-wider">
-              <span className="bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
-                LOOTBOXES
-              </span>
-            </h1>
-            <p className="text-xs text-gray-400 mt-1 tracking-widest">COLLECTION SYSTEM</p>
-          </div>
-          <div className="w-11" />
+          <h1 className="text-5xl font-bold tracking-widest text-white animate-fade-in font-bpdots">
+            LOOTBOX
+          </h1>
+          <div className="w-12" />
         </div>
-
-        {/* Enhanced stats cards */}
-        <div className="grid grid-cols-3 gap-2 mb-6">
-          <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
-            <div className="relative bg-black/40 backdrop-blur-md rounded-xl p-3 border border-white/10">
-              <div className="text-xs text-cyan-400 mb-1 uppercase tracking-wider">Opened</div>
-              <div className="text-xl font-black">{totalOpened}</div>
-              <div className="absolute top-2 right-2 text-cyan-400 opacity-20">
-                <Package size={20} />
-              </div>
-            </div>
-          </div>
-          
-          <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
-            <div className="relative bg-black/40 backdrop-blur-md rounded-xl p-3 border border-white/10">
-              <div className="text-xs text-purple-400 mb-1 uppercase tracking-wider">Cards</div>
-              <div className="text-xl font-black">{cardsFound}</div>
-              <div className="absolute top-2 right-2 text-purple-400 opacity-20">
-                <Star size={20} />
-              </div>
-            </div>
-          </div>
-          
-          <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
-            <div className="relative bg-black/40 backdrop-blur-md rounded-xl p-3 border border-white/10">
-              <div className="text-xs text-amber-400 mb-1 uppercase tracking-wider">Rarest</div>
-              <div className="text-sm font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Legend</div>
-              <div className="absolute top-2 right-2 text-amber-400 opacity-20">
-                <Crown size={20} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Lootbox Grid with enhanced visuals */}
-        <div className="space-y-3 relative z-20">
-          {lootboxInventory.map((lootbox, index) => {
-            const config = RARITY_CONFIG[lootbox.rarity];
-            const Icon = lootbox.icon;
-            const isAvailable = !lootbox.locked && lootbox.count > 0;
-            
-            return (
-              <div
-                key={lootbox.id}
-                role={isAvailable ? "button" : "presentation"}
-                tabIndex={isAvailable ? 0 : -1}
-                onClick={() => handleOpenLootbox(lootbox)}
-                onKeyDown={(e) => {
-                  if (isAvailable && (e.key === 'Enter' || e.key === ' ')) {
-                    e.preventDefault();
-                    handleOpenLootbox(lootbox);
-                  }
-                }}
-                aria-label={`${lootbox.name} - ${lootbox.count} available`}
-                aria-disabled={!isAvailable}
-                className={`
-                  relative overflow-hidden rounded-2xl
-                  ${isAvailable ? 'cursor-pointer active:scale-[0.98]' : 'opacity-60'}
-                  transition-all duration-300 group
-                `}
-                style={{
-                  opacity: 1,
-                  animation: `lootboxSlideInUp 0.5s ease-out forwards`,
-                  animationDelay: `${index * 0.1}s`
-                }}
-              >
-                {/* Gradient background */}
-                <div className="absolute inset-0 opacity-20" style={{ background: config.gradient }} />
-                
-                {/* Glow effect */}
-                {isAvailable && (
-                  <div 
-                    className="absolute inset-0 opacity-0 group-hover:opacity-50 transition-opacity duration-500"
-                    style={{
-                      background: `radial-gradient(ellipse at center, ${config.glowColor} 0%, transparent 70%)`
-                    }}
-                  />
-                )}
-                
-                {/* Content */}
-                <div className="relative bg-black/70 backdrop-blur-md p-4 border border-white/20 group-hover:border-white/30 transition-all">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      {/* Icon container with animation */}
-                      <div className="relative">
-                        <div className={`
-                          w-12 h-12 rounded-xl bg-gradient-to-br ${config.color}
-                          flex items-center justify-center shadow-lg
-                          ${isAvailable ? 'group-hover:scale-110 group-hover:rotate-3' : ''}
-                          transition-all duration-300
-                        `}>
-                          <Icon size={20} className="text-white" />
-                        </div>
-                        {isAvailable && (
-                          <div className={`
-                            absolute inset-0 rounded-xl bg-gradient-to-br ${config.color}
-                            blur-md opacity-30 group-hover:opacity-50 transition-opacity
-                          `} />
-                        )}
-                      </div>
-                      
-                      {/* Text */}
-                      <div>
-                        <div className="font-bold text-base">{lootbox.name}</div>
-                        <div className="text-xs text-gray-400">
-                          <span className={`
-                            inline-block px-2 py-0.5 rounded-full text-xs
-                            bg-gradient-to-r ${config.color} bg-clip-text text-transparent font-bold
-                          `}>
-                            {config.name.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Count or lock status */}
-                    <div className="text-right">
-                      {lootbox.locked ? (
-                        <div className="flex flex-col items-center">
-                          <Lock size={18} className="text-gray-500 mb-1" />
-                          <span className="text-xs text-gray-500">LOCKED</span>
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <div className="text-2xl font-black tabular-nums">{lootbox.count}</div>
-                          <div className="text-xs text-gray-400 uppercase tracking-wider">Available</div>
-                          {lootbox.count > 0 && (
-                            <ChevronRight 
-                              size={18} 
-                              className="absolute -right-5 top-1/2 -translate-y-1/2 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all" 
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in-slow">
+          Discover rare collectibles and rewards
+        </p>
       </div>
 
-      {/* Opening Modal with OGL */}
-      {selectedLootbox && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl">
-          <div className="relative w-full max-w-md">
-            {!showRewards ? (
-              // Opening animation with OGL
-              <div className="text-center">
-                <div className="flex justify-center mb-8">
-                  <LootboxCanvas 
-                    isOpening={isOpening}
-                    rarity={selectedLootbox.rarity}
-                    onAnimationComplete={handleOpeningComplete}
-                  />
+      {/* Анимация открытия лутбокса */}
+      {state.isOpening && state.selectedLootbox && (
+        <div className="fixed inset-0 bg-black z-40 flex items-center justify-center">
+          {/* Фоновые частицы */}
+          <div className="absolute inset-0 overflow-hidden">
+            {particles.map((particle) => (
+              <div
+                key={particle.id}
+                className="absolute w-2 h-2 bg-white rounded-full opacity-60"
+                style={{
+                  left: `${particle.x}%`,
+                  top: `${particle.y}%`,
+                  animation: `float-gentle 3s ease-in-out infinite`,
+                  animationDelay: `${particle.delay}ms`
+                }}
+              />
+            ))}
+          </div>
+
+          <div className="text-center space-y-8 relative z-10">
+            {/* Фаза ожидания */}
+            {state.animationPhase === "anticipation" && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="text-3xl font-bold text-white font-bpdots">
+                  Opening {state.selectedLootbox.name}...
                 </div>
-                
-                <h2 className="text-3xl font-black mb-2">
-                  <span className={`bg-gradient-to-r ${RARITY_CONFIG[selectedLootbox.rarity].color} bg-clip-text text-transparent`}>
-                    {isOpening ? 'OPENING...' : selectedLootbox.name.toUpperCase()}
-                  </span>
-                </h2>
-                <p className="text-gray-400 text-sm tracking-wider">
-                  {isOpening ? 'Revealing treasures...' : 'Tap to continue'}
-                </p>
-                
-                {/* Progress bar */}
-                {isOpening && (
-                  <div className="mt-6 w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full bg-gradient-to-r ${RARITY_CONFIG[selectedLootbox.rarity].color} rounded-full`}
-                      style={animationStyles.progressFill}
-                    />
+                <div className="w-32 h-32 mx-auto relative">
+                  <div className={`w-full h-full rounded-xl bg-gradient-to-br ${getLootboxTypeColor(state.selectedLootbox.type)} animate-pulse-gentle border-4 border-white/30`}>
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package size={48} className="text-white" />
+                    </div>
                   </div>
-                )}
+                  {/* Пульсирующее кольцо */}
+                  <div className="absolute inset-0 rounded-xl border-4 border-white/60 animate-ping" />
+                </div>
               </div>
-            ) : (
-              // Rewards display with enhanced animations
-              <div className="text-center">
-                <div className="mb-6">
-                  <Sparkles className="w-16 h-16 mx-auto text-yellow-400 mb-4" 
-                    style={animationStyles.sparkleRotate} />
-                  <h2 className="text-3xl font-black mb-2">REWARDS UNLOCKED!</h2>
-                  <p className="text-gray-400 text-sm">Tap items to collect</p>
+            )}
+
+            {/* Фаза открытия */}
+            {state.animationPhase === "opening" && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="text-3xl font-bold text-white font-bpdots animate-pulse">
+                  Opening...
+                </div>
+                <div className="w-40 h-40 mx-auto relative">
+                  <div className={`w-full h-full rounded-xl bg-gradient-to-br ${getLootboxTypeColor(state.selectedLootbox.type)} animate-spin-slow border-4 border-white/50`}>
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Sparkles size={56} className="text-white animate-pulse" />
+                    </div>
+                  </div>
+                  {/* Множественные пульсирующие кольца */}
+                  <div className="absolute inset-0 rounded-xl border-4 border-white/80 animate-ping" />
+                  <div className="absolute inset-2 rounded-xl border-2 border-white/60 animate-ping" style={{ animationDelay: "0.5s" }} />
+                  <div className="absolute inset-4 rounded-xl border-2 border-white/40 animate-ping" style={{ animationDelay: "1s" }} />
+                </div>
+              </div>
+            )}
+
+            {/* Фаза раскрытия */}
+            {state.animationPhase === "reveal" && (
+              <div className="space-y-8 animate-fade-in">
+                <div className="text-4xl font-bold text-white font-bpdots">
+                  Rewards Revealed!
                 </div>
                 
-                <div className="space-y-4 mb-8">
-                  {revealedRewards.map((reward, index) => {
-                    const rewardConfig = RARITY_CONFIG[reward.rarity || selectedLootbox.rarity];
+                {/* Сетка карточек в стиле игры */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-4xl mx-auto p-4">
+                  {state.openingResult?.cards.map((card, index) => {
+                    const isRevealed = state.revealedCards.some(c => c.id === card.id);
+                    const RarityIcon = getRarityIcon(card.rarity);
+                    
                     return (
                       <div
-                        key={reward.id}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                          }
+                        key={card.id}
+                        className={`
+                          relative w-32 h-32 rounded-xl transition-all duration-800 ease-out
+                          ${isRevealed ? 'opacity-100 scale-100' : 'opacity-30 scale-75'}
+                        `}
+                        style={{ 
+                          animationDelay: `${index * 100}ms`,
+                          filter: isRevealed ? 'none' : 'blur(8px)'
                         }}
-                        aria-label={`${reward.name} - ${reward.description}`}
-                        className="relative group cursor-pointer"
-                        style={animationStyles.rewardReveal(index)}
                       >
-                        {/* Glow background */}
-                        <div 
-                          className="absolute inset-0 rounded-2xl opacity-20 group-hover:opacity-40 transition-opacity"
-                          style={{ 
-                            background: `linear-gradient(135deg, ${rewardConfig.glowColor} 0%, transparent 100%)` 
-                          }}
-                        />
-                        
-                        {/* Card content */}
-                        <div className="relative bg-black/40 backdrop-blur-md rounded-2xl p-5 border border-white/20 group-hover:border-white/40 transition-all">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <div className="text-3xl transform group-hover:scale-110 group-hover:rotate-12 transition-transform">
-                                {reward.icon}
+                        {/* Основная карточка */}
+                        <div className={`
+                          w-full h-full rounded-xl bg-gradient-to-br ${RARITY_COLORS[card.rarity].gradient}
+                          border-4 border-white/40 relative overflow-hidden
+                          ${isRevealed ? `${RARITY_COLORS[card.rarity].shadow} shadow-2xl` : ''}
+                        `}>
+                          {/* Свечение фона */}
+                          {isRevealed && (
+                            <div 
+                              className="absolute inset-0 opacity-20 animate-pulse-slow"
+                              style={{ backgroundColor: RARITY_COLORS[card.rarity].glow }}
+                            />
+                          )}
+                          
+                          {/* Содержимое карточки */}
+                          <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-2 space-y-2">
+                            <RarityIcon size={32} className="text-white" />
+                            <div className="text-center">
+                              <div className="text-xs font-bold text-white leading-tight">
+                                {card.name}
                               </div>
-                              <div className="text-left">
-                                <div className="font-bold text-lg">{reward.name}</div>
-                                <div className="text-xs text-gray-400">{reward.description}</div>
-                                <div className={`
-                                  inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold
-                                  bg-gradient-to-r ${rewardConfig.color} bg-clip-text text-transparent
-                                `}>
-                                  {reward.type.toUpperCase()}
-                                </div>
-                              </div>
+                              <Chip 
+                                size="sm" 
+                                className="bg-white/20 text-white text-xs mt-1"
+                              >
+                                {card.rarity.toUpperCase()}
+                              </Chip>
                             </div>
-                            {reward.type === 'attempts' && (
-                              <div className="text-2xl font-black text-green-400 animate-pulse">
-                                +{reward.value}
-                              </div>
-                            )}
                           </div>
+
+                          {/* Анимация появления для редких карточек */}
+                          {isRevealed && [CardRarity.LEGENDARY, CardRarity.EPIC].includes(card.rarity) && (
+                            <>
+                              <div className="absolute inset-0 rounded-xl border-4 border-white/80 animate-ping" />
+                              <div className="absolute inset-2 rounded-lg border-2 border-white/60 animate-ping" style={{ animationDelay: "0.3s" }} />
+                            </>
+                          )}
                         </div>
+
+                        {/* Частицы для эпических карточек */}
+                        {isRevealed && card.rarity === CardRarity.EPIC && (
+                          <div className="absolute inset-0 pointer-events-none">
+                            {Array.from({ length: 8 }).map((_, i) => (
+                              <div
+                                key={i}
+                                className="absolute w-1 h-1 bg-white rounded-full animate-ping"
+                                style={{
+                                  left: `${20 + (i * 10)}%`,
+                                  top: `${20 + (i * 10)}%`,
+                                  animationDelay: `${i * 200}ms`
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                
-                <button
-                  onClick={handleClose}
-                  className="w-full py-4 rounded-2xl font-black text-lg tracking-wider
-                    bg-gradient-to-r from-purple-600 to-blue-600 
-                    hover:from-purple-500 hover:to-blue-500
-                    transform hover:scale-[1.02] active:scale-[0.98]
-                    transition-all duration-200 shadow-2xl"
-                  style={{
-                    boxShadow: '0 10px 40px rgba(139, 92, 246, 0.3)'
-                  }}
-                >
-                  COLLECT ALL
-                </button>
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* Результат открытия */}
+      {state.showResult && state.openingResult && (
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="bg-gradient-to-br from-white/15 to-white/5 border-2 border-white/30 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <CardBody className="p-8">
+              <div className="text-center space-y-8">
+                <h2 className="text-4xl font-bold text-white font-bpdots animate-fade-in">
+                  Lootbox Opened Successfully!
+                </h2>
+                
+                {/* Детальный просмотр карточек */}
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-semibold text-white/90">Cards Received:</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {state.openingResult.cards.map((card, index) => {
+                      const RarityIcon = getRarityIcon(card.rarity);
+                      
+                      return (
+                        <div 
+                          key={card.id}
+                          className={`
+                            p-6 rounded-xl bg-gradient-to-br ${RARITY_COLORS[card.rarity].gradient}
+                            border-2 border-white/30 hover:border-white/50 transition-all duration-300
+                            hover:scale-105 ${RARITY_COLORS[card.rarity].shadow} shadow-xl
+                            animate-fade-in-up
+                          `}
+                          style={{ animationDelay: `${index * 150}ms` }}
+                        >
+                          <div className="text-center space-y-4">
+                            <div className="w-16 h-16 mx-auto bg-white/20 rounded-full flex items-center justify-center">
+                              <RarityIcon size={32} className="text-white" />
+                            </div>
+                            <div className="space-y-2">
+                              <h4 className="font-bold text-lg text-white">{card.name}</h4>
+                              <p className="text-white/80 text-sm">{card.description}</p>
+                              <div className="flex items-center justify-center space-x-2">
+                                <Chip 
+                                  size="sm" 
+                                  className="bg-white/25 text-white font-semibold"
+                                >
+                                  {card.rarity.toUpperCase()}
+                                </Chip>
+                                <span className="text-white/70 text-xs">
+                                  #{card.issuedCount}
+                                  {card.maxSupply && ` / ${card.maxSupply}`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Дополнительные награды */}
+                <div className="space-y-4">
+                  {state.openingResult.bonusAttempts > 0 && (
+                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-400/40 rounded-xl p-6 animate-fade-in-up">
+                      <div className="flex items-center justify-center space-x-3">
+                        <Zap className="text-green-400" size={28} />
+                        <span className="text-green-300 font-bold text-xl">
+                          +{state.openingResult.bonusAttempts} Bonus Attempts Received!
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {state.openingResult.telegramGift && (
+                    <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-2 border-blue-400/40 rounded-xl p-6 animate-fade-in-up">
+                      <div className="flex items-center justify-center space-x-3">
+                        <Gift className="text-blue-400" size={28} />
+                        <span className="text-blue-300 font-bold text-xl">
+                          Special Telegram Gift Unlocked!
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  onPress={handleCloseResult}
+                  className="bg-gradient-to-r from-white/20 to-white/10 text-white hover:from-white/30 hover:to-white/20 transition-all duration-300 border-2 border-white/30 hover:border-white/50 font-bold text-lg px-8 py-4"
+                  size="lg"
+                >
+                  Continue Collecting
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      {/* Основной контент - выбор лутбокса */}
+      {!state.isOpening && !state.showResult && (
+        <div className="max-w-6xl mx-auto space-y-10 relative z-10">
+          {/* Доступные лутбоксы */}
+          <section className="space-y-6">
+            <h2 className="text-3xl font-bold text-white text-center font-bpdots">Available Lootboxes</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {MOCK_LOOTBOXES.map((lootbox) => {
+                const IconComponent = getLootboxIcon(lootbox.type);
+                const isSelected = state.selectedLootbox?.id === lootbox.id;
+                
+                return (
+                  <Card 
+                    key={lootbox.id}
+                    isPressable
+                    onPress={() => handleLootboxSelect(lootbox)}
+                    className={`
+                      bg-gradient-to-br ${getLootboxTypeColor(lootbox.type)} 
+                      border-3 transition-all duration-500 hover:scale-105 hover:shadow-2xl
+                      ${isSelected 
+                        ? 'border-white ring-4 ring-white/50 scale-105 shadow-2xl' 
+                        : 'border-white/30 hover:border-white/60'
+                      }
+                      relative overflow-hidden group
+                    `}
+                  >
+                    {/* Фоновое свечение */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    
+                    <CardBody className="p-8 text-center space-y-6 relative z-10">
+                      <div className="relative">
+                        <IconComponent size={64} className="mx-auto text-white drop-shadow-lg" />
+                        {isSelected && (
+                          <div className="absolute inset-0 animate-ping">
+                            <IconComponent size={64} className="mx-auto text-white opacity-50" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="font-bold text-2xl text-white">{lootbox.name}</h3>
+                        <p className="text-white/80 text-base leading-relaxed">{lootbox.description}</p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="text-white font-bold text-xl flex items-center justify-center space-x-2">
+                          <Star size={20} />
+                          <span>{lootbox.price}</span>
+                        </div>
+                        
+                        {lootbox.guaranteedRarity && (
+                          <Chip 
+                            size="lg"
+                            className={`bg-gradient-to-r ${RARITY_COLORS[lootbox.guaranteedRarity].gradient} text-white font-bold border-2 border-white/30`}
+                          >
+                            Guaranteed {lootbox.guaranteedRarity.charAt(0).toUpperCase() + lootbox.guaranteedRarity.slice(1)}
+                          </Chip>
+                        )}
+                        
+                        <div className="text-white/70 text-sm">
+                          {lootbox.contents.cards.count} cards included
+                        </div>
+                      </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Кнопка открытия */}
+          {state.selectedLootbox && (
+            <div className="text-center space-y-4">
+              <div className="animate-pulse-gentle">
+                <Button
+                  onPress={handleOpenLootbox}
+                  size="lg"
+                  className={`
+                    bg-gradient-to-r ${getLootboxTypeColor(state.selectedLootbox.type)}
+                    text-white font-bold px-12 py-6 text-xl font-bpdots
+                    hover:scale-110 transition-all duration-500
+                    shadow-2xl hover:shadow-3xl border-3 border-white/40 hover:border-white/80
+                    relative overflow-hidden group
+                  `}
+                  startContent={<Package size={28} />}
+                >
+                  {/* Фоновая анимация */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <span className="relative z-10">
+                    OPEN {state.selectedLootbox.name.toUpperCase()}
+                  </span>
+                </Button>
+              </div>
+              
+              <p className="text-white/60 text-sm">
+                Click to open and discover your rewards!
+              </p>
+            </div>
+          )}
+
+          {/* Информация о шансах */}
+          <section className="bg-gradient-to-br from-white/5 to-white/2 border border-white/20 rounded-xl p-6 space-y-4">
+            <h3 className="text-xl font-bold text-white text-center">Drop Rates Information</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              {Object.entries(RARITY_COLORS).map(([rarity, colors]) => {
+                const RarityIcon = getRarityIcon(rarity as CardRarity);
+                return (
+                  <div key={rarity} className="space-y-2">
+                    <RarityIcon size={24} className="mx-auto text-white" />
+                    <div className="text-sm font-semibold text-white capitalize">{rarity}</div>
+                    <div className="text-xs text-white/70">
+                      {rarity === 'common' && '60-70%'}
+                      {rarity === 'rare' && '25-45%'}
+                      {rarity === 'legendary' && '5-30%'}
+                      {rarity === 'epic' && '2-10%'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function LootboxPage() {
+  return (
+      <LootboxPageContent />
   );
 }
