@@ -424,9 +424,9 @@ export default function EnhancedLootboxPage() {
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 p-4 pt-12">
+      <div className="relative z-10 p-4 pt-8 pb-24 min-h-screen">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <button className="p-3 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-all">
             <ArrowLeft size={20} />
           </button>
@@ -442,43 +442,43 @@ export default function EnhancedLootboxPage() {
         </div>
 
         {/* Enhanced stats cards */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
+        <div className="grid grid-cols-3 gap-2 mb-6">
           <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
-            <div className="relative bg-black/40 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-              <div className="text-xs text-cyan-400 mb-2 uppercase tracking-wider">Opened</div>
-              <div className="text-2xl font-black">{totalOpened}</div>
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
+            <div className="relative bg-black/40 backdrop-blur-md rounded-xl p-3 border border-white/10">
+              <div className="text-xs text-cyan-400 mb-1 uppercase tracking-wider">Opened</div>
+              <div className="text-xl font-black">{totalOpened}</div>
               <div className="absolute top-2 right-2 text-cyan-400 opacity-20">
-                <Package size={24} />
+                <Package size={20} />
               </div>
             </div>
           </div>
           
           <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
-            <div className="relative bg-black/40 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-              <div className="text-xs text-purple-400 mb-2 uppercase tracking-wider">Cards</div>
-              <div className="text-2xl font-black">{cardsFound}</div>
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
+            <div className="relative bg-black/40 backdrop-blur-md rounded-xl p-3 border border-white/10">
+              <div className="text-xs text-purple-400 mb-1 uppercase tracking-wider">Cards</div>
+              <div className="text-xl font-black">{cardsFound}</div>
               <div className="absolute top-2 right-2 text-purple-400 opacity-20">
-                <Star size={24} />
+                <Star size={20} />
               </div>
             </div>
           </div>
           
           <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all" />
-            <div className="relative bg-black/40 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-              <div className="text-xs text-amber-400 mb-2 uppercase tracking-wider">Rarest</div>
-              <div className="text-xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Legend</div>
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all" />
+            <div className="relative bg-black/40 backdrop-blur-md rounded-xl p-3 border border-white/10">
+              <div className="text-xs text-amber-400 mb-1 uppercase tracking-wider">Rarest</div>
+              <div className="text-sm font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Legend</div>
               <div className="absolute top-2 right-2 text-amber-400 opacity-20">
-                <Crown size={24} />
+                <Crown size={20} />
               </div>
             </div>
           </div>
         </div>
 
         {/* Lootbox Grid with enhanced visuals */}
-        <div className="space-y-4">
+        <div className="space-y-3 relative z-20">
           {lootboxInventory.map((lootbox, index) => {
             const config = RARITY_CONFIG[lootbox.rarity];
             const Icon = lootbox.icon;
@@ -499,19 +499,23 @@ export default function EnhancedLootboxPage() {
                 aria-label={`${lootbox.name} - ${lootbox.count} available`}
                 aria-disabled={!isAvailable}
                 className={`
-                  relative overflow-hidden rounded-3xl
+                  relative overflow-hidden rounded-2xl
                   ${isAvailable ? 'cursor-pointer active:scale-[0.98]' : 'opacity-60'}
                   transition-all duration-300 group
                 `}
-                style={animationStyles.slideInUp(index)}
+                style={{
+                  opacity: 1,
+                  animation: `lootboxSlideInUp 0.5s ease-out forwards`,
+                  animationDelay: `${index * 0.1}s`
+                }}
               >
                 {/* Gradient background */}
-                <div className="absolute inset-0" style={{ background: config.gradient, opacity: 0.1 }} />
+                <div className="absolute inset-0 opacity-20" style={{ background: config.gradient }} />
                 
                 {/* Glow effect */}
                 {isAvailable && (
                   <div 
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    className="absolute inset-0 opacity-0 group-hover:opacity-50 transition-opacity duration-500"
                     style={{
                       background: `radial-gradient(ellipse at center, ${config.glowColor} 0%, transparent 70%)`
                     }}
@@ -519,31 +523,31 @@ export default function EnhancedLootboxPage() {
                 )}
                 
                 {/* Content */}
-                <div className="relative bg-black/60 backdrop-blur-xl p-5 border border-white/10 group-hover:border-white/20 transition-all">
+                <div className="relative bg-black/70 backdrop-blur-md p-4 border border-white/20 group-hover:border-white/30 transition-all">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-3">
                       {/* Icon container with animation */}
                       <div className="relative">
                         <div className={`
-                          w-14 h-14 rounded-2xl bg-gradient-to-br ${config.color}
-                          flex items-center justify-center shadow-2xl
+                          w-12 h-12 rounded-xl bg-gradient-to-br ${config.color}
+                          flex items-center justify-center shadow-lg
                           ${isAvailable ? 'group-hover:scale-110 group-hover:rotate-3' : ''}
                           transition-all duration-300
                         `}>
-                          <Icon size={24} className="text-white" />
+                          <Icon size={20} className="text-white" />
                         </div>
                         {isAvailable && (
                           <div className={`
-                            absolute inset-0 rounded-2xl bg-gradient-to-br ${config.color}
-                            blur-xl opacity-50 group-hover:opacity-70 transition-opacity
+                            absolute inset-0 rounded-xl bg-gradient-to-br ${config.color}
+                            blur-md opacity-30 group-hover:opacity-50 transition-opacity
                           `} />
                         )}
                       </div>
                       
                       {/* Text */}
                       <div>
-                        <div className="font-bold text-lg">{lootbox.name}</div>
-                        <div className="text-sm text-gray-400">
+                        <div className="font-bold text-base">{lootbox.name}</div>
+                        <div className="text-xs text-gray-400">
                           <span className={`
                             inline-block px-2 py-0.5 rounded-full text-xs
                             bg-gradient-to-r ${config.color} bg-clip-text text-transparent font-bold
@@ -558,17 +562,17 @@ export default function EnhancedLootboxPage() {
                     <div className="text-right">
                       {lootbox.locked ? (
                         <div className="flex flex-col items-center">
-                          <Lock size={20} className="text-gray-500 mb-1" />
+                          <Lock size={18} className="text-gray-500 mb-1" />
                           <span className="text-xs text-gray-500">LOCKED</span>
                         </div>
                       ) : (
                         <div className="relative">
-                          <div className="text-3xl font-black tabular-nums">{lootbox.count}</div>
+                          <div className="text-2xl font-black tabular-nums">{lootbox.count}</div>
                           <div className="text-xs text-gray-400 uppercase tracking-wider">Available</div>
                           {lootbox.count > 0 && (
                             <ChevronRight 
-                              size={20} 
-                              className="absolute -right-6 top-1/2 -translate-y-1/2 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all" 
+                              size={18} 
+                              className="absolute -right-5 top-1/2 -translate-y-1/2 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all" 
                             />
                           )}
                         </div>
