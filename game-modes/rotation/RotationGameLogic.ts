@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameLogic.ts - Исправленная версия с логикой защиты от Survival Mode
+// src/game-modes/rotation/RotationGameLogic.ts - Cleaned version without debug logging
 
 import {
   RotationGameConfig,
@@ -7,12 +7,6 @@ import {
   RotationGameState,
   RotationLevelConfig,
   RotationCircle,
-  CircleActivationLog,
-  CircleClickLog,
-  CircleDeactivationLog,
-  LevelTransitionLog,
-  GameEventLog,
-  GameDebugLog,
 } from "@/types/game-modes/rotation";
 import { GameState, GameMode } from "@/types/game-modes/common";
 
@@ -134,151 +128,6 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
 ];
 
-// Enhanced logging system
-const createEmptyDebugLog = (): GameDebugLog => ({
-  activations: [],
-  clicks: [],
-  deactivations: [],
-  levelTransitions: [],
-  events: [],
-  errors: [],
-});
-
-const logError = (debugLog: GameDebugLog, error: string, context: any): void => {
-  debugLog.errors.push({
-    timestamp: Date.now(),
-    error,
-    context,
-  });
-  console.error(`[RotationGame] ${error}`, context);
-};
-
-const logEvent = (
-  debugLog: GameDebugLog,
-  type: GameEventLog["type"],
-  level: number,
-  data: any,
-  gameStartTime: number
-): void => {
-  const timestamp = Date.now();
-  debugLog.events.push({
-    type,
-    timestamp,
-    gameTime: timestamp - gameStartTime,
-    level,
-    data,
-  });
-  console.log(`[RotationGame] ${type}`, { level, gameTime: timestamp - gameStartTime, data });
-};
-
-const logCircleActivation = (
-  debugLog: GameDebugLog,
-  circleId: number,
-  level: number,
-  isDecoy: boolean,
-  activeTime: number,
-  position: { x: number; y: number },
-  gameStartTime: number
-): void => {
-  const timestamp = Date.now();
-  const activationLog: CircleActivationLog = {
-    circleId,
-    timestamp,
-    level,
-    isDecoy,
-    scheduledDeactivationTime: timestamp + activeTime,
-    position,
-    gameTime: timestamp - gameStartTime,
-  };
-
-  debugLog.activations.push(activationLog);
-  console.log(`[RotationGame] Circle ${circleId} activated`, activationLog);
-};
-
-const logCircleClick = (
-  debugLog: GameDebugLog,
-  circleId: number,
-  level: number,
-  clickResult: CircleClickLog["clickResult"],
-  circleState: {
-    isActive: boolean;
-    isDecoy: boolean;
-    isAnimating: boolean;
-  },
-  position: { x: number; y: number },
-  gameStartTime: number,
-  debounceBlocked: boolean = false
-): void => {
-  const timestamp = Date.now();
-
-  const activationEntry = debugLog.activations
-    .filter(a => a.circleId === circleId)
-    .sort((a, b) => b.timestamp - a.timestamp)[0];
-
-  const reactionTime = activationEntry ? timestamp - activationEntry.timestamp : undefined;
-
-  const clickLog: CircleClickLog = {
-    circleId,
-    timestamp,
-    level,
-    gameTime: timestamp - gameStartTime,
-    clickResult,
-    circleWasActive: circleState.isActive,
-    circleWasDecoy: circleState.isDecoy,
-    circleWasAnimating: circleState.isAnimating,
-    activationTime: activationEntry?.timestamp,
-    reactionTime,
-    position,
-    debounceBlocked,
-  };
-
-  debugLog.clicks.push(clickLog);
-  console.log(`[RotationGame] Circle ${circleId} clicked`, clickLog);
-};
-
-const logCircleDeactivation = (
-  debugLog: GameDebugLog,
-  circleId: number,
-  level: number,
-  reason: CircleDeactivationLog["reason"],
-  circleState: { isActive: boolean; isDecoy: boolean },
-  gameStartTime: number
-): void => {
-  const timestamp = Date.now();
-  const deactivationLog: CircleDeactivationLog = {
-    circleId,
-    timestamp,
-    level,
-    reason,
-    gameTime: timestamp - gameStartTime,
-    wasActive: circleState.isActive,
-    wasDecoy: circleState.isDecoy,
-  };
-
-  debugLog.deactivations.push(deactivationLog);
-  console.log(`[RotationGame] Circle ${circleId} deactivated`, deactivationLog);
-};
-
-const logLevelTransition = (
-  debugLog: GameDebugLog,
-  fromLevel: number,
-  toLevel: number,
-  activeCircles: number[],
-  gameStartTime: number
-): void => {
-  const timestamp = Date.now();
-  const transitionLog: LevelTransitionLog = {
-    fromLevel,
-    toLevel,
-    timestamp,
-    gameTime: timestamp - gameStartTime,
-    activeCirclesAtTransition: [...activeCircles],
-  };
-
-  debugLog.levelTransitions.push(transitionLog);
-  console.log(`[RotationGame] Level transition`, transitionLog);
-};
-
 export const createRotationCircleSet = (
   count: number,
   radius: number,
@@ -296,9 +145,6 @@ export const createRotationCircleSet = (
 
 export const initializeRotationGameState = (): RotationGameState => {
   const gameStartTime = Date.now();
-  const debugLog = createEmptyDebugLog();
-
-  logEvent(debugLog, "game_start", 1, { timestamp: gameStartTime }, gameStartTime);
 
   return {
     config: ROTATION_CONFIG,
@@ -314,7 +160,6 @@ export const initializeRotationGameState = (): RotationGameState => {
       totalReactionTime: 0,
       hitCount: 0,
       gameStartTime,
-      debugLog,
     },
     circles: createRotationCircleSet(
       ROTATION_CONFIG.circleCount,
@@ -332,6 +177,7 @@ export const initializeRotationGameState = (): RotationGameState => {
     currentRotationSpeed: ROTATION_LEVELS[0].rotationSpeed,
     isGameEnding: false,
     pendingActivationTimeouts: new Set(),
+    circleActivationTimes: new Map(),
   };
 };
 
@@ -361,22 +207,6 @@ export const updateRotationLevel = (
   if (shouldIncreaseLevel) {
     const newLevel = state.currentLevel + 1;
     const levelConfig = getLevelConfig(newLevel);
-
-    logLevelTransition(
-      state.stats.debugLog,
-      state.currentLevel,
-      newLevel,
-      state.activeCircleIds,
-      state.gameStartTime
-    );
-
-    logEvent(
-      state.stats.debugLog,
-      "level_transition",
-      newLevel,
-      { from: state.currentLevel, to: newLevel, activeCircles: state.activeCircleIds.length },
-      state.gameStartTime
-    );
 
     const preservedCircles = state.circles.map((circle) => ({
       ...circle,
@@ -468,9 +298,17 @@ export const activateRotationCircles = (
   const newActiveCircleIds = [...state.activeCircleIds, ...selectedIds];
   const newCircleTimeouts = new Map(state.circleTimeouts);
   const newPendingTimeouts = new Set(state.pendingActivationTimeouts);
+  const newActivationTimes = new Map(state.circleActivationTimes);
+
+  const currentTime = Date.now();
 
   selectedIds.forEach((circleId) => {
     const isDecoy = redIds.includes(circleId);
+
+    // Store activation time for reaction time calculation
+    if (!isDecoy) {
+      newActivationTimes.set(circleId, currentTime);
+    }
 
     const timeout = setTimeout(() => {
       if (!state.isActive || state.isGameEnding) {
@@ -481,22 +319,6 @@ export const activateRotationCircles = (
 
     newCircleTimeouts.set(circleId, timeout);
     newPendingTimeouts.add(timeout);
-
-    const circle = state.circles.find(c => c.id === circleId);
-    const position = circle ? {
-      x: Math.cos(circle.angle) * state.config.radius,
-      y: Math.sin(circle.angle) * state.config.radius,
-    } : { x: 0, y: 0 };
-
-    logCircleActivation(
-      state.stats.debugLog,
-      circleId,
-      state.currentLevel,
-      isDecoy,
-      levelConfig.circleActiveTime,
-      position,
-      state.gameStartTime!
-    );
   });
 
   const newCircles = state.circles.map((circle) => {
@@ -511,20 +333,6 @@ export const activateRotationCircles = (
     return circle;
   });
 
-  logEvent(
-    state.stats.debugLog,
-    "circle_activation",
-    state.currentLevel,
-    {
-      selectedIds,
-      redIds,
-      availableSlots,
-      newActiveCount: newActiveCircleIds.length,
-      maxSimultaneous: levelConfig.simultaneousCircles,
-    },
-    state.gameStartTime!
-  );
-
   onCirclesActivated(selectedIds, redIds);
 
   return {
@@ -533,10 +341,10 @@ export const activateRotationCircles = (
     circleTimeouts: newCircleTimeouts,
     circles: newCircles,
     pendingActivationTimeouts: newPendingTimeouts,
+    circleActivationTimes: newActivationTimes,
   };
 };
 
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Упрощенная обработка кликов по образцу Survival Mode
 export const handleRotationCircleClick = (
   state: RotationGameState,
   clickedCircleId: number,
@@ -545,45 +353,17 @@ export const handleRotationCircleClick = (
   const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
 
   if (!clickedCircle) {
-    logError(state.stats.debugLog, "Circle not found for click", {
-      clickedCircleId,
-      availableCircles: state.circles.map(c => c.id),
-    });
     return { newState: state, result: "wrong" };
   }
 
-  // Проверка состояния игры аналогично Survival Mode
   if (state.isGameEnding) {
     return { newState: state, result: "wrong" };
   }
 
-  const position = {
-    x: Math.cos(clickedCircle.angle) * state.config.radius,
-    y: Math.sin(clickedCircle.angle) * state.config.radius,
-  };
-
-  const circleState = {
-    isActive: clickedCircle.isActive,
-    isDecoy: clickedCircle.isDecoy,
-    isAnimating: clickedCircle.isAnimating,
-  };
-
   const updatedState = updateRotationLevel(state, clickTime);
 
-  // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Упрощенная валидация как в Survival Mode
-  // Убрана избыточная проверка state.activeCircleIds.includes(clickedCircleId)
   if (clickedCircle.isActive && !clickedCircle.isAnimating) {
     if (clickedCircle.isDecoy) {
-      logCircleClick(
-        updatedState.stats.debugLog,
-        clickedCircleId,
-        updatedState.currentLevel,
-        "decoy",
-        circleState,
-        position,
-        state.gameStartTime!
-      );
-
       return {
         newState: {
           ...updatedState,
@@ -598,12 +378,9 @@ export const handleRotationCircleClick = (
         result: "decoy",
       };
     } else {
-      // Корректный белый круг - расчет времени реакции
-      const reactionTime = state.stats.debugLog.activations
-        .filter(a => a.circleId === clickedCircleId)
-        .sort((a, b) => b.timestamp - a.timestamp)[0];
-
-      const actualReactionTime = reactionTime ? clickTime - reactionTime.timestamp : 0;
+      // Calculate reaction time
+      const activationTime = updatedState.circleActivationTimes.get(clickedCircleId);
+      const actualReactionTime = activationTime ? clickTime - activationTime : 0;
 
       const newStats = {
         ...updatedState.stats,
@@ -612,16 +389,6 @@ export const handleRotationCircleClick = (
         hitCount: updatedState.stats.hitCount + 1,
         totalReactionTime: updatedState.stats.totalReactionTime + actualReactionTime,
       };
-
-      logCircleClick(
-        newStats.debugLog,
-        clickedCircleId,
-        updatedState.currentLevel,
-        "correct",
-        circleState,
-        position,
-        state.gameStartTime!
-      );
 
       return {
         newState: {
@@ -632,19 +399,6 @@ export const handleRotationCircleClick = (
       };
     }
   } else {
-    // Клик на неактивный круг - аналогично Survival Mode
-    const clickResult = clickedCircle.isActive ? "wrong" : "inactive";
-
-    logCircleClick(
-      updatedState.stats.debugLog,
-      clickedCircleId,
-      updatedState.currentLevel,
-      clickResult,
-      circleState,
-      position,
-      state.gameStartTime!
-    );
-
     return {
       newState: {
         ...updatedState,
@@ -664,23 +418,7 @@ export const handleRotationCircleClick = (
 export const deactivateRotationCircle = (
   state: RotationGameState,
   circleId: number,
-  reason: CircleDeactivationLog["reason"] = "timeout",
 ): RotationGameState => {
-  const circle = state.circles.find(c => c.id === circleId);
-  const circleState = {
-    isActive: circle?.isActive || false,
-    isDecoy: circle?.isDecoy || false,
-  };
-
-  logCircleDeactivation(
-    state.stats.debugLog,
-    circleId,
-    state.currentLevel,
-    reason,
-    circleState,
-    state.gameStartTime!
-  );
-
   const newActiveCircleIds = state.activeCircleIds.filter(
     (id) => id !== circleId,
   );
@@ -693,6 +431,10 @@ export const deactivateRotationCircle = (
     newCircleTimeouts.delete(circleId);
   }
 
+  // Clean up activation time
+  const newActivationTimes = new Map(state.circleActivationTimes);
+  newActivationTimes.delete(circleId);
+
   const newCircles = state.circles.map((circle) =>
     circle.id === circleId
       ? { ...circle, isActive: false, isAnimating: false, isDecoy: false }
@@ -704,6 +446,7 @@ export const deactivateRotationCircle = (
     activeCircleIds: newActiveCircleIds,
     circleTimeouts: newCircleTimeouts,
     circles: newCircles,
+    circleActivationTimes: newActivationTimes,
   };
 };
 
@@ -741,20 +484,6 @@ export const createRotationGameResult = (
     ? state.stats.totalReactionTime / state.stats.hitCount
     : 0;
 
-  logEvent(
-    state.stats.debugLog,
-    "game_end",
-    state.currentLevel,
-    {
-      finalScore,
-      deathCause,
-      survivalTime: state.stats.survivalTime,
-      correctHits: state.stats.correctHits,
-      averageReactionTime,
-    },
-    state.gameStartTime!
-  );
-
   return {
     mode: GameMode.ROTATION,
     score: finalScore,
@@ -764,28 +493,13 @@ export const createRotationGameResult = (
     perfectStreak: state.stats.perfectStreak,
     correctHits: state.stats.correctHits,
     deathCause,
-    debugLog: state.stats.debugLog,
     averageReactionTime,
-    totalActivations: state.stats.debugLog.activations.length,
-    totalClicks: state.stats.debugLog.clicks.length,
     createdAt: new Date().toISOString(),
   };
 };
 
 export const cleanupRotationGame = (state: RotationGameState): void => {
   state.isGameEnding = true;
-
-  logEvent(
-    state.stats.debugLog,
-    "game_end",
-    state.currentLevel,
-    {
-      reason: "cleanup",
-      activeCircles: state.activeCircleIds.length,
-      pendingTimeouts: state.circleTimeouts.size,
-    },
-    state.gameStartTime!
-  );
 
   state.circleTimeouts.forEach((timeout) => {
     if (timeout) clearTimeout(timeout);
@@ -810,6 +524,8 @@ export const cleanupRotationGame = (state: RotationGameState): void => {
   if (state.rotationAnimationFrame) {
     cancelAnimationFrame(state.rotationAnimationFrame);
   }
+
+  state.circleActivationTimes.clear(); // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 };
 
 export const formatRotationTime = (milliseconds: number): string => {
