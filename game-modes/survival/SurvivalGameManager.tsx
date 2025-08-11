@@ -1,9 +1,15 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with comprehensive debug panel for security testing
+// src/game-modes/survival/SurvivalGameManager.tsx - Simplified with top-centered timer only
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Crosshair, AlertTriangle, RotateCcw } from "lucide-react";
+
+import {
+  Crosshair,
+  AlertTriangle,
+  RotateCcw,
+  ArrowLeft,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -20,14 +26,13 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
-import { GameState, GameMode } from "@/types/game-modes/common";
+import { GameState } from "@/types/game-modes/common";
 import {
   SurvivalGameState,
   SurvivalGameResult,
 } from "@/types/game-modes/survival";
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
-import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
   isLoading: boolean;
@@ -63,9 +68,10 @@ const LEVEL_UPDATE_INTERVAL = 200;
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
-  const { consumeAttempt, fetchAttemptsStatus } = useAttempts(
-    makeAuthenticatedRequest,
-  );
+  const {
+    consumeAttempt,
+    fetchAttemptsStatus,
+  } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -76,26 +82,27 @@ export default function SurvivalGameManager() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
-  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
-    initialPlayAgainError,
-  );
+  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
+  // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
-  const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] =
-    useState<number[]>([]);
 
+  // State for instant deactivation tracking
+  const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
+
+  // Protection against multiple simultaneous operations
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
-  const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  // Setup Telegram WebApp back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -107,11 +114,12 @@ export default function SurvivalGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
+  // Auto-start game on component mount
   useEffect(() => {
     const timer = setTimeout(() => {
       startGame();
@@ -120,10 +128,11 @@ export default function SurvivalGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Handle play again error auto-redirect
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
-        setPlayAgainError((prev) => ({ ...prev, redirecting: true }));
+        setPlayAgainError(prev => ({ ...prev, redirecting: true }));
         setTimeout(() => {
           router.push("/game");
         }, 500);
@@ -139,7 +148,6 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -167,38 +175,6 @@ export default function SurvivalGameManager() {
         showRetryDetails: false,
       }));
 
-      const processSuspiciousActivity = async () => {
-        if (!shadowSecurityRef.current || !user) {
-          return;
-        }
-
-        try {
-          const suspiciousActivityData =
-            shadowSecurityRef.current.generateSuspiciousActivityData(
-              user.telegram_id,
-              Date.now(),
-            );
-
-          if (suspiciousActivityData) {
-            const suspiciousActivityResponse = await makeAuthenticatedRequest(
-              "/api/security/suspicious-activity",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  suspiciousActivity: suspiciousActivityData,
-                }),
-              },
-            );
-
-            if (!suspiciousActivityResponse.ok) {
-            }
-          }
-        } catch (error) {}
-      };
-
       let attemptCount = 1;
 
       const attemptSave = async (): Promise<void> => {
@@ -210,15 +186,8 @@ export default function SurvivalGameManager() {
         }
 
         try {
-          if (attemptCount === 1) {
-            await processSuspiciousActivity();
-          }
-
           const response = await makeAuthenticatedRequest("/api/game/save", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
             body: JSON.stringify({ gameResult: result }),
           });
 
@@ -243,7 +212,6 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -263,7 +231,7 @@ export default function SurvivalGameManager() {
         }));
       }
     },
-    [makeAuthenticatedRequest, t, user],
+    [makeAuthenticatedRequest, t],
   );
 
   const endGame = useCallback(
@@ -273,10 +241,6 @@ export default function SurvivalGameManager() {
       }
 
       isGameEndingRef.current = true;
-
-      if (shadowSecurityRef.current) {
-        shadowSecurityRef.current.cleanupAllPendingActivations();
-      }
 
       setGameState((prev) => {
         if (prev.isGameEnding) {
@@ -328,12 +292,10 @@ export default function SurvivalGameManager() {
       return;
     }
 
-    if (
-      !currentState.isActive ||
+    if (!currentState.isActive ||
       currentState.gameState !== GameState.PLAYING ||
       currentState.isGameEnding ||
-      isGameEndingRef.current
-    ) {
+      isGameEndingRef.current) {
       return;
     }
 
@@ -342,27 +304,21 @@ export default function SurvivalGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
       isSchedulingActivationRef.current = false;
 
-      if (
-        !gameStateRef.current.isActive ||
+      if (!gameStateRef.current.isActive ||
         gameStateRef.current.gameState !== GameState.PLAYING ||
         gameStateRef.current.isGameEnding ||
-        isGameEndingRef.current
-      ) {
+        isGameEndingRef.current) {
         return;
       }
 
       setGameState((prev) => {
-        if (
-          !prev.isActive ||
-          prev.gameState !== GameState.PLAYING ||
-          prev.isGameEnding
-        ) {
+        if (!prev.isActive || prev.gameState !== GameState.PLAYING || prev.isGameEnding) {
           return prev;
         }
 
@@ -370,19 +326,6 @@ export default function SurvivalGameManager() {
           prev,
           (circleIds, redCircleIds) => {
             const timestamp = Date.now();
-
-            if (shadowSecurityRef.current) {
-              circleIds.forEach((circleId) => {
-                const isWhiteCircle = !redCircleIds.includes(circleId);
-
-                if (isWhiteCircle) {
-                  shadowSecurityRef.current!.recordCircleActivation(
-                    circleId,
-                    timestamp,
-                  );
-                }
-              });
-            }
 
             setActivatedCircles(circleIds);
             setLastActivationTimestamp(timestamp);
@@ -396,20 +339,13 @@ export default function SurvivalGameManager() {
               return;
             }
 
-            if (shadowSecurityRef.current) {
-              shadowSecurityRef.current.cleanupCircleActivation(circleId);
-            }
-
             if (!wasDecoy) {
               endGame("miss");
             } else {
               setGameState((current) =>
                 deactivateSurvivalCircle(current, circleId),
               );
-              if (
-                !isGameEndingRef.current &&
-                !gameStateRef.current.isGameEnding
-              ) {
+              if (!isGameEndingRef.current && !gameStateRef.current.isGameEnding) {
                 scheduleNextActivation();
               }
             }
@@ -419,12 +355,10 @@ export default function SurvivalGameManager() {
         return newState;
       });
 
-      if (
-        gameStateRef.current.isActive &&
+      if (gameStateRef.current.isActive &&
         gameStateRef.current.gameState === GameState.PLAYING &&
         !gameStateRef.current.isGameEnding &&
-        !isGameEndingRef.current
-      ) {
+        !isGameEndingRef.current) {
         scheduleNextActivation();
       }
     }, delay);
@@ -443,10 +377,7 @@ export default function SurvivalGameManager() {
     (circleId: number) => {
       const currentState = gameStateRef.current;
 
-      if (
-        currentState.gameState !== GameState.PLAYING ||
-        isGameEndingRef.current
-      ) {
+      if (currentState.gameState !== GameState.PLAYING || isGameEndingRef.current) {
         return;
       }
 
@@ -458,35 +389,15 @@ export default function SurvivalGameManager() {
       );
 
       if (result === "correct") {
-        if (shadowSecurityRef.current) {
-          const clickedCircle = currentState.circles.find(
-            (c) => c.id === circleId,
-          );
-
-          if (
-            clickedCircle &&
-            clickedCircle.isActive &&
-            !clickedCircle.isDecoy
-          ) {
-            shadowSecurityRef.current.recordCircleClick(circleId, clickTime);
-          }
-        }
-
         triggerHapticFeedback("success");
 
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
 
-        const immediatelyDeactivatedState = deactivateSurvivalCircle(
-          newState,
-          circleId,
-        );
-
+        const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
         setGameState(immediatelyDeactivatedState);
 
         setTimeout(() => {
-          setInstantlyDeactivatedCircles((prev) =>
-            prev.filter((id) => id !== circleId),
-          );
+          setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
         }, 100);
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
@@ -505,19 +416,6 @@ export default function SurvivalGameManager() {
 
     const newGameState = initializeSurvivalGameState();
 
-    shadowSecurityRef.current = new ShadowSecurityManager(
-      GameMode.SURVIVAL,
-      newGameState.gameStartTime,
-      {
-        enabled: true,
-        sensitivityThreshold: 1.0,
-        suspiciousMovementThreshold: 70.0,
-        maxCheckInterval: 3000,
-        minCheckInterval: 3000,
-        requirePermissionCheck: false,
-      },
-    );
-
     setGameState(newGameState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
@@ -535,20 +433,16 @@ export default function SurvivalGameManager() {
     setTimeout(() => {
       setGameState((prev) => {
         const updatedState = { ...prev, gameState: GameState.PLAYING };
-
         return updatedState;
       });
 
       const levelInterval = setInterval(() => {
         setGameState((current) => {
-          if (
-            !current.isActive ||
+          if (!current.isActive ||
             current.gameState !== GameState.PLAYING ||
             current.isGameEnding ||
-            isGameEndingRef.current
-          ) {
+            isGameEndingRef.current) {
             clearInterval(levelInterval);
-
             return current;
           }
 
@@ -582,7 +476,6 @@ export default function SurvivalGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
-
         return;
       }
 
@@ -595,7 +488,6 @@ export default function SurvivalGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
-
         return;
       }
 
@@ -606,12 +498,12 @@ export default function SurvivalGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
-
         return;
       }
 
       startGame();
     } catch (error) {
+      console.error("Error starting new survival game:", error);
       setPlayAgainError({
         show: true,
         message: t("game.modes.survival.playAgain.error"),
@@ -624,10 +516,6 @@ export default function SurvivalGameManager() {
   useEffect(() => {
     return () => {
       cleanupSurvivalGame(gameStateRef.current);
-
-      if (shadowSecurityRef.current) {
-        shadowSecurityRef.current.cleanup();
-      }
     };
   }, []);
 
@@ -729,85 +617,87 @@ export default function SurvivalGameManager() {
             </div>
           </div>
 
+          {/* Save Status Display */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                    <span className="text-sm text-red-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                      <span className="text-sm text-red-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recording")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-red-400/60" size={14} />
-                        <span className="text-xs text-red-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-red-400/20 rounded-full h-1">
-                        <div
-                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recording")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.recordedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-red-400/60" size={14} />
+                          <span className="text-xs text-red-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-red-400/20 rounded-full h-1">
+                          <div
+                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.recordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      {t("save.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("save.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("save.retrySave")}
+                    </button>
                   </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("save.recordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
+          {/* Play Again Error Display */}
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">
@@ -838,11 +728,10 @@ export default function SurvivalGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                isPlayingAgain || playAgainError.show
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-              }`}
+                }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
             >
@@ -866,6 +755,7 @@ export default function SurvivalGameManager() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col text-white relative">
+      {/* Top-centered timer display */}
       {gameState.gameState === GameState.PLAYING && (
         <div className="fixed top-0 left-0 right-0 z-10 pointer-events-none">
           <div className="flex justify-center pt-8">
@@ -878,16 +768,17 @@ export default function SurvivalGameManager() {
         </div>
       )}
 
+      {/* Game area - full screen */}
       <div className="flex-1 flex items-center justify-center">
         <GameGrid
           circles={gameState.circles}
           gameMode="survival"
-          instantlyDeactivatedCircles={instantlyDeactivatedCircles}
           isGameActive={gameState.gameState === GameState.PLAYING}
           lastActivationTimestamp={lastActivationTimestamp}
           showCircles={showCircles}
           onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
+          instantlyDeactivatedCircles={instantlyDeactivatedCircles}
         />
       </div>
     </div>
