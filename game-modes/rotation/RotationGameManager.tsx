@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Исправленная версия с немедленной деактивацией
+// src/game-modes/rotation/RotationGameManager.tsx - Исправленная версия с логикой защиты от Survival Mode
 
 "use client";
 
@@ -97,17 +97,17 @@ const formatLogEntry = (
     case "activation":
       const activation = entry as CircleActivationLog;
       return `[${time}] ACTIVATE Circle${activation.circleId} (${activation.isDecoy ? "RED" : "WHITE"}) Level${activation.level} Position(${activation.position.x.toFixed(1)},${activation.position.y.toFixed(1)}) Duration:${((activation.scheduledDeactivationTime - activation.timestamp) / 1000).toFixed(1)}s`;
-    
+
     case "click":
       const click = entry as CircleClickLog;
       const reactionStr = click.reactionTime ? ` Reaction:${click.reactionTime}ms` : "";
       const debounceStr = click.debounceBlocked ? " [DEBOUNCED]" : "";
       return `[${time}] CLICK Circle${click.circleId} Result:${click.clickResult.toUpperCase()} Active:${click.circleWasActive} Decoy:${click.circleWasDecoy} Anim:${click.circleWasAnimating}${reactionStr}${debounceStr}`;
-    
+
     case "deactivation":
       const deactivation = entry as CircleDeactivationLog;
       return `[${time}] DEACTIVATE Circle${deactivation.circleId} Reason:${deactivation.reason.toUpperCase()} WasActive:${deactivation.wasActive} WasDecoy:${deactivation.wasDecoy}`;
-    
+
     default:
       return `[${time}] ${type.toUpperCase()}: ${JSON.stringify(entry)}`;
   }
@@ -115,12 +115,12 @@ const formatLogEntry = (
 
 const generateDebugReport = (debugLog: GameDebugLog, gameStartTime: number): string => {
   const report: string[] = [];
-  
+
   report.push("=== ROTATION GAME DEBUG LOG ===");
   report.push(`Generated: ${new Date().toISOString()}`);
   report.push(`Game Start: ${new Date(gameStartTime).toISOString()}`);
   report.push("");
-  
+
   report.push("=== SUMMARY ===");
   report.push(`Total Activations: ${debugLog.activations.length}`);
   report.push(`Total Clicks: ${debugLog.clicks.length}`);
@@ -139,14 +139,14 @@ const generateDebugReport = (debugLog: GameDebugLog, gameStartTime: number): str
   }
 
   const allEvents: Array<{ timestamp: number; type: string; entry: any }> = [];
-  
-  debugLog.activations.forEach(entry => 
+
+  debugLog.activations.forEach(entry =>
     allEvents.push({ timestamp: entry.timestamp, type: "activation", entry }));
-  debugLog.clicks.forEach(entry => 
+  debugLog.clicks.forEach(entry =>
     allEvents.push({ timestamp: entry.timestamp, type: "click", entry }));
-  debugLog.deactivations.forEach(entry => 
+  debugLog.deactivations.forEach(entry =>
     allEvents.push({ timestamp: entry.timestamp, type: "deactivation", entry }));
-  debugLog.levelTransitions.forEach(entry => 
+  debugLog.levelTransitions.forEach(entry =>
     allEvents.push({ timestamp: entry.timestamp, type: "level_transition", entry }));
 
   allEvents.sort((a, b) => a.timestamp - b.timestamp);
@@ -158,16 +158,16 @@ const generateDebugReport = (debugLog: GameDebugLog, gameStartTime: number): str
 
   report.push("");
   report.push("=== DETAILED ANALYSIS ===");
-  
+
   const reactionTimes = debugLog.clicks
     .filter(click => click.reactionTime && click.clickResult === "correct")
     .map(click => click.reactionTime!);
-  
+
   if (reactionTimes.length > 0) {
     const avgReaction = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
     const minReaction = Math.min(...reactionTimes);
     const maxReaction = Math.max(...reactionTimes);
-    
+
     report.push(`Reaction Times: Avg:${avgReaction.toFixed(1)}ms Min:${minReaction}ms Max:${maxReaction}ms`);
   }
 
@@ -212,7 +212,7 @@ export default function RotationGameManager() {
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
 
-  // Состояние для визуального эффекта мгновенно деактивированных кругов (по образцу Survival)
+  // Состояние для визуального эффекта мгновенно деактивированных кругов (аналогично Survival)
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] =
     useState<number[]>([]);
 
@@ -237,7 +237,7 @@ export default function RotationGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -281,7 +281,7 @@ export default function RotationGameManager() {
         gameResult.debugLog,
         gameResult.createdAt ? new Date(gameResult.createdAt).getTime() - gameResult.survivalTime : Date.now()
       );
-      
+
       await navigator.clipboard.writeText(debugReport);
       setCopiedLog(true);
       setTimeout(() => setCopiedLog(false), 2000);
@@ -333,7 +333,7 @@ export default function RotationGameManager() {
                 .catch(() => ({}));
             }
           }
-        } catch (error) {}
+        } catch (error) { }
       };
 
       let attemptCount = 1;
@@ -476,7 +476,7 @@ export default function RotationGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -573,7 +573,7 @@ export default function RotationGameManager() {
     }, 50);
   }, [endGame]);
 
-  // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Исправленная обработка кликов с немедленной деактивацией
+  // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Упрощенная обработка кликов по образцу Survival Mode
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       const currentState = gameStateRef.current;
@@ -609,7 +609,7 @@ export default function RotationGameManager() {
 
         triggerHapticFeedback("success");
 
-        // КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Немедленная деактивация по образцу Survival
+        // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Немедленная визуальная деактивация как в Survival Mode
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
 
         const immediatelyDeactivatedState = deactivateRotationCircle(
@@ -878,12 +878,12 @@ export default function RotationGameManager() {
               <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
                 {(() => {
                   const allEvents: Array<{ timestamp: number; type: string; entry: any }> = [];
-                  
-                  debugLog.activations.forEach(entry => 
+
+                  debugLog.activations.forEach(entry =>
                     allEvents.push({ timestamp: entry.timestamp, type: "activation", entry }));
-                  debugLog.clicks.forEach(entry => 
+                  debugLog.clicks.forEach(entry =>
                     allEvents.push({ timestamp: entry.timestamp, type: "click", entry }));
-                  debugLog.deactivations.forEach(entry => 
+                  debugLog.deactivations.forEach(entry =>
                     allEvents.push({ timestamp: entry.timestamp, type: "deactivation", entry }));
 
                   return allEvents
@@ -902,7 +902,7 @@ export default function RotationGameManager() {
               <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-3">
                 <div className="text-green-400 font-bold text-xs mb-2">Click Accuracy</div>
                 <div className="text-green-300 text-xs">
-                  {debugLog.clicks.filter(c => c.clickResult === "correct").length} / {debugLog.clicks.length} 
+                  {debugLog.clicks.filter(c => c.clickResult === "correct").length} / {debugLog.clicks.length}
                   {debugLog.clicks.length > 0 && (
                     <span className="text-green-400">
                       {" "}({((debugLog.clicks.filter(c => c.clickResult === "correct").length / debugLog.clicks.length) * 100).toFixed(1)}%)
@@ -918,12 +918,12 @@ export default function RotationGameManager() {
                     const reactionTimes = debugLog.clicks
                       .filter(click => click.reactionTime && click.clickResult === "correct")
                       .map(click => click.reactionTime!);
-                    
+
                     if (reactionTimes.length === 0) return "No data";
-                    
+
                     const min = Math.min(...reactionTimes);
                     const max = Math.max(...reactionTimes);
-                    
+
                     return `${min}ms - ${max}ms`;
                   })()}
                 </div>
@@ -1009,78 +1009,78 @@ export default function RotationGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
-                    <span className="text-sm text-orange-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                      <span className="text-sm text-orange-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recordingRotation")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-orange-400/60" size={14} />
-                        <span className="text-xs text-orange-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-orange-400/20 rounded-full h-1">
-                        <div
-                          className="bg-orange-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recordingRotation")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.rotationRecordedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-orange-400/60" size={14} />
+                          <span className="text-xs text-orange-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-orange-400/20 rounded-full h-1">
+                          <div
+                            className="bg-orange-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.rotationRecordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-orange-400 text-sm">
-                      {t("save.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-orange-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("save.retrySave")}
+                    </button>
                   </div>
-                  <button
-                    className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
@@ -1112,11 +1112,10 @@ export default function RotationGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                isPlayingAgain || playAgainError.show
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
-              }`}
+                }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
             >

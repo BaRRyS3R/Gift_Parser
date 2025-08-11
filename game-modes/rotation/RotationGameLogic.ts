@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameLogic.ts - Исправленная версия с немедленной деактивацией
+// src/game-modes/rotation/RotationGameLogic.ts - Исправленная версия с логикой защиты от Survival Mode
 
 import {
   RotationGameConfig,
@@ -536,16 +536,12 @@ export const activateRotationCircles = (
   };
 };
 
-// Упрощенная обработка кликов без debounce - используем немедленную деактивацию
+// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Упрощенная обработка кликов по образцу Survival Mode
 export const handleRotationCircleClick = (
   state: RotationGameState,
   clickedCircleId: number,
   clickTime: number = Date.now(),
 ): { newState: RotationGameState; result: "correct" | "wrong" | "decoy" } => {
-  if (state.isGameEnding) {
-    return { newState: state, result: "wrong" };
-  }
-
   const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
 
   if (!clickedCircle) {
@@ -553,6 +549,11 @@ export const handleRotationCircleClick = (
       clickedCircleId,
       availableCircles: state.circles.map(c => c.id),
     });
+    return { newState: state, result: "wrong" };
+  }
+
+  // Проверка состояния игры аналогично Survival Mode
+  if (state.isGameEnding) {
     return { newState: state, result: "wrong" };
   }
 
@@ -569,25 +570,9 @@ export const handleRotationCircleClick = (
 
   const updatedState = updateRotationLevel(state, clickTime);
 
-  // Строгая проверка активности - круг должен быть активным, не анимироваться и находиться в списке активных
-  const isCircleValidForClick = clickedCircle.isActive &&
-    !clickedCircle.isAnimating &&
-    state.activeCircleIds.includes(clickedCircleId);
-
-  logEvent(
-    updatedState.stats.debugLog,
-    "circle_click",
-    updatedState.currentLevel,
-    {
-      circleId: clickedCircleId,
-      circleState,
-      isValidForClick: isCircleValidForClick,
-      activeCircleIds: [...state.activeCircleIds],
-    },
-    state.gameStartTime!
-  );
-
-  if (isCircleValidForClick) {
+  // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Упрощенная валидация как в Survival Mode
+  // Убрана избыточная проверка state.activeCircleIds.includes(clickedCircleId)
+  if (clickedCircle.isActive && !clickedCircle.isAnimating) {
     if (clickedCircle.isDecoy) {
       logCircleClick(
         updatedState.stats.debugLog,
@@ -647,7 +632,7 @@ export const handleRotationCircleClick = (
       };
     }
   } else {
-    // Клик на неактивный или недоступный круг
+    // Клик на неактивный круг - аналогично Survival Mode
     const clickResult = clickedCircle.isActive ? "wrong" : "inactive";
 
     logCircleClick(
@@ -659,15 +644,6 @@ export const handleRotationCircleClick = (
       position,
       state.gameStartTime!
     );
-
-    logError(updatedState.stats.debugLog, "Click on invalid circle", {
-      circleId: clickedCircleId,
-      isActive: clickedCircle.isActive,
-      isAnimating: clickedCircle.isAnimating,
-      isDecoy: clickedCircle.isDecoy,
-      isInActiveList: state.activeCircleIds.includes(clickedCircleId),
-      activeCircleIds: [...state.activeCircleIds],
-    });
 
     return {
       newState: {
