@@ -9,7 +9,6 @@ import {
   Clock,
   Target,
   RotateCw,
-  ArrowLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -34,7 +33,6 @@ import {
 } from "@/types/game-modes/rotation";
 import RotatingCircleGrid from "@/components/RotatingCircleGrid";
 import { useT } from "@/contexts/LocalizationContext";
-
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
@@ -71,10 +69,9 @@ const LEVEL_UPDATE_INTERVAL = 100;
 
 export default function RotationGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
-  const {
-    consumeAttempt,
-    fetchAttemptsStatus,
-  } = useAttempts(makeAuthenticatedRequest);
+  const { consumeAttempt, fetchAttemptsStatus } = useAttempts(
+    makeAuthenticatedRequest,
+  );
   const router = useRouter();
   const t = useT();
 
@@ -84,11 +81,14 @@ export default function RotationGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<RotationGameResult | null>(null);
-  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
+  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
+    initialPlayAgainError,
+  );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
+  const [lastActivationTimestamp, setLastActivationTimestamp] =
+    useState<number>(0);
 
   const gameStateRef = useRef<RotationGameState>(gameState);
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
@@ -108,7 +108,7 @@ export default function RotationGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -124,7 +124,7 @@ export default function RotationGameManager() {
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
-        setPlayAgainError(prev => ({ ...prev, redirecting: true }));
+        setPlayAgainError((prev) => ({ ...prev, redirecting: true }));
         setTimeout(() => {
           router.push("/game");
         }, 500);
@@ -140,6 +140,7 @@ export default function RotationGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -161,10 +162,11 @@ export default function RotationGameManager() {
         }
 
         try {
-          const suspiciousActivityData = shadowSecurityRef.current.generateSuspiciousActivityData(
-            user.telegram_id,
-            Date.now()
-          );
+          const suspiciousActivityData =
+            shadowSecurityRef.current.generateSuspiciousActivityData(
+              user.telegram_id,
+              Date.now(),
+            );
 
           if (suspiciousActivityData) {
             const suspiciousActivityResponse = await makeAuthenticatedRequest(
@@ -174,15 +176,19 @@ export default function RotationGameManager() {
                 headers: {
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ suspiciousActivity: suspiciousActivityData }),
-              }
+                body: JSON.stringify({
+                  suspiciousActivity: suspiciousActivityData,
+                }),
+              },
             );
 
             if (!suspiciousActivityResponse.ok) {
-              const errorData = await suspiciousActivityResponse.json().catch(() => ({}));
+              const errorData = await suspiciousActivityResponse
+                .json()
+                .catch(() => ({}));
             }
           }
-        } catch (error) { }
+        } catch (error) {}
       };
 
       let attemptCount = 1;
@@ -229,6 +235,7 @@ export default function RotationGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
+
             return attemptSave();
           } else {
             throw error;
@@ -302,7 +309,7 @@ export default function RotationGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -317,10 +324,14 @@ export default function RotationGameManager() {
               const timestamp = Date.now();
 
               if (shadowSecurityRef.current) {
-                circleIds.forEach(circleId => {
+                circleIds.forEach((circleId) => {
                   const isWhiteCircle = !redCircleIds.includes(circleId);
+
                   if (isWhiteCircle) {
-                    shadowSecurityRef.current!.recordCircleActivation(circleId, timestamp);
+                    shadowSecurityRef.current!.recordCircleActivation(
+                      circleId,
+                      timestamp,
+                    );
                   }
                 });
               }
@@ -373,8 +384,15 @@ export default function RotationGameManager() {
 
       if (result === "correct") {
         if (shadowSecurityRef.current) {
-          const clickedCircle = gameStateRef.current.circles.find(c => c.id === circleId);
-          if (clickedCircle && clickedCircle.isActive && !clickedCircle.isDecoy) {
+          const clickedCircle = gameStateRef.current.circles.find(
+            (c) => c.id === circleId,
+          );
+
+          if (
+            clickedCircle &&
+            clickedCircle.isActive &&
+            !clickedCircle.isDecoy
+          ) {
             shadowSecurityRef.current.recordCircleClick(circleId, clickTime);
           }
         }
@@ -410,8 +428,8 @@ export default function RotationGameManager() {
         suspiciousMovementThreshold: 70.0,
         maxCheckInterval: 5000,
         minCheckInterval: 5000,
-        requirePermissionCheck: false
-      }
+        requirePermissionCheck: false,
+      },
     );
 
     setGameState(initialState);
@@ -433,6 +451,7 @@ export default function RotationGameManager() {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
+
             return current;
           }
 
@@ -466,6 +485,7 @@ export default function RotationGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -478,6 +498,7 @@ export default function RotationGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -488,6 +509,7 @@ export default function RotationGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -602,78 +624,78 @@ export default function RotationGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-              <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
-                      <span className="text-sm text-orange-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+            <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                    <span className="text-sm text-orange-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recordingRotation")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-orange-400/60" size={14} />
-                          <span className="text-xs text-orange-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-orange-400/20 rounded-full h-1">
-                          <div
-                            className="bg-orange-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                        : t("save.recordingRotation")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.rotationRecordedSuccessfully")}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-orange-400/60" size={14} />
+                        <span className="text-xs text-orange-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-orange-400/20 rounded-full h-1">
+                        <div
+                          className="bg-orange-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.rotationRecordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-orange-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      {t("save.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-orange-400 text-sm">
+                      {t("save.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <button
+                    className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    {t("save.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
@@ -705,10 +727,11 @@ export default function RotationGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
-                ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
-                }`}
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                isPlayingAgain || playAgainError.show
+                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                  : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
+              }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
             >

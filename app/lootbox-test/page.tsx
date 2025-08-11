@@ -1,6 +1,6 @@
-// Enhanced Lootbox Test Page with OGL and Advanced Effects - Production Ready
-
 "use client";
+
+// Enhanced Lootbox Test Page with OGL and Advanced Effects - Production Ready
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Package, Sparkles, Zap, Star, Gift, Lock, ChevronRight, Gem, Crown, Shield, Swords } from 'lucide-react';
@@ -487,7 +487,17 @@ export default function EnhancedLootboxPage() {
             return (
               <div
                 key={lootbox.id}
+                role={isAvailable ? "button" : "presentation"}
+                tabIndex={isAvailable ? 0 : -1}
                 onClick={() => handleOpenLootbox(lootbox)}
+                onKeyDown={(e) => {
+                  if (isAvailable && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    handleOpenLootbox(lootbox);
+                  }
+                }}
+                aria-label={`${lootbox.name} - ${lootbox.count} available`}
+                aria-disabled={!isAvailable}
                 className={`
                   relative overflow-hidden rounded-3xl
                   ${isAvailable ? 'cursor-pointer active:scale-[0.98]' : 'opacity-60'}
@@ -622,6 +632,14 @@ export default function EnhancedLootboxPage() {
                     return (
                       <div
                         key={reward.id}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                          }
+                        }}
+                        aria-label={`${reward.name} - ${reward.description}`}
                         className="relative group cursor-pointer"
                         style={animationStyles.rewardReveal(index)}
                       >

@@ -62,11 +62,9 @@ const initialPlayAgainError: PlayAgainError = {
 
 export default function ReactionGameManager() {
   const { makeAuthenticatedRequest } = useUser();
-  const {
-    canPlay,
-    consumeAttempt,
-    fetchAttemptsStatus,
-  } = useAttempts(makeAuthenticatedRequest);
+  const { canPlay, consumeAttempt, fetchAttemptsStatus } = useAttempts(
+    makeAuthenticatedRequest,
+  );
   const router = useRouter();
   const t = useT();
 
@@ -76,7 +74,9 @@ export default function ReactionGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
-  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
+  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
+    initialPlayAgainError,
+  );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   // State for activation pulse effects
@@ -102,7 +102,7 @@ export default function ReactionGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -120,7 +120,7 @@ export default function ReactionGameManager() {
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
-        setPlayAgainError(prev => ({ ...prev, redirecting: true }));
+        setPlayAgainError((prev) => ({ ...prev, redirecting: true }));
         setTimeout(() => {
           router.push("/game");
         }, 500);
@@ -367,6 +367,7 @@ export default function ReactionGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -381,6 +382,7 @@ export default function ReactionGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -393,6 +395,7 @@ export default function ReactionGameManager() {
           redirecting: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -516,94 +519,94 @@ export default function ReactionGameManager() {
             saveStatus.error ||
             saveStatus.isSuccess ||
             saveStatus.skipped) && (
-              <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span className="text-sm text-white/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-sm text-white/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recordingReaction")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-white/60" size={14} />
-                          <span className="text-xs text-white/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-white/20 rounded-full h-1">
-                          <div
-                            className="bg-white h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                        : t("save.recordingReaction")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.savedSuccessfully")}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-white/60" size={14} />
+                        <span className="text-xs text-white/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-white/20 rounded-full h-1">
+                        <div
+                          className="bg-white h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.savedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.skipped && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-orange-400 text-sm">
-                        {t("save.attemptNotRecorded")}
-                      </span>
-                    </div>
-                    <div className="text-orange-400/60 text-xs">
-                      {t("save.onlySuccessful")}
-                    </div>
+              {saveStatus.skipped && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-orange-400 text-sm">
+                      {t("save.attemptNotRecorded")}
+                    </span>
                   </div>
-                )}
+                  <div className="text-orange-400/60 text-xs">
+                    {t("save.onlySuccessful")}
+                  </div>
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("save.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      {t("save.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      {t("save.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-red-400/60 text-xs mb-3">
+                    {t("save.recordedLocally")}
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    {t("save.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Play Again Error Display */}
           {playAgainError.show && (
@@ -636,10 +639,11 @@ export default function ReactionGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                isPlayingAgain || playAgainError.show
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-white/60 text-white hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95"
-                }`}
+              }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
             >
@@ -684,10 +688,11 @@ export default function ReactionGameManager() {
             <div className="flex items-center justify-center space-x-2">
               {getInstructionIcon()}
               <span
-                className={`text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null
+                className={`text-lg font-bold transition-colors duration-300 ${
+                  gameState.activeCircleId !== null
                     ? "text-white animate-pulse"
                     : "text-white/80"
-                  }`}
+                }`}
               >
                 {getInstructionText()}
               </span>

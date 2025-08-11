@@ -8,30 +8,30 @@ import { Circle } from "@/types/game-modes/common";
 
 // Массив оттенков белого цвета для защиты от автоматизации
 const WHITE_COLOR_VARIANTS = [
-  'rgb(255, 255, 255)',     // Чистый белый
-  'rgb(255, 255, 254)',     // Белый с минимальным оттенком
-  'rgb(254, 255, 255)',     // Белый с оттенком в красном канале
-  'rgb(255, 254, 255)',     // Белый с оттенком в зеленом канале
-  'rgb(254, 254, 255)',     // Белый с двойным оттенком
-  'rgb(255, 254, 254)',     // Белый с оттенками в зеленом и синем
-  'rgb(254, 255, 254)',     // Белый с оттенками в красном и синем
-  'rgb(253, 255, 255)',     // Белый с более заметным оттенком красного
-  'rgb(255, 253, 255)',     // Белый с более заметным оттенком зеленого
-  'rgb(255, 255, 253)',     // Белый с более заметным оттенком синего
+  "rgb(255, 255, 255)", // Чистый белый
+  "rgb(255, 255, 254)", // Белый с минимальным оттенком
+  "rgb(254, 255, 255)", // Белый с оттенком в красном канале
+  "rgb(255, 254, 255)", // Белый с оттенком в зеленом канале
+  "rgb(254, 254, 255)", // Белый с двойным оттенком
+  "rgb(255, 254, 254)", // Белый с оттенками в зеленом и синем
+  "rgb(254, 255, 254)", // Белый с оттенками в красном и синем
+  "rgb(253, 255, 255)", // Белый с более заметным оттенком красного
+  "rgb(255, 253, 255)", // Белый с более заметным оттенком зеленого
+  "rgb(255, 255, 253)", // Белый с более заметным оттенком синего
 ];
 
 // Соответствующие оттенки для border цветов
 const WHITE_BORDER_VARIANTS = [
-  'rgb(255, 255, 255)',
-  'rgb(255, 255, 254)',
-  'rgb(254, 255, 255)',
-  'rgb(255, 254, 255)',
-  'rgb(254, 254, 255)',
-  'rgb(255, 254, 254)',
-  'rgb(254, 255, 254)',
-  'rgb(253, 255, 255)',
-  'rgb(255, 253, 255)',
-  'rgb(255, 255, 253)',
+  "rgb(255, 255, 255)",
+  "rgb(255, 255, 254)",
+  "rgb(254, 255, 255)",
+  "rgb(255, 254, 255)",
+  "rgb(254, 254, 255)",
+  "rgb(255, 254, 254)",
+  "rgb(254, 255, 254)",
+  "rgb(253, 255, 255)",
+  "rgb(255, 253, 255)",
+  "rgb(255, 255, 253)",
 ];
 
 // Функция для получения случайного индекса оттенка белого
@@ -42,8 +42,8 @@ const getRandomWhiteVariantIndex = (): number => {
 // Функция для создания CSS-переменных для конкретного оттенка
 const createWhiteVariantStyle = (variantIndex: number) => {
   return {
-    '--white-bg': WHITE_COLOR_VARIANTS[variantIndex],
-    '--white-border': WHITE_BORDER_VARIANTS[variantIndex],
+    "--white-bg": WHITE_COLOR_VARIANTS[variantIndex],
+    "--white-border": WHITE_BORDER_VARIANTS[variantIndex],
   } as React.CSSProperties;
 };
 
@@ -115,21 +115,26 @@ export default function GameGrid({
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
   // State для хранения назначенных оттенков белого для каждого кружка
-  const [circleColorVariants, setCircleColorVariants] = useState<Map<number, number>>(new Map());
+  const [circleColorVariants, setCircleColorVariants] = useState<
+    Map<number, number>
+  >(new Map());
 
   // Функция для генерации нового оттенка для кружка при активации
   const generateColorVariantForCircle = (circleId: number): number => {
     const variantIndex = getRandomWhiteVariantIndex();
-    setCircleColorVariants(prev => new Map(prev).set(circleId, variantIndex));
+
+    setCircleColorVariants((prev) => new Map(prev).set(circleId, variantIndex));
+
     return variantIndex;
   };
 
   // Effect для обновления оттенков при активации новых кружков
   useEffect(() => {
     if (onActivatedCircles.length > 0) {
-      onActivatedCircles.forEach(circleId => {
+      onActivatedCircles.forEach((circleId) => {
         // Генерируем новый оттенок только если кружок активирован и это не ловушка
-        const circle = circles.find(c => c.id === circleId);
+        const circle = circles.find((c) => c.id === circleId);
+
         if (circle && circle.isActive && !circle.isDecoy) {
           generateColorVariantForCircle(circleId);
         }
@@ -240,7 +245,9 @@ export default function GameGrid({
       "rounded-full border-2 transition-all duration-300 ease-out relative";
 
     // Check if this circle should be instantly deactivated
-    const shouldInstantlyDeactivate = instantlyDeactivatedCircles.includes(circle.id);
+    const shouldInstantlyDeactivate = instantlyDeactivatedCircles.includes(
+      circle.id,
+    );
 
     // State-based styling for visibility and animation
     const visibilityClasses = showCircles
@@ -249,6 +256,7 @@ export default function GameGrid({
 
     // Handle instant deactivation vs normal animation
     let animationClasses = "";
+
     if (shouldInstantlyDeactivate) {
       animationClasses = "circle-instant-deactivate";
     } else if (circle.isAnimating) {
@@ -294,12 +302,14 @@ export default function GameGrid({
   };
 
   const getBasicTouchInfo = (event: React.TouchEvent): TouchEventDetails => {
-    const firstTouch = event.touches.length > 0 ? event.touches[0] : event.changedTouches[0];
+    const firstTouch =
+      event.touches.length > 0 ? event.touches[0] : event.changedTouches[0];
+
     return {
       touchCount: event.touches.length,
       firstTouchX: firstTouch?.clientX || 0,
       firstTouchY: firstTouch?.clientY || 0,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   };
 
@@ -434,10 +444,12 @@ export default function GameGrid({
       : "activation-pulse";
 
     let borderColor: string;
+
     if (activePulse.isRed) {
       borderColor = "rgb(248, 113, 113)"; // border-red-400
     } else {
       const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+
       borderColor = WHITE_BORDER_VARIANTS[variantIndex];
     }
 

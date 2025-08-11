@@ -279,12 +279,13 @@ function MainPageContent() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
-        }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
+      }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -312,13 +313,15 @@ function MainPageContent() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed left-0 right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ top: headerOffset }}
       >
         <div className="flex flex-col gap-3">
@@ -347,7 +350,10 @@ function MainPageContent() {
               </div>
 
               {/* Внешнее свечение при hover */}
-              <div className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-blue-500/40 to-blue-600/20" style={{ zIndex: -1 }} />
+              <div
+                className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-blue-500/40 to-blue-600/20"
+                style={{ zIndex: -1 }}
+              />
 
               {/* Сканирующая линия для Future Tech эффекта */}
               <div
@@ -387,7 +393,10 @@ function MainPageContent() {
               </div>
 
               {/* Внешнее свечение при hover */}
-              <div className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-slate-500/40 to-slate-600/20" style={{ zIndex: -1 }} />
+              <div
+                className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-slate-500/40 to-slate-600/20"
+                style={{ zIndex: -1 }}
+              />
 
               {/* Сканирующая линия для Future Tech эффекта */}
               <div
@@ -401,13 +410,15 @@ function MainPageContent() {
 
       {/* Season Button - Центральная позиция */}
       <div
-        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ top: "50px" }}
       >
         <SeasonButton
@@ -427,10 +438,11 @@ function MainPageContent() {
 
         {/* Action Buttons Container - Убрана кнопка турниров */}
         <div
-          className={`space-y-4 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`space-y-4 ${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           {/* Main Play Button */}
           <div className="relative group">
@@ -456,13 +468,15 @@ function MainPageContent() {
 
         {/* User Greeting */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showGreeting
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showGreeting
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -502,13 +516,15 @@ function MainPageContent() {
 
       {/* Enhanced Attempts Display with Level Integration */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed bottom-0 left-0 right-0 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay

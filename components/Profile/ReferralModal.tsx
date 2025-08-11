@@ -14,7 +14,15 @@ import {
   Card,
   CardBody,
 } from "@nextui-org/react";
-import { Share2, Copy, Check, X, MessageCircle, Camera, Star } from "lucide-react";
+import {
+  Share2,
+  Copy,
+  Check,
+  X,
+  MessageCircle,
+  Camera,
+  Star,
+} from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -33,12 +41,16 @@ const TelegramSharing = {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       window.Telegram.WebApp.openTelegramLink(shareUrl);
     } else {
-      window.open(shareUrl, '_blank');
+      window.open(shareUrl, "_blank");
     }
   },
 
   // Method 2: Share with embedded image using zero-width characters
-  shareWithEmbeddedImage: (referralLink: string, message: string, imageUrl: string) => {
+  shareWithEmbeddedImage: (
+    referralLink: string,
+    message: string,
+    imageUrl: string,
+  ) => {
     // Using zero-width characters to embed image in message
     const embeddedMessage = `${message}\n\n[​​​​​​​​​​​](${imageUrl})\n\n${referralLink}`;
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(embeddedMessage)}`;
@@ -46,21 +58,33 @@ const TelegramSharing = {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       window.Telegram.WebApp.openTelegramLink(shareUrl);
     } else {
-      window.open(shareUrl, '_blank');
+      window.open(shareUrl, "_blank");
     }
   },
 
   // Method 3: Native share using new Telegram Mini Apps API (if available)
-  shareMessage: async (referralLink: string, message: string, imageUrl: string) => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp?.shareMessage) {
+  shareMessage: async (
+    referralLink: string,
+    message: string,
+    imageUrl: string,
+  ) => {
+    if (
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp?.shareMessage
+    ) {
       try {
         // The shareMessage method expects a prepared message ID
         // For now, we'll use the simple share method as the prepared message API
         // requires backend integration with Telegram Bot API
-        console.log('Native shareMessage available but requires message preparation');
+        console.log(
+          "Native shareMessage available but requires message preparation",
+        );
         TelegramSharing.shareWithPreview(referralLink, message);
       } catch (error) {
-        console.warn('Native shareMessage failed, falling back to simple share:', error);
+        console.warn(
+          "Native shareMessage failed, falling back to simple share:",
+          error,
+        );
         TelegramSharing.shareWithPreview(referralLink, message);
       }
     } else {
@@ -71,25 +95,31 @@ const TelegramSharing = {
 
   // Method 4: Share to Stories (if supported)
   shareToStory: (referralLink: string, message: string, imageUrl: string) => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp?.shareToStory) {
+    if (
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp?.shareToStory
+    ) {
       try {
         // shareToStory method signature: shareToStory(media_url, params?)
         window.Telegram.WebApp.shareToStory(imageUrl, {
           text: message,
           widget_link: {
             url: referralLink,
-            name: "Join Circusle"
-          }
+            name: "Join Circusle",
+          },
         });
       } catch (error) {
-        console.warn('Story sharing failed, falling back to regular share:', error);
+        console.warn(
+          "Story sharing failed, falling back to regular share:",
+          error,
+        );
         TelegramSharing.shareWithPreview(referralLink, message);
       }
     } else {
-      console.log('shareToStory not available, using regular share');
+      console.log("shareToStory not available, using regular share");
       TelegramSharing.shareWithPreview(referralLink, message);
     }
-  }
+  },
 };
 
 const ReferralModal: React.FC<ReferralModalProps> = ({
@@ -99,13 +129,16 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 }) => {
   const t = useT();
   const [copySuccess, setCopySuccess] = useState(false);
-  const [sharingMethod, setSharingMethod] = useState<'simple' | 'story'>('simple');
+  const [sharingMethod, setSharingMethod] = useState<"simple" | "story">(
+    "simple",
+  );
 
   // Enhanced sharing configuration
   const SHARING_CONFIG = {
     message: "Psh, maybe.. Play? 🎮",
     imageUrl: "https://notfren.com/circusle/circusle.png",
-    fallbackMessage: "Join me in Circusle - an awesome game where every tap counts! 🎯"
+    fallbackMessage:
+      "Join me in Circusle - an awesome game where every tap counts! 🎯",
   };
 
   const handleCopyReferralLink = async () => {
@@ -123,8 +156,12 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
     const { message, imageUrl } = SHARING_CONFIG;
 
     switch (sharingMethod) {
-      case 'story':
-        TelegramSharing.shareToStory(referralInfo.referralLink, message, imageUrl);
+      case "story":
+        TelegramSharing.shareToStory(
+          referralInfo.referralLink,
+          message,
+          imageUrl,
+        );
         break;
       default:
         TelegramSharing.shareWithPreview(referralInfo.referralLink, message);
@@ -194,25 +231,29 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 
           {/* Sharing Method Selector */}
           <div className="space-y-2">
-            <h3 className="text-sm font-bold text-white">{t("profile.referrals.share")}</h3>
+            <h3 className="text-sm font-bold text-white">
+              {t("profile.referrals.share")}
+            </h3>
             <div className="grid grid-cols-2 gap-2">
               <button
-                className={`p-2 rounded-lg border text-xs transition-all ${sharingMethod === 'simple'
-                    ? 'bg-white/20 border-white/40 text-white'
-                    : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
-                  }`}
-                onClick={() => setSharingMethod('simple')}
+                className={`p-2 rounded-lg border text-xs transition-all ${
+                  sharingMethod === "simple"
+                    ? "bg-white/20 border-white/40 text-white"
+                    : "bg-white/5 border-white/20 text-white/70 hover:bg-white/10"
+                }`}
+                onClick={() => setSharingMethod("simple")}
               >
-                <MessageCircle size={24} className="mx-auto mb-1" />
+                <MessageCircle className="mx-auto mb-1" size={24} />
               </button>
               <button
-                className={`p-2 rounded-lg border text-xs transition-all ${sharingMethod === 'story'
-                    ? 'bg-white/20 border-white/40 text-white'
-                    : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
-                  }`}
-                onClick={() => setSharingMethod('story')}
+                className={`p-2 rounded-lg border text-xs transition-all ${
+                  sharingMethod === "story"
+                    ? "bg-white/20 border-white/40 text-white"
+                    : "bg-white/5 border-white/20 text-white/70 hover:bg-white/10"
+                }`}
+                onClick={() => setSharingMethod("story")}
               >
-                <Camera size={24} className="mx-auto mb-1" />
+                <Camera className="mx-auto mb-1" size={24} />
               </button>
             </div>
           </div>

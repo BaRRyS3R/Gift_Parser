@@ -44,9 +44,11 @@ export const game = {
         button: "AGAIN?",
         starting: "Starting...",
         cannotPlay: "Cannot play((",
-        noAttempts: "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
+        noAttempts:
+          "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
         failedToConsume: "Failed to consume attempt. Please try again later.",
-        error: "Error occurred while starting the game. Please try again later.",
+        error:
+          "Error occurred while starting the game. Please try again later.",
         autoRedirect: "Automatic redirect to menu in 3 seconds...",
         redirecting: "Redirecting...",
       },
@@ -109,9 +111,11 @@ export const game = {
         button: "AGAIN?",
         starting: "Starting survival...",
         cannotPlay: "Cannot play((",
-        noAttempts: "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
+        noAttempts:
+          "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
         failedToConsume: "Failed to consume attempt. Please try again later.",
-        error: "Error occurred while starting survival game. Please try again later.",
+        error:
+          "Error occurred while starting survival game. Please try again later.",
         autoRedirect: "Automatic redirect to menu in 3 seconds...",
         redirecting: "Redirecting...",
       },
@@ -173,9 +177,11 @@ export const game = {
         button: "AGAIN?",
         starting: "Starting experiment...",
         cannotPlay: "Cannot play((",
-        noAttempts: "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
+        noAttempts:
+          "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
         failedToConsume: "Failed to consume attempt. Please try again later.",
-        error: "Error occurred while starting physics experiment. Please try again later.",
+        error:
+          "Error occurred while starting physics experiment. Please try again later.",
         autoRedirect: "Automatic redirect to menu in 3 seconds...",
         redirecting: "Redirecting...",
       },
@@ -225,9 +231,11 @@ export const game = {
         button: "AGAIN?",
         starting: "Spinning up...",
         cannotPlay: "Cannot play((",
-        noAttempts: "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
+        noAttempts:
+          "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
         failedToConsume: "Failed to consume attempt. Please try again later.",
-        error: "Error occurred while starting rotation experiment. Please try again later.",
+        error:
+          "Error occurred while starting rotation experiment. Please try again later.",
         autoRedirect: "Automatic redirect to menu in 3 seconds...",
         redirecting: "Redirecting...",
       },

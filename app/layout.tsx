@@ -67,8 +67,9 @@ export default function RootLayout({
         />
 
         {/* Inline styles for immediate text selection prevention */}
-        <style dangerouslySetInnerHTML={{
-          __html: `
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
             * {
               -webkit-user-select: none !important;
               -moz-user-select: none !important;
@@ -100,8 +101,9 @@ export default function RootLayout({
             ::-moz-selection {
               background: transparent !important;
             }
-          `
-        }} />
+          `,
+          }}
+        />
 
         {/* Global event handlers for text selection prevention */}
         <Script id="text-selection-prevention" strategy="afterInteractive">

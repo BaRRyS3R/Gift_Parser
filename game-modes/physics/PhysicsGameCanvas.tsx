@@ -9,16 +9,16 @@ import { PhysicsCircle } from "@/types/game-modes/common";
 
 // Массив оттенков белого цвета для защиты от автоматизации
 const WHITE_COLOR_VARIANTS = [
-  'rgb(255, 255, 255)',     // Чистый белый
-  'rgb(255, 255, 254)',     // Белый с минимальным оттенком
-  'rgb(254, 255, 255)',     // Белый с оттенком в красном канале
-  'rgb(255, 254, 255)',     // Белый с оттенком в зеленом канале
-  'rgb(254, 254, 255)',     // Белый с двойным оттенком
-  'rgb(255, 254, 254)',     // Белый с оттенками в зеленом и синем
-  'rgb(254, 255, 254)',     // Белый с оттенками в красном и синем
-  'rgb(253, 255, 255)',     // Белый с более заметным оттенком красного
-  'rgb(255, 253, 255)',     // Белый с более заметным оттенком зеленого
-  'rgb(255, 255, 253)',     // Белый с более заметным оттенком синего
+  "rgb(255, 255, 255)", // Чистый белый
+  "rgb(255, 255, 254)", // Белый с минимальным оттенком
+  "rgb(254, 255, 255)", // Белый с оттенком в красном канале
+  "rgb(255, 254, 255)", // Белый с оттенком в зеленом канале
+  "rgb(254, 254, 255)", // Белый с двойным оттенком
+  "rgb(255, 254, 254)", // Белый с оттенками в зеленом и синем
+  "rgb(254, 255, 254)", // Белый с оттенками в красном и синем
+  "rgb(253, 255, 255)", // Белый с более заметным оттенком красного
+  "rgb(255, 253, 255)", // Белый с более заметным оттенком зеленого
+  "rgb(255, 255, 253)", // Белый с более заметным оттенком синего
 ];
 
 // Функция для получения случайного индекса оттенка белого
@@ -43,7 +43,9 @@ export default function PhysicsGameCanvas({
   const animationFrameRef = useRef<number>();
 
   // State для хранения назначенных оттенков белого для каждого кружка
-  const [circleColorVariants, setCircleColorVariants] = useState<Map<number, number>>(new Map());
+  const [circleColorVariants, setCircleColorVariants] = useState<
+    Map<number, number>
+  >(new Map());
 
   // Touch handling refs for preventing multiple touches
   const activeTouchesRef = useRef<
@@ -62,14 +64,20 @@ export default function PhysicsGameCanvas({
   // Функция для генерации нового оттенка для кружка при активации
   const generateColorVariantForCircle = (circleId: number): number => {
     const variantIndex = getRandomWhiteVariantIndex();
-    setCircleColorVariants(prev => new Map(prev).set(circleId, variantIndex));
+
+    setCircleColorVariants((prev) => new Map(prev).set(circleId, variantIndex));
+
     return variantIndex;
   };
 
   // Effect для отслеживания активации кружков и назначения им оттенков
   useEffect(() => {
-    gameState.circles.forEach(circle => {
-      if (circle.isActive && !circle.isDecoy && !circleColorVariants.has(circle.id)) {
+    gameState.circles.forEach((circle) => {
+      if (
+        circle.isActive &&
+        !circle.isDecoy &&
+        !circleColorVariants.has(circle.id)
+      ) {
         generateColorVariantForCircle(circle.id);
       }
     });
@@ -190,8 +198,8 @@ export default function PhysicsGameCanvas({
 
           // Immediately process the touch
           const syntheticEvent = {
-            preventDefault: () => { },
-            stopPropagation: () => { },
+            preventDefault: () => {},
+            stopPropagation: () => {},
           } as React.MouseEvent;
 
           onCircleClick(clickedCircle.id, syntheticEvent);

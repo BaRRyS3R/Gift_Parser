@@ -1,578 +1,610 @@
 // src/lib/server/tournamentService.ts - Tournament management service with data sanitization
 
 import type {
-    Tournament,
-    TournamentLeaderboardEntry,
-    PublicTournamentLeaderboardEntry,
-    TournamentsData,
-    Prize,
+  Tournament,
+  TournamentLeaderboardEntry,
+  PublicTournamentLeaderboardEntry,
+  TournamentsData,
+  Prize,
 } from "@/types/tournaments";
 
 import { sanitizeLeaderboardEntry } from "@/types/tournaments";
-
 import { supabaseServer } from "@/lib/supabase_server";
 import { GameMode } from "@/types/game-modes/common";
 
 // Re-export types from the main types file to ensure consistency
 export type {
-    Tournament,
-    TournamentLeaderboardEntry,
-    PublicTournamentLeaderboardEntry,
-    TournamentsData,
-    Prize
+  Tournament,
+  TournamentLeaderboardEntry,
+  PublicTournamentLeaderboardEntry,
+  TournamentsData,
+  Prize,
 };
 
 // Raw database tournament interface (what comes from Supabase)
 interface RawTournament {
-    id: string;
-    name: string;
-    description?: string;
-    game_mode: string; // Note: this is 'game_mode' not 'mode'
-    start_time: string;
-    end_time: string;
-    status: string;
-    prizes: Array<{ place: number | string; prize: string }>; // Note: different structure
-    created_at: string;
-    updated_at: string;
+  id: string;
+  name: string;
+  description?: string;
+  game_mode: string; // Note: this is 'game_mode' not 'mode'
+  start_time: string;
+  end_time: string;
+  status: string;
+  prizes: Array<{ place: number | string; prize: string }>; // Note: different structure
+  created_at: string;
+  updated_at: string;
 }
 
 // Transform raw tournament data to frontend format
 function transformTournament(rawTournament: RawTournament): Tournament {
-    // Transform prizes from { place, prize } to { position, description }
-    const transformedPrizes: Prize[] = rawTournament.prizes.map((prize) => ({
-        position: typeof prize.place === 'string' ?
-            (prize.place === '4-10' ? 4 : parseInt(prize.place)) :
-            prize.place,
-        description: prize.prize,
-        // Extract attempts if mentioned in prize description
-        attempts: prize.prize.includes('attempts') ?
-            parseInt(prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i)?.[1] || '0') || undefined :
-            undefined,
-        reward_type: prize.prize.includes('attempts') ? 'attempts' as const : 'custom' as const,
-    }));
+  // Transform prizes from { place, prize } to { position, description }
+  const transformedPrizes: Prize[] = rawTournament.prizes.map((prize) => ({
+    position:
+      typeof prize.place === "string"
+        ? prize.place === "4-10"
+          ? 4
+          : parseInt(prize.place)
+        : prize.place,
+    description: prize.prize,
+    // Extract attempts if mentioned in prize description
+    attempts: prize.prize.includes("attempts")
+      ? parseInt(
+          prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i)?.[1] || "0",
+        ) || undefined
+      : undefined,
+    reward_type: prize.prize.includes("attempts")
+      ? ("attempts" as const)
+      : ("custom" as const),
+  }));
 
-    return {
-        id: rawTournament.id,
-        name: rawTournament.name,
-        description: rawTournament.description,
-        mode: rawTournament.game_mode as any, // Transform game_mode to mode
-        start_time: rawTournament.start_time,
-        end_time: rawTournament.end_time,
-        status: rawTournament.status as any,
-        prizes: transformedPrizes,
-        created_at: rawTournament.created_at,
-        updated_at: rawTournament.updated_at,
-    };
+  return {
+    id: rawTournament.id,
+    name: rawTournament.name,
+    description: rawTournament.description,
+    mode: rawTournament.game_mode as any, // Transform game_mode to mode
+    start_time: rawTournament.start_time,
+    end_time: rawTournament.end_time,
+    status: rawTournament.status as any,
+    prizes: transformedPrizes,
+    created_at: rawTournament.created_at,
+    updated_at: rawTournament.updated_at,
+  };
 }
 
 // Note: sanitizeLeaderboardEntry function is imported from types/tournaments.ts
 
 // Tournament participation result interface for game service integration
 export interface TournamentParticipationResult {
-    tournamentId: string;
-    tournamentName: string;
-    newBestScore: boolean;
-    position?: number;
-    improved: boolean;
-    previousPosition?: number;
-    scoreImprovement?: number;
+  tournamentId: string;
+  tournamentName: string;
+  newBestScore: boolean;
+  position?: number;
+  improved: boolean;
+  previousPosition?: number;
+  scoreImprovement?: number;
 }
 
 export interface GameResultForTournament {
-    mode: GameMode;
-    score: number;
-    duration: number;
-    // Mode-specific fields
-    survivalTime?: number;
-    maxLevelReached?: number;
-    perfectStreak?: number;
-    correctHits?: number;
-    gameTime?: number;
-    totalHits?: number;
-    mistakesMade?: number;
+  mode: GameMode;
+  score: number;
+  duration: number;
+  // Mode-specific fields
+  survivalTime?: number;
+  maxLevelReached?: number;
+  perfectStreak?: number;
+  correctHits?: number;
+  gameTime?: number;
+  totalHits?: number;
+  mistakesMade?: number;
 }
 
 // Server-side tournament service
 export const serverTournamentService = {
-    /**
-     * Get current active tournament
-     */
-    async getActiveTournament(): Promise<Tournament | null> {
-        try {
-            const { data, error } = await supabaseServer.rpc("get_active_tournament");
+  /**
+   * Get current active tournament
+   */
+  async getActiveTournament(): Promise<Tournament | null> {
+    try {
+      const { data, error } = await supabaseServer.rpc("get_active_tournament");
 
-            if (error) {
-                console.error("Error getting active tournament:", error);
-                return null;
-            }
+      if (error) {
+        console.error("Error getting active tournament:", error);
 
-            if (!data) {
-                return null;
-            }
+        return null;
+      }
 
-            // Transform the raw data to match frontend interface
-            return transformTournament(data);
-        } catch (error) {
-            console.error("Error in getActiveTournament:", error);
-            return null;
+      if (!data) {
+        return null;
+      }
+
+      // Transform the raw data to match frontend interface
+      return transformTournament(data);
+    } catch (error) {
+      console.error("Error in getActiveTournament:", error);
+
+      return null;
+    }
+  },
+
+  /**
+   * Check if tournament is active for specific game mode
+   */
+  async isTournamentActiveForMode(gameMode: GameMode): Promise<boolean> {
+    try {
+      // Convert GameMode enum to tournament mode string
+      let tournamentMode: string;
+
+      switch (gameMode) {
+        case GameMode.SURVIVAL:
+          tournamentMode = "survival";
+          break;
+        case GameMode.PHYSICS:
+          tournamentMode = "physics";
+          break;
+        case GameMode.ROTATION:
+          tournamentMode = "rotation";
+          break;
+        default:
+          return false; // Reaction mode doesn't have tournaments
+      }
+
+      const { data, error } = await supabaseServer.rpc(
+        "is_tournament_active_for_mode",
+        { game_mode: tournamentMode },
+      );
+
+      if (error) {
+        console.error("Error checking tournament active for mode:", error);
+
+        return false;
+      }
+
+      return data || false;
+    } catch (error) {
+      console.error("Error in isTournamentActiveForMode:", error);
+
+      return false;
+    }
+  },
+
+  /**
+   * Get all tournaments grouped by status
+   */
+  async getAllTournaments(): Promise<TournamentsData> {
+    try {
+      const { data: tournaments, error } = await supabaseServer
+        .from("tournaments")
+        .select("*")
+        .order("start_time", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching tournaments:", error);
+        throw error;
+      }
+
+      const result: TournamentsData = {
+        upcoming: [],
+        completed: [],
+      };
+
+      for (const rawTournament of tournaments || []) {
+        const tournament = transformTournament(rawTournament);
+
+        if (tournament.status === "active") {
+          result.active = tournament;
+        } else if (tournament.status === "upcoming") {
+          result.upcoming.push(tournament);
+        } else if (tournament.status === "completed") {
+          result.completed.push(tournament);
         }
-    },
+      }
 
-    /**
-     * Check if tournament is active for specific game mode
-     */
-    async isTournamentActiveForMode(gameMode: GameMode): Promise<boolean> {
-        try {
-            // Convert GameMode enum to tournament mode string
-            let tournamentMode: string;
+      // Sort upcoming by start time (earliest first)
+      result.upcoming.sort(
+        (a, b) =>
+          new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+      );
 
-            switch (gameMode) {
-                case GameMode.SURVIVAL:
-                    tournamentMode = "survival";
-                    break;
-                case GameMode.PHYSICS:
-                    tournamentMode = "physics";
-                    break;
-                case GameMode.ROTATION:
-                    tournamentMode = "rotation";
-                    break;
-                default:
-                    return false; // Reaction mode doesn't have tournaments
-            }
+      // Sort completed by end time (most recent first)
+      result.completed.sort(
+        (a, b) =>
+          new Date(b.end_time).getTime() - new Date(a.end_time).getTime(),
+      );
 
-            const { data, error } = await supabaseServer.rpc(
-                "is_tournament_active_for_mode",
-                { game_mode: tournamentMode },
-            );
+      return result;
+    } catch (error) {
+      console.error("Error in getAllTournaments:", error);
+      throw error;
+    }
+  },
 
-            if (error) {
-                console.error("Error checking tournament active for mode:", error);
-                return false;
-            }
+  /**
+   * Get tournament by ID
+   */
+  async getTournamentById(tournamentId: string): Promise<Tournament | null> {
+    try {
+      const { data, error } = await supabaseServer
+        .from("tournaments")
+        .select("*")
+        .eq("id", tournamentId)
+        .single();
 
-            return data || false;
-        } catch (error) {
-            console.error("Error in isTournamentActiveForMode:", error);
-            return false;
+      if (error) {
+        if (error.code === "PGRST116") {
+          // No rows returned
+          return null;
         }
+        console.error("Error fetching tournament by ID:", error);
+        throw error;
+      }
+
+      return transformTournament(data);
+    } catch (error) {
+      console.error("Error in getTournamentById:", error);
+
+      return null;
+    }
+  },
+
+  /**
+   * Get tournament leaderboard (internal, full data)
+   */
+  async getTournamentLeaderboard(
+    tournamentId: string,
+    limit: number = 100,
+  ): Promise<TournamentLeaderboardEntry[]> {
+    try {
+      const { data, error } = await supabaseServer
+        .from("tournament_leaderboard")
+        .select("*")
+        .eq("tournament_id", tournamentId)
+        .order("best_score", { ascending: false })
+        .order("last_participation_at", { ascending: true }) // Tiebreaker: earlier last participation wins
+        .limit(limit);
+
+      if (error) {
+        console.error("Error fetching tournament leaderboard:", error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error("Error in getTournamentLeaderboard:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get public tournament leaderboard (sanitized data)
+   */
+  async getPublicTournamentLeaderboard(
+    tournamentId: string,
+    limit: number = 100,
+  ): Promise<PublicTournamentLeaderboardEntry[]> {
+    try {
+      const leaderboard = await this.getTournamentLeaderboard(
+        tournamentId,
+        limit,
+      );
+
+      return leaderboard.map(sanitizeLeaderboardEntry);
+    } catch (error) {
+      console.error("Error in getPublicTournamentLeaderboard:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update or create tournament leaderboard entry
+   */
+  async updateTournamentLeaderboard(
+    tournamentId: string,
+    telegramId: number,
+    gameResult: GameResultForTournament,
+    userInfo: {
+      user_id: string;
+      first_name: string;
+      last_name?: string;
+      username?: string;
+      is_premium: boolean;
     },
+  ): Promise<void> {
+    try {
+      const now = new Date().toISOString();
 
-    /**
-     * Get all tournaments grouped by status
-     */
-    async getAllTournaments(): Promise<TournamentsData> {
-        try {
-            const { data: tournaments, error } = await supabaseServer
-                .from("tournaments")
-                .select("*")
-                .order("start_time", { ascending: false });
+      // Get existing entry
+      const { data: existingEntry } = await supabaseServer
+        .from("tournament_leaderboard")
+        .select("*")
+        .eq("tournament_id", tournamentId)
+        .eq("telegram_id", telegramId)
+        .single();
 
-            if (error) {
-                console.error("Error fetching tournaments:", error);
-                throw error;
-            }
+      // Calculate mode-specific score
+      let tournamentScore = gameResult.score;
 
-            const result: TournamentsData = {
-                upcoming: [],
-                completed: [],
-            };
+      // Apply mode-specific multipliers (same as in gameService)
+      switch (gameResult.mode) {
+        case GameMode.SURVIVAL:
+          tournamentScore = gameResult.score * 2;
+          break;
+        case GameMode.PHYSICS:
+          tournamentScore = gameResult.score * 4;
+          break;
+        case GameMode.ROTATION:
+          tournamentScore = gameResult.score * 3;
+          break;
+      }
 
-            for (const rawTournament of tournaments || []) {
-                const tournament = transformTournament(rawTournament);
+      if (existingEntry) {
+        // Update existing entry
+        const updates: any = {
+          first_name: userInfo.first_name,
+          last_name: userInfo.last_name,
+          username: userInfo.username,
+          is_premium: userInfo.is_premium,
+          total_games: existingEntry.total_games + 1,
+          last_participation_at: now,
+          updated_at: now,
+        };
 
-                if (tournament.status === "active") {
-                    result.active = tournament;
-                } else if (tournament.status === "upcoming") {
-                    result.upcoming.push(tournament);
-                } else if (tournament.status === "completed") {
-                    result.completed.push(tournament);
-                }
-            }
-
-            // Sort upcoming by start time (earliest first)
-            result.upcoming.sort(
-                (a, b) =>
-                    new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
-            );
-
-            // Sort completed by end time (most recent first)
-            result.completed.sort(
-                (a, b) =>
-                    new Date(b.end_time).getTime() - new Date(a.end_time).getTime(),
-            );
-
-            return result;
-        } catch (error) {
-            console.error("Error in getAllTournaments:", error);
-            throw error;
+        // Update best score if improved
+        if (tournamentScore > existingEntry.best_score) {
+          updates.best_score = tournamentScore;
         }
-    },
 
-    /**
-     * Get tournament by ID
-     */
-    async getTournamentById(tournamentId: string): Promise<Tournament | null> {
-        try {
-            const { data, error } = await supabaseServer
-                .from("tournaments")
-                .select("*")
-                .eq("id", tournamentId)
-                .single();
-
-            if (error) {
-                if (error.code === "PGRST116") {
-                    // No rows returned
-                    return null;
-                }
-                console.error("Error fetching tournament by ID:", error);
-                throw error;
+        // Update mode-specific fields
+        if (
+          gameResult.mode === GameMode.SURVIVAL &&
+          gameResult.survivalTime !== undefined
+        ) {
+          if (
+            !existingEntry.best_time ||
+            gameResult.survivalTime > existingEntry.best_time
+          ) {
+            updates.best_time = gameResult.survivalTime;
+          }
+          if (
+            gameResult.maxLevelReached !== undefined &&
+            (!existingEntry.max_level ||
+              gameResult.maxLevelReached > existingEntry.max_level)
+          ) {
+            updates.max_level = gameResult.maxLevelReached;
+          }
+          if (
+            gameResult.perfectStreak !== undefined &&
+            (!existingEntry.best_streak ||
+              gameResult.perfectStreak > existingEntry.best_streak)
+          ) {
+            updates.best_streak = gameResult.perfectStreak;
+          }
+        } else if (gameResult.mode === GameMode.PHYSICS) {
+          if (
+            gameResult.gameTime !== undefined &&
+            (!existingEntry.best_time ||
+              gameResult.gameTime > existingEntry.best_time)
+          ) {
+            updates.best_time = Math.round(gameResult.gameTime);
+          }
+          if (gameResult.totalHits !== undefined) {
+            // For physics mode, we track best hits, not total hits across all games
+            if (
+              !existingEntry.best_hits ||
+              gameResult.totalHits > existingEntry.best_hits
+            ) {
+              updates.best_hits = gameResult.totalHits;
             }
-
-            return transformTournament(data);
-        } catch (error) {
-            console.error("Error in getTournamentById:", error);
-            return null;
-        }
-    },
-
-    /**
-     * Get tournament leaderboard (internal, full data)
-     */
-    async getTournamentLeaderboard(
-        tournamentId: string,
-        limit: number = 100,
-    ): Promise<TournamentLeaderboardEntry[]> {
-        try {
-            const { data, error } = await supabaseServer
-                .from("tournament_leaderboard")
-                .select("*")
-                .eq("tournament_id", tournamentId)
-                .order("best_score", { ascending: false })
-                .order("last_participation_at", { ascending: true }) // Tiebreaker: earlier last participation wins
-                .limit(limit);
-
-            if (error) {
-                console.error("Error fetching tournament leaderboard:", error);
-                throw error;
-            }
-
-            return data || [];
-        } catch (error) {
-            console.error("Error in getTournamentLeaderboard:", error);
-            throw error;
-        }
-    },
-
-    /**
-     * Get public tournament leaderboard (sanitized data)
-     */
-    async getPublicTournamentLeaderboard(
-        tournamentId: string,
-        limit: number = 100,
-    ): Promise<PublicTournamentLeaderboardEntry[]> {
-        try {
-            const leaderboard = await this.getTournamentLeaderboard(tournamentId, limit);
-            return leaderboard.map(sanitizeLeaderboardEntry);
-        } catch (error) {
-            console.error("Error in getPublicTournamentLeaderboard:", error);
-            throw error;
-        }
-    },
-
-    /**
-     * Update or create tournament leaderboard entry
-     */
-    async updateTournamentLeaderboard(
-        tournamentId: string,
-        telegramId: number,
-        gameResult: GameResultForTournament,
-        userInfo: {
-            user_id: string;
-            first_name: string;
-            last_name?: string;
-            username?: string;
-            is_premium: boolean;
-        },
-    ): Promise<void> {
-        try {
-            const now = new Date().toISOString();
-
-            // Get existing entry
-            const { data: existingEntry } = await supabaseServer
-                .from("tournament_leaderboard")
-                .select("*")
-                .eq("tournament_id", tournamentId)
-                .eq("telegram_id", telegramId)
-                .single();
-
-            // Calculate mode-specific score
-            let tournamentScore = gameResult.score;
-
-            // Apply mode-specific multipliers (same as in gameService)
-            switch (gameResult.mode) {
-                case GameMode.SURVIVAL:
-                    tournamentScore = gameResult.score * 2;
-                    break;
-                case GameMode.PHYSICS:
-                    tournamentScore = gameResult.score * 4;
-                    break;
-                case GameMode.ROTATION:
-                    tournamentScore = gameResult.score * 3;
-                    break;
-            }
-
-            if (existingEntry) {
-                // Update existing entry
-                const updates: any = {
-                    first_name: userInfo.first_name,
-                    last_name: userInfo.last_name,
-                    username: userInfo.username,
-                    is_premium: userInfo.is_premium,
-                    total_games: existingEntry.total_games + 1,
-                    last_participation_at: now,
-                    updated_at: now,
-                };
-
-                // Update best score if improved
-                if (tournamentScore > existingEntry.best_score) {
-                    updates.best_score = tournamentScore;
-                }
-
-                // Update mode-specific fields
-                if (
-                    gameResult.mode === GameMode.SURVIVAL &&
-                    gameResult.survivalTime !== undefined
-                ) {
-                    if (
-                        !existingEntry.best_time ||
-                        gameResult.survivalTime > existingEntry.best_time
-                    ) {
-                        updates.best_time = gameResult.survivalTime;
-                    }
-                    if (
-                        gameResult.maxLevelReached !== undefined &&
-                        (!existingEntry.max_level ||
-                            gameResult.maxLevelReached > existingEntry.max_level)
-                    ) {
-                        updates.max_level = gameResult.maxLevelReached;
-                    }
-                    if (
-                        gameResult.perfectStreak !== undefined &&
-                        (!existingEntry.best_streak ||
-                            gameResult.perfectStreak > existingEntry.best_streak)
-                    ) {
-                        updates.best_streak = gameResult.perfectStreak;
-                    }
-                } else if (gameResult.mode === GameMode.PHYSICS) {
-                    if (
-                        gameResult.gameTime !== undefined &&
-                        (!existingEntry.best_time ||
-                            gameResult.gameTime > existingEntry.best_time)
-                    ) {
-                        updates.best_time = Math.round(gameResult.gameTime);
-                    }
-                    if (gameResult.totalHits !== undefined) {
-                        // For physics mode, we track best hits, not total hits across all games
-                        if (
-                            !existingEntry.best_hits ||
-                            gameResult.totalHits > existingEntry.best_hits
-                        ) {
-                            updates.best_hits = gameResult.totalHits;
-                        }
-                    }
-                    if (gameResult.mistakesMade !== undefined) {
-                        if (
-                            existingEntry.least_mistakes === null ||
-                            existingEntry.least_mistakes === undefined
-                        ) {
-                            updates.least_mistakes = gameResult.mistakesMade;
-                        } else {
-                            updates.least_mistakes = Math.min(
-                                existingEntry.least_mistakes,
-                                gameResult.mistakesMade,
-                            );
-                        }
-                    }
-                } else if (gameResult.mode === GameMode.ROTATION) {
-                    if (
-                        gameResult.survivalTime !== undefined &&
-                        (!existingEntry.best_time ||
-                            gameResult.survivalTime > existingEntry.best_time)
-                    ) {
-                        updates.best_time = gameResult.survivalTime;
-                    }
-                    if (
-                        gameResult.maxLevelReached !== undefined &&
-                        (!existingEntry.max_level ||
-                            gameResult.maxLevelReached > existingEntry.max_level)
-                    ) {
-                        updates.max_level = gameResult.maxLevelReached;
-                    }
-                    if (
-                        gameResult.perfectStreak !== undefined &&
-                        (!existingEntry.best_streak ||
-                            gameResult.perfectStreak > existingEntry.best_streak)
-                    ) {
-                        updates.best_streak = gameResult.perfectStreak;
-                    }
-                    // Note: rotation mode doesn't track hits in the database schema
-                }
-
-                const { error } = await supabaseServer
-                    .from("tournament_leaderboard")
-                    .update(updates)
-                    .eq("id", existingEntry.id);
-
-                if (error) {
-                    console.error("Error updating tournament leaderboard entry:", error);
-                    throw error;
-                }
+          }
+          if (gameResult.mistakesMade !== undefined) {
+            if (
+              existingEntry.least_mistakes === null ||
+              existingEntry.least_mistakes === undefined
+            ) {
+              updates.least_mistakes = gameResult.mistakesMade;
             } else {
-                // Create new entry
-                const newEntry: any = {
-                    tournament_id: tournamentId,
-                    user_id: userInfo.user_id,
-                    telegram_id: telegramId,
-                    first_name: userInfo.first_name,
-                    last_name: userInfo.last_name,
-                    username: userInfo.username,
-                    is_premium: userInfo.is_premium,
-                    best_score: tournamentScore,
-                    total_games: 1,
-                    first_participation_at: now,
-                    last_participation_at: now,
-                };
-
-                // Set mode-specific initial values
-                if (gameResult.mode === GameMode.SURVIVAL) {
-                    newEntry.best_time = gameResult.survivalTime || 0;
-                    newEntry.max_level = gameResult.maxLevelReached || 0;
-                    newEntry.best_streak = gameResult.perfectStreak || 0;
-                } else if (gameResult.mode === GameMode.PHYSICS) {
-                    newEntry.best_time = gameResult.gameTime
-                        ? Math.round(gameResult.gameTime)
-                        : 0;
-                    newEntry.best_hits = gameResult.totalHits || 0;
-                    newEntry.least_mistakes = gameResult.mistakesMade || 0;
-                } else if (gameResult.mode === GameMode.ROTATION) {
-                    newEntry.best_time = gameResult.survivalTime || 0;
-                    newEntry.max_level = gameResult.maxLevelReached || 0;
-                    newEntry.best_streak = gameResult.perfectStreak || 0;
-                    // Note: rotation mode doesn't track hits in the database schema
-                }
-
-                const { error } = await supabaseServer
-                    .from("tournament_leaderboard")
-                    .insert(newEntry);
-
-                if (error) {
-                    console.error("Error creating tournament leaderboard entry:", error);
-                    throw error;
-                }
+              updates.least_mistakes = Math.min(
+                existingEntry.least_mistakes,
+                gameResult.mistakesMade,
+              );
             }
-        } catch (error) {
-            console.error("Error in updateTournamentLeaderboard:", error);
-            throw error;
+          }
+        } else if (gameResult.mode === GameMode.ROTATION) {
+          if (
+            gameResult.survivalTime !== undefined &&
+            (!existingEntry.best_time ||
+              gameResult.survivalTime > existingEntry.best_time)
+          ) {
+            updates.best_time = gameResult.survivalTime;
+          }
+          if (
+            gameResult.maxLevelReached !== undefined &&
+            (!existingEntry.max_level ||
+              gameResult.maxLevelReached > existingEntry.max_level)
+          ) {
+            updates.max_level = gameResult.maxLevelReached;
+          }
+          if (
+            gameResult.perfectStreak !== undefined &&
+            (!existingEntry.best_streak ||
+              gameResult.perfectStreak > existingEntry.best_streak)
+          ) {
+            updates.best_streak = gameResult.perfectStreak;
+          }
+          // Note: rotation mode doesn't track hits in the database schema
         }
-    },
 
-    /**
-     * Get user's position in tournament (sanitized)
-     */
-    async getUserTournamentPosition(
-        tournamentId: string,
-        telegramId: number,
-    ): Promise<{ position: number; entry: PublicTournamentLeaderboardEntry } | null> {
-        try {
-            const leaderboard = await this.getTournamentLeaderboard(
-                tournamentId,
-                1000,
-            );
-            const userIndex = leaderboard.findIndex(
-                (entry) => entry.telegram_id === telegramId,
-            );
+        const { error } = await supabaseServer
+          .from("tournament_leaderboard")
+          .update(updates)
+          .eq("id", existingEntry.id);
 
-            if (userIndex === -1) {
-                return null;
-            }
-
-            return {
-                position: userIndex + 1,
-                entry: sanitizeLeaderboardEntry(leaderboard[userIndex]),
-            };
-        } catch (error) {
-            console.error("Error in getUserTournamentPosition:", error);
-            return null;
+        if (error) {
+          console.error("Error updating tournament leaderboard entry:", error);
+          throw error;
         }
-    },
+      } else {
+        // Create new entry
+        const newEntry: any = {
+          tournament_id: tournamentId,
+          user_id: userInfo.user_id,
+          telegram_id: telegramId,
+          first_name: userInfo.first_name,
+          last_name: userInfo.last_name,
+          username: userInfo.username,
+          is_premium: userInfo.is_premium,
+          best_score: tournamentScore,
+          total_games: 1,
+          first_participation_at: now,
+          last_participation_at: now,
+        };
 
-    /**
-     * Get tournament by query parameter (format: mode-week-number-year)
-     */
-    async getTournamentByQuery(query: string): Promise<Tournament | null> {
-        try {
-            console.log("Searching for tournament with query:", query);
-
-            // Parse query format: physics-week-32-2025
-            const parts = query.split("-");
-
-            if (parts.length < 1) {
-                console.error("Invalid query format:", query);
-                return null;
-            }
-
-            const mode = parts[0];
-
-            if (!["survival", "physics", "rotation"].includes(mode)) {
-                console.error("Invalid tournament mode in query:", mode);
-                return null;
-            }
-
-            console.log("Looking for tournament with mode:", mode);
-
-            // First, try to find an active tournament with the matching mode
-            const { data: activeTournaments, error: activeError } = await supabaseServer
-                .from("tournaments")
-                .select("*")
-                .eq("game_mode", mode)
-                .eq("status", "active")
-                .order("start_time", { ascending: false })
-                .limit(1);
-
-            if (activeError) {
-                console.error("Error searching for active tournament:", activeError);
-            } else if (activeTournaments && activeTournaments.length > 0) {
-                console.log("Found active tournament for mode:", mode);
-                return transformTournament(activeTournaments[0]);
-            }
-
-            // If no active tournament found, get the most recent tournament for this mode
-            const { data: allTournaments, error: allError } = await supabaseServer
-                .from("tournaments")
-                .select("*")
-                .eq("game_mode", mode)
-                .order("start_time", { ascending: false })
-                .limit(1);
-
-            if (allError) {
-                console.error("Error searching tournament by mode:", allError);
-                return null;
-            }
-
-            const rawTournament = allTournaments?.[0] || null;
-
-            if (!rawTournament) {
-                console.log("No tournament found for mode:", mode);
-                return null;
-            }
-
-            const tournament = transformTournament(rawTournament);
-            console.log("Found tournament:", tournament.id, "with status:", tournament.status);
-
-            return tournament;
-        } catch (error) {
-            console.error("Error in getTournamentByQuery:", error);
-            return null;
+        // Set mode-specific initial values
+        if (gameResult.mode === GameMode.SURVIVAL) {
+          newEntry.best_time = gameResult.survivalTime || 0;
+          newEntry.max_level = gameResult.maxLevelReached || 0;
+          newEntry.best_streak = gameResult.perfectStreak || 0;
+        } else if (gameResult.mode === GameMode.PHYSICS) {
+          newEntry.best_time = gameResult.gameTime
+            ? Math.round(gameResult.gameTime)
+            : 0;
+          newEntry.best_hits = gameResult.totalHits || 0;
+          newEntry.least_mistakes = gameResult.mistakesMade || 0;
+        } else if (gameResult.mode === GameMode.ROTATION) {
+          newEntry.best_time = gameResult.survivalTime || 0;
+          newEntry.max_level = gameResult.maxLevelReached || 0;
+          newEntry.best_streak = gameResult.perfectStreak || 0;
+          // Note: rotation mode doesn't track hits in the database schema
         }
-    },
+
+        const { error } = await supabaseServer
+          .from("tournament_leaderboard")
+          .insert(newEntry);
+
+        if (error) {
+          console.error("Error creating tournament leaderboard entry:", error);
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error("Error in updateTournamentLeaderboard:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get user's position in tournament (sanitized)
+   */
+  async getUserTournamentPosition(
+    tournamentId: string,
+    telegramId: number,
+  ): Promise<{
+    position: number;
+    entry: PublicTournamentLeaderboardEntry;
+  } | null> {
+    try {
+      const leaderboard = await this.getTournamentLeaderboard(
+        tournamentId,
+        1000,
+      );
+      const userIndex = leaderboard.findIndex(
+        (entry) => entry.telegram_id === telegramId,
+      );
+
+      if (userIndex === -1) {
+        return null;
+      }
+
+      return {
+        position: userIndex + 1,
+        entry: sanitizeLeaderboardEntry(leaderboard[userIndex]),
+      };
+    } catch (error) {
+      console.error("Error in getUserTournamentPosition:", error);
+
+      return null;
+    }
+  },
+
+  /**
+   * Get tournament by query parameter (format: mode-week-number-year)
+   */
+  async getTournamentByQuery(query: string): Promise<Tournament | null> {
+    try {
+      console.log("Searching for tournament with query:", query);
+
+      // Parse query format: physics-week-32-2025
+      const parts = query.split("-");
+
+      if (parts.length < 1) {
+        console.error("Invalid query format:", query);
+
+        return null;
+      }
+
+      const mode = parts[0];
+
+      if (!["survival", "physics", "rotation"].includes(mode)) {
+        console.error("Invalid tournament mode in query:", mode);
+
+        return null;
+      }
+
+      console.log("Looking for tournament with mode:", mode);
+
+      // First, try to find an active tournament with the matching mode
+      const { data: activeTournaments, error: activeError } =
+        await supabaseServer
+          .from("tournaments")
+          .select("*")
+          .eq("game_mode", mode)
+          .eq("status", "active")
+          .order("start_time", { ascending: false })
+          .limit(1);
+
+      if (activeError) {
+        console.error("Error searching for active tournament:", activeError);
+      } else if (activeTournaments && activeTournaments.length > 0) {
+        console.log("Found active tournament for mode:", mode);
+
+        return transformTournament(activeTournaments[0]);
+      }
+
+      // If no active tournament found, get the most recent tournament for this mode
+      const { data: allTournaments, error: allError } = await supabaseServer
+        .from("tournaments")
+        .select("*")
+        .eq("game_mode", mode)
+        .order("start_time", { ascending: false })
+        .limit(1);
+
+      if (allError) {
+        console.error("Error searching tournament by mode:", allError);
+
+        return null;
+      }
+
+      const rawTournament = allTournaments?.[0] || null;
+
+      if (!rawTournament) {
+        console.log("No tournament found for mode:", mode);
+
+        return null;
+      }
+
+      const tournament = transformTournament(rawTournament);
+
+      console.log(
+        "Found tournament:",
+        tournament.id,
+        "with status:",
+        tournament.status,
+      );
+
+      return tournament;
+    } catch (error) {
+      console.error("Error in getTournamentByQuery:", error);
+
+      return null;
+    }
+  },
 };

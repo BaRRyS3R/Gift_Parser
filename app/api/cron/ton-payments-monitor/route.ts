@@ -54,7 +54,7 @@ interface CronResponse {
     transactions_fetched?: number;
     filtered_transactions?: number;
     api_url?: string;
-    api_provider?: 'getblock' | 'toncenter'; // NEW: Track which API was used
+    api_provider?: "getblock" | "toncenter"; // NEW: Track which API was used
   };
 }
 
@@ -114,12 +114,14 @@ interface ToncenterTransaction {
     ihr_fee?: string;
     created_lt?: string;
     body_hash?: string;
-    msg_data?: {
-      "@type": string;
-      body?: string;
-      text?: string;
-      init_state?: string;
-    } | string;
+    msg_data?:
+      | {
+          "@type": string;
+          body?: string;
+          text?: string;
+          init_state?: string;
+        }
+      | string;
     message?: string;
   };
   out_msgs?: any[];
@@ -182,14 +184,16 @@ function getTransactionHash(transaction: UnifiedTransaction): string | null {
 /**
  * Конвертация Toncenter транзакции в формат GetBlock для единообразной обработки
  */
-function convertToncenterToGetBlock(tx: ToncenterTransaction): GetBlockTransaction {
+function convertToncenterToGetBlock(
+  tx: ToncenterTransaction,
+): GetBlockTransaction {
   // Обработка msg_data - может быть строкой или объектом
   let msgData: any = {
     "@type": "msg.dataRaw",
   };
 
   if (tx.in_msg?.msg_data) {
-    if (typeof tx.in_msg.msg_data === 'string') {
+    if (typeof tx.in_msg.msg_data === "string") {
       msgData.body = tx.in_msg.msg_data;
     } else {
       msgData = tx.in_msg.msg_data;
@@ -205,18 +209,20 @@ function convertToncenterToGetBlock(tx: ToncenterTransaction): GetBlockTransacti
     fee: tx.fee,
     storage_fee: tx.storage_fee,
     other_fee: tx.other_fee,
-    in_msg: tx.in_msg ? {
-      "@type": tx.in_msg["@type"] || "raw.internalMessage",
-      source: tx.in_msg.source || "",
-      destination: tx.in_msg.destination || "",
-      value: tx.in_msg.value || "0",
-      fwd_fee: tx.in_msg.fwd_fee || "0",
-      ihr_fee: tx.in_msg.ihr_fee || "0",
-      created_lt: tx.in_msg.created_lt || "0",
-      body_hash: tx.in_msg.body_hash || "",
-      msg_data: msgData,
-      message: tx.in_msg.message || "",
-    } : undefined,
+    in_msg: tx.in_msg
+      ? {
+          "@type": tx.in_msg["@type"] || "raw.internalMessage",
+          source: tx.in_msg.source || "",
+          destination: tx.in_msg.destination || "",
+          value: tx.in_msg.value || "0",
+          fwd_fee: tx.in_msg.fwd_fee || "0",
+          ihr_fee: tx.in_msg.ihr_fee || "0",
+          created_lt: tx.in_msg.created_lt || "0",
+          body_hash: tx.in_msg.body_hash || "",
+          msg_data: msgData,
+          message: tx.in_msg.message || "",
+        }
+      : undefined,
     out_msgs: tx.out_msgs,
   };
 }
@@ -256,10 +262,7 @@ export async function POST(
     "[TON_MONITOR] - TELEGRAM_BOT_TOKEN exists:",
     !!CRON_CONFIG.TELEGRAM_BOT_TOKEN,
   );
-  console.log(
-    "[TON_MONITOR] - Lookback hours:",
-    CRON_CONFIG.LOOKBACK_HOURS,
-  );
+  console.log("[TON_MONITOR] - Lookback hours:", CRON_CONFIG.LOOKBACK_HOURS);
   console.log(
     "[TON_MONITOR] - Payload separator:",
     TON_CONFIG.PAYLOAD_SEPARATOR,
@@ -336,13 +339,11 @@ export async function POST(
 
     // Получаем новые транзакции с fallback логикой
     console.log("[TON_MONITOR] 📡 Starting transaction fetch process...");
-    const { transactions, provider } = await fetchRecentTransactionsWithFallback();
+    const { transactions, provider } =
+      await fetchRecentTransactionsWithFallback();
 
     console.log("[TON_MONITOR] 📊 Transaction fetch results:");
-    console.log(
-      "[TON_MONITOR] - API provider used:",
-      provider,
-    );
+    console.log("[TON_MONITOR] - API provider used:", provider);
     console.log(
       "[TON_MONITOR] - Total transactions retrieved:",
       transactions.length,
@@ -413,10 +414,7 @@ export async function POST(
     const executionTime = Date.now() - startTime;
 
     console.log("[TON_MONITOR] 📋 Final statistics:");
-    console.log(
-      "[TON_MONITOR] - API provider:",
-      provider,
-    );
+    console.log("[TON_MONITOR] - API provider:", provider);
     console.log(
       "[TON_MONITOR] - Processed transactions:",
       stats.processed_transactions,
@@ -500,19 +498,21 @@ export async function POST(
  */
 async function fetchRecentTransactionsWithFallback(): Promise<{
   transactions: GetBlockTransaction[];
-  provider: 'getblock' | 'toncenter';
+  provider: "getblock" | "toncenter";
 }> {
   // Сначала пытаемся GetBlock если есть токен
   if (CRON_CONFIG.GETBLOCK_ACCESS_TOKEN) {
     try {
       console.log("[TON_MONITOR] 🔗 Attempting to fetch from GetBlock...");
       const transactions = await fetchFromGetBlock();
+
       console.log("[TON_MONITOR] ✅ Successfully fetched from GetBlock");
-      return { transactions, provider: 'getblock' };
+
+      return { transactions, provider: "getblock" };
     } catch (error) {
       console.warn(
         "[TON_MONITOR] ⚠️  GetBlock failed:",
-        error instanceof Error ? error.message : "Unknown error"
+        error instanceof Error ? error.message : "Unknown error",
       );
       console.log("[TON_MONITOR] 🔄 Switching to Toncenter API...");
     }
@@ -523,16 +523,18 @@ async function fetchRecentTransactionsWithFallback(): Promise<{
     try {
       console.log("[TON_MONITOR] 🔗 Attempting to fetch from Toncenter...");
       const transactions = await fetchFromToncenter();
+
       console.log("[TON_MONITOR] ✅ Successfully fetched from Toncenter");
-      return { transactions, provider: 'toncenter' };
+
+      return { transactions, provider: "toncenter" };
     } catch (error) {
       console.error(
         "[TON_MONITOR] ❌ Toncenter also failed:",
-        error instanceof Error ? error.message : "Unknown error"
+        error instanceof Error ? error.message : "Unknown error",
       );
       throw new Error(
-        `Both APIs failed. GetBlock: ${CRON_CONFIG.GETBLOCK_ACCESS_TOKEN ? 'failed' : 'no key'}. ` +
-        `Toncenter: ${error instanceof Error ? error.message : 'failed'}`
+        `Both APIs failed. GetBlock: ${CRON_CONFIG.GETBLOCK_ACCESS_TOKEN ? "failed" : "no key"}. ` +
+          `Toncenter: ${error instanceof Error ? error.message : "failed"}`,
       );
     }
   }
@@ -553,8 +555,14 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
     "[TON_MONITOR] [GetBlock] - Current timestamp:",
     Math.floor(Date.now() / 1000),
   );
-  console.log("[TON_MONITOR] [GetBlock] - Lookback hours:", CRON_CONFIG.LOOKBACK_HOURS);
-  console.log("[TON_MONITOR] [GetBlock] - Minimum timestamp:", lookbackTimestamp);
+  console.log(
+    "[TON_MONITOR] [GetBlock] - Lookback hours:",
+    CRON_CONFIG.LOOKBACK_HOURS,
+  );
+  console.log(
+    "[TON_MONITOR] [GetBlock] - Minimum timestamp:",
+    lookbackTimestamp,
+  );
   console.log(
     "[TON_MONITOR] [GetBlock] - Lookback date:",
     new Date(lookbackTimestamp * 1000).toISOString(),
@@ -572,7 +580,10 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
 
   console.log("[TON_MONITOR] [GetBlock] 📡 API Request details:");
   console.log("[TON_MONITOR] [GetBlock] - Full URL:", apiUrl.toString());
-  console.log("[TON_MONITOR] [GetBlock] - Target wallet:", TON_CONFIG.CORPORATE_WALLET);
+  console.log(
+    "[TON_MONITOR] [GetBlock] - Target wallet:",
+    TON_CONFIG.CORPORATE_WALLET,
+  );
 
   console.log("[TON_MONITOR] [GetBlock] 🚀 Sending request...");
   const requestStart = Date.now();
@@ -585,6 +596,7 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
   });
 
   const requestDuration = Date.now() - requestStart;
+
   console.log(
     "[TON_MONITOR] [GetBlock] ⏱️  Request completed in",
     requestDuration,
@@ -595,6 +607,7 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
 
   if (!response.ok) {
     const errorText = await response.text();
+
     console.error("[TON_MONITOR] [GetBlock] ❌ API request failed:");
     console.error("[TON_MONITOR] [GetBlock] - Status:", response.status);
     console.error("[TON_MONITOR] [GetBlock] - Error body:", errorText);
@@ -605,6 +618,7 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
   }
 
   const rawData = await response.text();
+
   console.log(
     "[TON_MONITOR] [GetBlock] 📄 Raw response length:",
     rawData.length,
@@ -617,7 +631,10 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
     parsedData = JSON.parse(rawData);
     console.log("[TON_MONITOR] [GetBlock] ✅ JSON parsing successful");
   } catch (parseError) {
-    console.error("[TON_MONITOR] [GetBlock] ❌ JSON parsing failed:", parseError);
+    console.error(
+      "[TON_MONITOR] [GetBlock] ❌ JSON parsing failed:",
+      parseError,
+    );
     throw new Error(
       `Failed to parse GetBlock response: ${parseError instanceof Error ? parseError.message : "Unknown parsing error"}`,
     );
@@ -627,7 +644,9 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
   let transactions: GetBlockTransaction[] = [];
 
   if ("ok" in parsedData && "result" in parsedData) {
-    console.log("[TON_MONITOR] [GetBlock] 📋 Detected HTTP API v4 response format");
+    console.log(
+      "[TON_MONITOR] [GetBlock] 📋 Detected HTTP API v4 response format",
+    );
     if (!parsedData.ok) {
       throw new Error(
         `GetBlock API error: ${parsedData.error || "Unknown error"}`,
@@ -635,7 +654,9 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
     }
     transactions = parsedData.result || [];
   } else if ("jsonrpc" in parsedData && "result" in parsedData) {
-    console.log("[TON_MONITOR] [GetBlock] 📋 Detected JSON-RPC response format");
+    console.log(
+      "[TON_MONITOR] [GetBlock] 📋 Detected JSON-RPC response format",
+    );
     if (parsedData.error) {
       throw new Error(
         `GetBlock JSON-RPC error: ${parsedData.error.message} (code: ${parsedData.error.code})`,
@@ -657,8 +678,12 @@ async function fetchFromGetBlock(): Promise<GetBlockTransaction[]> {
   });
 
   console.log("[TON_MONITOR] [GetBlock] ✅ Time filtering completed:");
-  console.log(`[TON_MONITOR] [GetBlock] - Original count: ${transactions.length}`);
-  console.log(`[TON_MONITOR] [GetBlock] - Filtered count: ${recentTransactions.length}`);
+  console.log(
+    `[TON_MONITOR] [GetBlock] - Original count: ${transactions.length}`,
+  );
+  console.log(
+    `[TON_MONITOR] [GetBlock] - Filtered count: ${recentTransactions.length}`,
+  );
 
   return recentTransactions;
 }
@@ -676,22 +701,34 @@ async function fetchFromToncenter(): Promise<GetBlockTransaction[]> {
     "[TON_MONITOR] [Toncenter] - Current timestamp:",
     Math.floor(Date.now() / 1000),
   );
-  console.log("[TON_MONITOR] [Toncenter] - Lookback hours:", CRON_CONFIG.LOOKBACK_HOURS);
-  console.log("[TON_MONITOR] [Toncenter] - Minimum timestamp:", lookbackTimestamp);
+  console.log(
+    "[TON_MONITOR] [Toncenter] - Lookback hours:",
+    CRON_CONFIG.LOOKBACK_HOURS,
+  );
+  console.log(
+    "[TON_MONITOR] [Toncenter] - Minimum timestamp:",
+    lookbackTimestamp,
+  );
   console.log(
     "[TON_MONITOR] [Toncenter] - Lookback date:",
     new Date(lookbackTimestamp * 1000).toISOString(),
   );
 
   const apiUrl = new URL(`https://toncenter.com/api/v2/getTransactions`);
-  
+
   apiUrl.searchParams.append("address", TON_CONFIG.CORPORATE_WALLET);
-  apiUrl.searchParams.append("limit", CRON_CONFIG.MAX_TRANSACTIONS_PER_RUN.toString());
+  apiUrl.searchParams.append(
+    "limit",
+    CRON_CONFIG.MAX_TRANSACTIONS_PER_RUN.toString(),
+  );
   apiUrl.searchParams.append("archival", "false");
-  
+
   console.log("[TON_MONITOR] [Toncenter] 📡 API Request details:");
   console.log("[TON_MONITOR] [Toncenter] - Full URL:", apiUrl.toString());
-  console.log("[TON_MONITOR] [Toncenter] - Target wallet:", TON_CONFIG.CORPORATE_WALLET);
+  console.log(
+    "[TON_MONITOR] [Toncenter] - Target wallet:",
+    TON_CONFIG.CORPORATE_WALLET,
+  );
 
   console.log("[TON_MONITOR] [Toncenter] 🚀 Sending request...");
   const requestStart = Date.now();
@@ -705,6 +742,7 @@ async function fetchFromToncenter(): Promise<GetBlockTransaction[]> {
   });
 
   const requestDuration = Date.now() - requestStart;
+
   console.log(
     "[TON_MONITOR] [Toncenter] ⏱️  Request completed in",
     requestDuration,
@@ -715,6 +753,7 @@ async function fetchFromToncenter(): Promise<GetBlockTransaction[]> {
 
   if (!response.ok) {
     const errorText = await response.text();
+
     console.error("[TON_MONITOR] [Toncenter] ❌ API request failed:");
     console.error("[TON_MONITOR] [Toncenter] - Status:", response.status);
     console.error("[TON_MONITOR] [Toncenter] - Error body:", errorText);
@@ -725,6 +764,7 @@ async function fetchFromToncenter(): Promise<GetBlockTransaction[]> {
   }
 
   const rawData = await response.text();
+
   console.log(
     "[TON_MONITOR] [Toncenter] 📄 Raw response length:",
     rawData.length,
@@ -737,7 +777,10 @@ async function fetchFromToncenter(): Promise<GetBlockTransaction[]> {
     parsedData = JSON.parse(rawData);
     console.log("[TON_MONITOR] [Toncenter] ✅ JSON parsing successful");
   } catch (parseError) {
-    console.error("[TON_MONITOR] [Toncenter] ❌ JSON parsing failed:", parseError);
+    console.error(
+      "[TON_MONITOR] [Toncenter] ❌ JSON parsing failed:",
+      parseError,
+    );
     throw new Error(
       `Failed to parse Toncenter response: ${parseError instanceof Error ? parseError.message : "Unknown parsing error"}`,
     );
@@ -750,6 +793,7 @@ async function fetchFromToncenter(): Promise<GetBlockTransaction[]> {
   }
 
   const toncenterTransactions = parsedData.result || [];
+
   console.log(
     "[TON_MONITOR] [Toncenter] - Total transactions received:",
     toncenterTransactions.length,
@@ -765,13 +809,18 @@ async function fetchFromToncenter(): Promise<GetBlockTransaction[]> {
   });
 
   console.log("[TON_MONITOR] [Toncenter] ✅ Time filtering completed:");
-  console.log(`[TON_MONITOR] [Toncenter] - Original count: ${transactions.length}`);
-  console.log(`[TON_MONITOR] [Toncenter] - Filtered count: ${recentTransactions.length}`);
+  console.log(
+    `[TON_MONITOR] [Toncenter] - Original count: ${transactions.length}`,
+  );
+  console.log(
+    `[TON_MONITOR] [Toncenter] - Filtered count: ${recentTransactions.length}`,
+  );
 
   if (recentTransactions.length > 0) {
     console.log("[TON_MONITOR] [Toncenter] 📋 Recent transactions summary:");
     recentTransactions.forEach((tx, index) => {
       const hash = getTransactionHash(tx);
+
       console.log(
         `[TON_MONITOR] [Toncenter] - #${index + 1}: ${hash} at ${new Date(tx.utime * 1000).toISOString()}`,
       );

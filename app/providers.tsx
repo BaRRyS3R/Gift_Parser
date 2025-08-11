@@ -9,7 +9,10 @@ import { useRouter, usePathname } from "next/navigation";
 import { UserProvider } from "@/hooks/useUser";
 import { LocalizationProvider } from "@/contexts/LocalizationContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
-import { isAccessAllowed, getDeviceInfo, getAccessDenialReason } from "@/utils/deviceDetection";
+import {
+  isAccessAllowed,
+  getAccessDenialReason,
+} from "@/utils/deviceDetection";
 
 interface AccessState {
   isAllowed: boolean | null;
@@ -22,12 +25,12 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [accessState, setAccessState] = useState<AccessState>({
     isAllowed: null,
-    denialReason: null
+    denialReason: null,
   });
 
   useEffect(() => {
     // Skip access control entirely for the mobile-only page
-    if (pathname === '/mobile-only') {
+    if (pathname === "/mobile-only") {
       return;
     }
 
@@ -35,19 +38,19 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
     const verifyDevice = () => {
       try {
         const allowed = isAccessAllowed();
-        
+
         setAccessState({
           isAllowed: allowed,
-          denialReason: allowed ? null : getAccessDenialReason()
+          denialReason: allowed ? null : getAccessDenialReason(),
         });
 
         // Redirect to mobile-only page if access is denied
         if (!allowed) {
-          router.replace('/mobile-only');
+          router.replace("/mobile-only");
         }
       } catch (error) {
-        console.error('Device verification error:', error);
-        router.replace('/mobile-only');
+        console.error("Device verification error:", error);
+        router.replace("/mobile-only");
       }
     };
 
@@ -55,7 +58,7 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
   }, [pathname, router]);
 
   // Always allow mobile-only page to render without checks
-  if (pathname === '/mobile-only') {
+  if (pathname === "/mobile-only") {
     return <>{children}</>;
   }
 
@@ -71,26 +74,22 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
 // Conditional providers wrapper that excludes auth providers for mobile-only page
 function ConditionalProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  
+
   // For mobile-only page, skip authentication and access control providers
-  if (pathname === '/mobile-only') {
+  if (pathname === "/mobile-only") {
     return (
       <SettingsProvider>
-        <LocalizationProvider>
-          {children}
-        </LocalizationProvider>
+        <LocalizationProvider>{children}</LocalizationProvider>
       </SettingsProvider>
     );
   }
-  
+
   // For all other pages, include full provider stack
   return (
     <AccessControlWrapper>
       <SettingsProvider>
         <UserProvider>
-          <LocalizationProvider>
-            {children}
-          </LocalizationProvider>
+          <LocalizationProvider>{children}</LocalizationProvider>
         </UserProvider>
       </SettingsProvider>
     </AccessControlWrapper>
@@ -124,7 +123,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
             console.warn("Fullscreen request failed:", error);
           }
         } else {
-          console.warn("requestFullscreen method not available in this Telegram version");
+          console.warn(
+            "requestFullscreen method not available in this Telegram version",
+          );
         }
 
         // Orientation lock (Bot API 7.7+)
@@ -166,7 +167,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           version: tg.version,
           isExpanded: tg.isExpanded,
           viewportHeight: tg.viewportHeight,
-          viewportStableHeight: tg.viewportStableHeight
+          viewportStableHeight: tg.viewportStableHeight,
         });
       } catch (error) {
         console.error("Error initializing Telegram WebApp:", error);
@@ -177,10 +178,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     // Enhanced viewport meta tag configuration for fullscreen experience
     const viewport = document.querySelector('meta[name="viewport"]');
+
     if (viewport) {
       viewport.setAttribute(
         "content",
-        "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
+        "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content",
       );
     }
 
@@ -188,6 +190,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     let lastTouchEnd = 0;
     const preventZoom = (e: TouchEvent) => {
       const now = new Date().getTime();
+
       if (now - lastTouchEnd <= 300) {
         e.preventDefault();
       }
@@ -235,9 +238,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <NextUIProvider>
-      <ConditionalProviders>
-        {children}
-      </ConditionalProviders>
+      <ConditionalProviders>{children}</ConditionalProviders>
     </NextUIProvider>
   );
 }

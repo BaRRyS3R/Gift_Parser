@@ -197,7 +197,7 @@ export const GAME_MODE_TO_TOURNAMENT_MODE: Record<
 
 // Data sanitization utility
 export function sanitizeLeaderboardEntry(
-  entry: TournamentLeaderboardEntry
+  entry: TournamentLeaderboardEntry,
 ): PublicTournamentLeaderboardEntry {
   return {
     tournament_id: entry.tournament_id,

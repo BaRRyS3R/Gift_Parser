@@ -180,6 +180,7 @@ export const initializeRotationGameState = (): RotationGameState => {
 
 export const getLevelConfig = (level: number): RotationLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, ROTATION_LEVELS.length));
+
   return ROTATION_LEVELS[clampedLevel - 1];
 };
 
@@ -252,6 +253,7 @@ export const getRandomCircleIds = (
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
+
     selectedIds.push(selectedId);
   }
 
@@ -285,6 +287,7 @@ export const activateRotationCircles = (
 
   if (selectedIds.length === 0) {
     isActivatingCircles = false;
+
     return state;
   }
 
@@ -324,6 +327,7 @@ export const activateRotationCircles = (
         isDecoy: redIds.includes(circle.id),
       };
     }
+
     return circle;
   });
 
@@ -352,6 +356,7 @@ export const handleRotationCircleClick = (
 ): { newState: RotationGameState; result: "correct" | "wrong" | "decoy" } => {
   // Debounce rapid clicks on the same circle
   const lastClickTime = clickDebounceMap.get(clickedCircleId) || 0;
+
   if (clickTime - lastClickTime < CLICK_DEBOUNCE_TIME) {
     return { newState: state, result: "wrong" };
   }
@@ -467,6 +472,7 @@ export const getRotationDeathCause = (
   if (stats.decoyHits > 0) return "decoy_hit";
   if (stats.wrongHits > 0) return "wrong_click";
   if (stats.missedCircles > 0) return "miss";
+
   return "timeout";
 };
 
