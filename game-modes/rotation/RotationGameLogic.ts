@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameLogic.ts - Rebuilt with reliable Survival patterns
+// src/game-modes/rotation/RotationGameLogic.ts - Исправленная версия с немедленной деактивацией
 
 import {
   RotationGameConfig,
@@ -190,7 +190,7 @@ const logCircleActivation = (
     position,
     gameTime: timestamp - gameStartTime,
   };
-  
+
   debugLog.activations.push(activationLog);
   console.log(`[RotationGame] Circle ${circleId} activated`, activationLog);
 };
@@ -210,13 +210,13 @@ const logCircleClick = (
   debounceBlocked: boolean = false
 ): void => {
   const timestamp = Date.now();
-  
+
   const activationEntry = debugLog.activations
     .filter(a => a.circleId === circleId)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
-  
+
   const reactionTime = activationEntry ? timestamp - activationEntry.timestamp : undefined;
-  
+
   const clickLog: CircleClickLog = {
     circleId,
     timestamp,
@@ -231,7 +231,7 @@ const logCircleClick = (
     position,
     debounceBlocked,
   };
-  
+
   debugLog.clicks.push(clickLog);
   console.log(`[RotationGame] Circle ${circleId} clicked`, clickLog);
 };
@@ -254,7 +254,7 @@ const logCircleDeactivation = (
     wasActive: circleState.isActive,
     wasDecoy: circleState.isDecoy,
   };
-  
+
   debugLog.deactivations.push(deactivationLog);
   console.log(`[RotationGame] Circle ${circleId} deactivated`, deactivationLog);
 };
@@ -274,7 +274,7 @@ const logLevelTransition = (
     gameTime: timestamp - gameStartTime,
     activeCirclesAtTransition: [...activeCircles],
   };
-  
+
   debugLog.levelTransitions.push(transitionLog);
   console.log(`[RotationGame] Level transition`, transitionLog);
 };
@@ -330,7 +330,6 @@ export const initializeRotationGameState = (): RotationGameState => {
     isActive: true,
     gameStartTime,
     currentRotationSpeed: ROTATION_LEVELS[0].rotationSpeed,
-    // CRITICAL: Survival-inspired improvements
     isGameEnding: false,
     pendingActivationTimeouts: new Set(),
   };
@@ -341,12 +340,10 @@ export const getLevelConfig = (level: number): RotationLevelConfig => {
   return ROTATION_LEVELS[clampedLevel - 1];
 };
 
-// Enhanced level update with Survival patterns
 export const updateRotationLevel = (
   state: RotationGameState,
   currentTime?: number,
 ): RotationGameState => {
-  // Enhanced state validation with isGameEnding check
   if (!state.isActive || !state.gameStartTime || state.isGameEnding) {
     return state;
   }
@@ -432,13 +429,11 @@ export const getRandomCircleIds = (
   return selectedIds;
 };
 
-// Simplified activation system based on Survival patterns
 export const activateRotationCircles = (
   state: RotationGameState,
   onCirclesActivated: (circleIds: number[], redCircleIds: number[]) => void,
   onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
 ): RotationGameState => {
-  // Enhanced state validation with isGameEnding check
   if (
     !state.isActive ||
     state.gameState !== GameState.PLAYING ||
@@ -464,25 +459,20 @@ export const activateRotationCircles = (
     return state;
   }
 
-  // Determine red circles
   const whiteCirclesNeeded = Math.max(1, selectedIds.length - levelConfig.redCircles);
   const actualRedCircles = Math.min(levelConfig.redCircles, selectedIds.length - whiteCirclesNeeded);
 
   const shuffledIds = [...selectedIds].sort(() => Math.random() - 0.5);
   const redIds = actualRedCircles > 0 ? shuffledIds.slice(0, actualRedCircles) : [];
 
-  // Update active circles
   const newActiveCircleIds = [...state.activeCircleIds, ...selectedIds];
   const newCircleTimeouts = new Map(state.circleTimeouts);
   const newPendingTimeouts = new Set(state.pendingActivationTimeouts);
 
-  // Set timeouts and log activations
   selectedIds.forEach((circleId) => {
     const isDecoy = redIds.includes(circleId);
-    
-    // Enhanced check game state before setting timeout
+
     const timeout = setTimeout(() => {
-      // Double-check game state when timeout fires (Survival pattern)
       if (!state.isActive || state.isGameEnding) {
         return;
       }
@@ -546,47 +536,15 @@ export const activateRotationCircles = (
   };
 };
 
-// Enhanced click handling with better validation
-const clickDebounceMap = new Map<number, number>();
-const CLICK_DEBOUNCE_TIME = 100;
-
+// Упрощенная обработка кликов без debounce - используем немедленную деактивацию
 export const handleRotationCircleClick = (
   state: RotationGameState,
   clickedCircleId: number,
   clickTime: number = Date.now(),
 ): { newState: RotationGameState; result: "correct" | "wrong" | "decoy" } => {
-  // Enhanced check if game is ending (Survival pattern)
   if (state.isGameEnding) {
     return { newState: state, result: "wrong" };
   }
-
-  // Debounce check
-  const lastClickTime = clickDebounceMap.get(clickedCircleId) || 0;
-  const timeSinceLastClick = clickTime - lastClickTime;
-
-  if (timeSinceLastClick < CLICK_DEBOUNCE_TIME) {
-    const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
-    const circleState = {
-      isActive: clickedCircle?.isActive || false,
-      isDecoy: clickedCircle?.isDecoy || false,
-      isAnimating: clickedCircle?.isAnimating || false,
-    };
-
-    logCircleClick(
-      state.stats.debugLog,
-      clickedCircleId,
-      state.currentLevel,
-      "wrong",
-      circleState,
-      { x: 0, y: 0 },
-      state.gameStartTime!,
-      true
-    );
-
-    return { newState: state, result: "wrong" };
-  }
-
-  clickDebounceMap.set(clickedCircleId, clickTime);
 
   const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
 
@@ -611,9 +569,10 @@ export const handleRotationCircleClick = (
 
   const updatedState = updateRotationLevel(state, clickTime);
 
-  // Enhanced validation
-  const isCircleInActiveList = state.activeCircleIds.includes(clickedCircleId);
-  const hasTimeout = state.circleTimeouts.has(clickedCircleId);
+  // Строгая проверка активности - круг должен быть активным, не анимироваться и находиться в списке активных
+  const isCircleValidForClick = clickedCircle.isActive &&
+    !clickedCircle.isAnimating &&
+    state.activeCircleIds.includes(clickedCircleId);
 
   logEvent(
     updatedState.stats.debugLog,
@@ -622,15 +581,13 @@ export const handleRotationCircleClick = (
     {
       circleId: clickedCircleId,
       circleState,
-      isCircleInActiveList,
-      hasTimeout,
+      isValidForClick: isCircleValidForClick,
       activeCircleIds: [...state.activeCircleIds],
-      timeouts: Array.from(state.circleTimeouts.keys()),
     },
     state.gameStartTime!
   );
 
-  if (clickedCircle.isActive && !clickedCircle.isAnimating) {
+  if (isCircleValidForClick) {
     if (clickedCircle.isDecoy) {
       logCircleClick(
         updatedState.stats.debugLog,
@@ -647,7 +604,7 @@ export const handleRotationCircleClick = (
           ...updatedState,
           gameState: GameState.FINISHED,
           isActive: false,
-          isGameEnding: true, // Set isGameEnding flag
+          isGameEnding: true,
           stats: {
             ...updatedState.stats,
             decoyHits: updatedState.stats.decoyHits + 1,
@@ -656,7 +613,7 @@ export const handleRotationCircleClick = (
         result: "decoy",
       };
     } else {
-      // Correct white circle click
+      // Корректный белый круг - расчет времени реакции
       const reactionTime = state.stats.debugLog.activations
         .filter(a => a.circleId === clickedCircleId)
         .sort((a, b) => b.timestamp - a.timestamp)[0];
@@ -690,9 +647,9 @@ export const handleRotationCircleClick = (
       };
     }
   } else {
-    // Enhanced logging for invalid clicks
+    // Клик на неактивный или недоступный круг
     const clickResult = clickedCircle.isActive ? "wrong" : "inactive";
-    
+
     logCircleClick(
       updatedState.stats.debugLog,
       clickedCircleId,
@@ -703,13 +660,12 @@ export const handleRotationCircleClick = (
       state.gameStartTime!
     );
 
-    logError(updatedState.stats.debugLog, "Click on inactive or animating circle", {
+    logError(updatedState.stats.debugLog, "Click on invalid circle", {
       circleId: clickedCircleId,
       isActive: clickedCircle.isActive,
       isAnimating: clickedCircle.isAnimating,
       isDecoy: clickedCircle.isDecoy,
-      isCircleInActiveList,
-      hasTimeout,
+      isInActiveList: state.activeCircleIds.includes(clickedCircleId),
       activeCircleIds: [...state.activeCircleIds],
     });
 
@@ -718,7 +674,7 @@ export const handleRotationCircleClick = (
         ...updatedState,
         gameState: GameState.FINISHED,
         isActive: false,
-        isGameEnding: true, // Set isGameEnding flag
+        isGameEnding: true,
         stats: {
           ...updatedState.stats,
           wrongHits: updatedState.stats.wrongHits + 1,
@@ -804,9 +760,9 @@ export const createRotationGameResult = (
 
   const finalScore = timeScore + levelScore + hitsScore;
   const deathCause = getRotationDeathCause(state.stats);
-  
-  const averageReactionTime = state.stats.hitCount > 0 
-    ? state.stats.totalReactionTime / state.stats.hitCount 
+
+  const averageReactionTime = state.stats.hitCount > 0
+    ? state.stats.totalReactionTime / state.stats.hitCount
     : 0;
 
   logEvent(
@@ -840,9 +796,7 @@ export const createRotationGameResult = (
   };
 };
 
-// Enhanced comprehensive cleanup based on Survival patterns
 export const cleanupRotationGame = (state: RotationGameState): void => {
-  // Set game ending flag to prevent new operations (Survival pattern)
   state.isGameEnding = true;
 
   logEvent(
@@ -857,13 +811,11 @@ export const cleanupRotationGame = (state: RotationGameState): void => {
     state.gameStartTime!
   );
 
-  // Clear all circle timeouts
   state.circleTimeouts.forEach((timeout) => {
     if (timeout) clearTimeout(timeout);
   });
   state.circleTimeouts.clear();
 
-  // Clear any pending activation timeouts (Survival pattern)
   if (state.pendingActivationTimeouts) {
     state.pendingActivationTimeouts.forEach((timeoutId) => {
       clearTimeout(timeoutId);
@@ -882,9 +834,6 @@ export const cleanupRotationGame = (state: RotationGameState): void => {
   if (state.rotationAnimationFrame) {
     cancelAnimationFrame(state.rotationAnimationFrame);
   }
-
-  // Clear click debounce map
-  clickDebounceMap.clear();
 };
 
 export const formatRotationTime = (milliseconds: number): string => {

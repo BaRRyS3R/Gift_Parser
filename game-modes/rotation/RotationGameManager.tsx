@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Rebuilt with reliable Survival patterns
+// src/game-modes/rotation/RotationGameManager.tsx - Исправленная версия с немедленной деактивацией
 
 "use client";
 
@@ -212,7 +212,11 @@ export default function RotationGameManager() {
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
 
-  // CRITICAL: Survival-inspired state management
+  // Состояние для визуального эффекта мгновенно деактивированных кругов (по образцу Survival)
+  const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] =
+    useState<number[]>([]);
+
+  // State management refs
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<RotationGameState>(gameState);
@@ -401,7 +405,6 @@ export default function RotationGameManager() {
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
-      // Atomic game ending flag (Survival pattern)
       if (isGameEndingRef.current) {
         return;
       }
@@ -412,7 +415,6 @@ export default function RotationGameManager() {
       }
 
       setGameState((prev) => {
-        // Double-check isGameEnding in state (Survival pattern)
         if (prev.isGameEnding) {
           return prev;
         }
@@ -437,7 +439,7 @@ export default function RotationGameManager() {
           ...finalState,
           gameState: GameState.FINISHED,
           isActive: false,
-          isGameEnding: true, // Set isGameEnding flag
+          isGameEnding: true,
           stats: updatedStats,
         };
 
@@ -453,11 +455,9 @@ export default function RotationGameManager() {
     [handleSaveGameResult],
   );
 
-  // Simplified scheduling based on Survival patterns
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    // Simplified state checks (Survival pattern)
     if (isSchedulingActivationRef.current) {
       return;
     }
@@ -482,7 +482,6 @@ export default function RotationGameManager() {
     const timeout = setTimeout(() => {
       isSchedulingActivationRef.current = false;
 
-      // Double-check state before activation (Survival pattern)
       if (
         !gameStateRef.current.isActive ||
         gameStateRef.current.gameState !== GameState.PLAYING ||
@@ -493,7 +492,6 @@ export default function RotationGameManager() {
       }
 
       setGameState((prev) => {
-        // Triple-check state in callback (Survival pattern)
         if (
           !prev.isActive ||
           prev.gameState !== GameState.PLAYING ||
@@ -528,7 +526,6 @@ export default function RotationGameManager() {
             }, 450);
           },
           (circleId, wasDecoy) => {
-            // Check if game is ending before processing timeout (Survival pattern)
             if (isGameEndingRef.current || prev.isGameEnding) {
               return;
             }
@@ -543,7 +540,6 @@ export default function RotationGameManager() {
               setGameState((current) =>
                 deactivateRotationCircle(current, circleId, "timeout"),
               );
-              // Schedule next only if game is still active (Survival pattern)
               if (
                 !isGameEndingRef.current &&
                 !gameStateRef.current.isGameEnding
@@ -557,7 +553,6 @@ export default function RotationGameManager() {
         return newState;
       });
 
-      // Schedule next activation (Survival pattern)
       if (
         gameStateRef.current.isActive &&
         gameStateRef.current.gameState === GameState.PLAYING &&
@@ -573,17 +568,16 @@ export default function RotationGameManager() {
       activationTimeout: timeout,
     }));
 
-    // Reset scheduling flag after timeout is set (Survival pattern)
     setTimeout(() => {
       isSchedulingActivationRef.current = false;
     }, 50);
   }, [endGame]);
 
+  // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Исправленная обработка кликов с немедленной деактивацией
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       const currentState = gameStateRef.current;
 
-      // Enhanced state validation (Survival pattern)
       if (
         currentState.gameState !== GameState.PLAYING ||
         isGameEndingRef.current
@@ -614,14 +608,25 @@ export default function RotationGameManager() {
         }
 
         triggerHapticFeedback("success");
-        setGameState(newState);
 
-        // Immediate deactivation (Survival pattern)
+        // КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Немедленная деактивация по образцу Survival
+        setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
+
+        const immediatelyDeactivatedState = deactivateRotationCircle(
+          newState,
+          circleId,
+          "correct_click"
+        );
+
+        setGameState(immediatelyDeactivatedState);
+
+        // Визуальный эффект убираем через короткое время
         setTimeout(() => {
-          setGameState((current) =>
-            deactivateRotationCircle(current, circleId, "correct_click"),
+          setInstantlyDeactivatedCircles((prev) =>
+            prev.filter((id) => id !== circleId),
           );
-        }, 50);
+        }, 100);
+
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");
@@ -634,7 +639,6 @@ export default function RotationGameManager() {
   );
 
   const startGame = useCallback(() => {
-    // Reset atomic flags (Survival pattern)
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
@@ -662,6 +666,7 @@ export default function RotationGameManager() {
     setIsPlayingAgain(false);
     setShowDebugLog(false);
     setDebugLogExpanded(false);
+    setInstantlyDeactivatedCircles([]);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -672,7 +677,6 @@ export default function RotationGameManager() {
 
       const levelInterval = setInterval(() => {
         setGameState((current) => {
-          // Enhanced state check with isGameEnding (Survival pattern)
           if (
             !current.isActive ||
             current.gameState !== GameState.PLAYING ||
@@ -687,7 +691,6 @@ export default function RotationGameManager() {
         });
       }, LEVEL_UPDATE_INTERVAL);
 
-      // Start activation scheduling (Survival pattern)
       setTimeout(() => {
         scheduleNextActivation();
       }, 1000);
@@ -990,7 +993,6 @@ export default function RotationGameManager() {
               </div>
             </div>
 
-            {/* Debug Log Toggle */}
             <div className="border-t border-orange-400/30 pt-4">
               <button
                 onClick={() => setShowDebugLog(!showDebugLog)}
@@ -1002,7 +1004,6 @@ export default function RotationGameManager() {
             </div>
           </div>
 
-          {/* Debug Log Section */}
           {renderDebugLogSection()}
 
           {(saveStatus.isLoading ||
@@ -1149,6 +1150,7 @@ export default function RotationGameManager() {
           showCircles={showCircles}
           onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
+          instantlyDeactivatedCircles={instantlyDeactivatedCircles}
         />
       </div>
 
