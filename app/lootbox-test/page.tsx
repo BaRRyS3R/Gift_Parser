@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardBody, Button, Chip, Modal, ModalContent, ModalHeader, ModalBody } from '@nextui-org/react';
 import { Gift, Star, Zap, Sparkles, Crown, Diamond, LucideIcon } from 'lucide-react';
