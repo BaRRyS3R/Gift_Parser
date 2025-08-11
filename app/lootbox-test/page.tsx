@@ -1,6 +1,4 @@
-// Enhanced Lootbox Test Page with OGL and Advanced Effects - TypeScript Fixed
-
-"use client";
+// Enhanced Lootbox Test Page with OGL and Advanced Effects - Production Ready
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Package, Sparkles, Zap, Star, Gift, Lock, ChevronRight, Gem, Crown, Shield, Swords } from 'lucide-react';
@@ -298,6 +296,30 @@ function LootboxCanvas({ isOpening, rarity, onAnimationComplete }: LootboxCanvas
   );
 }
 
+// Animation styles object
+const animationStyles = {
+  floatBubble: (duration: number, delay: number) => ({
+    animation: `lootboxFloatBubble ${duration}s ease-in-out infinite`,
+    animationDelay: `${delay}s`
+  }),
+  slideInUp: (index: number) => ({
+    animation: `lootboxSlideInUp 0.5s ease-out forwards`,
+    animationDelay: `${index * 0.1}s`,
+    opacity: 0
+  }),
+  rewardReveal: (index: number) => ({
+    animation: `lootboxRewardReveal 0.5s ease-out forwards`,
+    animationDelay: `${index * 0.15}s`,
+    opacity: 0
+  }),
+  sparkleRotate: {
+    animation: 'lootboxSparkleRotate 2s ease-in-out infinite'
+  },
+  progressFill: {
+    animation: 'lootboxProgressFill 2s ease-out forwards'
+  }
+};
+
 // Main Component
 export default function EnhancedLootboxPage() {
   const [selectedLootbox, setSelectedLootbox] = useState<Lootbox | null>(null);
@@ -385,8 +407,7 @@ export default function EnhancedLootboxPage() {
               height: `${element.size}px`,
               left: `${element.x}%`,
               top: `${element.y}%`,
-              animation: `floatBubble ${element.duration}s ease-in-out infinite`,
-              animationDelay: `${element.delay}s`
+              ...animationStyles.floatBubble(element.duration, element.delay)
             }}
           />
         ))}
@@ -470,11 +491,7 @@ export default function EnhancedLootboxPage() {
                   ${isAvailable ? 'cursor-pointer active:scale-[0.98]' : 'opacity-60'}
                   transition-all duration-300 group
                 `}
-                style={{
-                  animation: `slideInUp 0.5s ease-out forwards`,
-                  animationDelay: `${index * 0.1}s`,
-                  opacity: 0
-                }}
+                style={animationStyles.slideInUp(index)}
               >
                 {/* Gradient background */}
                 <div className="absolute inset-0" style={{ background: config.gradient, opacity: 0.1 }} />
@@ -582,9 +599,7 @@ export default function EnhancedLootboxPage() {
                   <div className="mt-6 w-full h-1 bg-white/10 rounded-full overflow-hidden">
                     <div 
                       className={`h-full bg-gradient-to-r ${RARITY_CONFIG[selectedLootbox.rarity].color} rounded-full`}
-                      style={{
-                        animation: 'progressFill 2s ease-out forwards'
-                      }}
+                      style={animationStyles.progressFill}
                     />
                   </div>
                 )}
@@ -594,7 +609,7 @@ export default function EnhancedLootboxPage() {
               <div className="text-center">
                 <div className="mb-6">
                   <Sparkles className="w-16 h-16 mx-auto text-yellow-400 mb-4" 
-                    style={{ animation: 'sparkleRotate 2s ease-in-out infinite' }} />
+                    style={animationStyles.sparkleRotate} />
                   <h2 className="text-3xl font-black mb-2">REWARDS UNLOCKED!</h2>
                   <p className="text-gray-400 text-sm">Tap items to collect</p>
                 </div>
@@ -606,11 +621,7 @@ export default function EnhancedLootboxPage() {
                       <div
                         key={reward.id}
                         className="relative group cursor-pointer"
-                        style={{
-                          animation: `rewardReveal 0.5s ease-out forwards`,
-                          animationDelay: `${index * 0.15}s`,
-                          opacity: 0
-                        }}
+                        style={animationStyles.rewardReveal(index)}
                       >
                         {/* Glow background */}
                         <div 
@@ -668,70 +679,6 @@ export default function EnhancedLootboxPage() {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes floatBubble {
-          0%, 100% {
-            transform: translateY(0) translateX(0) scale(1);
-            opacity: 0.5;
-          }
-          25% {
-            transform: translateY(-30px) translateX(20px) scale(1.1);
-            opacity: 0.7;
-          }
-          50% {
-            transform: translateY(-50px) translateX(-20px) scale(0.9);
-            opacity: 0.6;
-          }
-          75% {
-            transform: translateY(-20px) translateX(30px) scale(1.05);
-            opacity: 0.8;
-          }
-        }
-        
-        @keyframes slideInUp {
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-        }
-        
-        @keyframes rewardReveal {
-          0% {
-            opacity: 0;
-            transform: translateY(30px) scale(0.8);
-          }
-          50% {
-            transform: translateY(-10px) scale(1.05);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        
-        @keyframes sparkleRotate {
-          0%, 100% {
-            transform: rotate(0deg) scale(1);
-          }
-          50% {
-            transform: rotate(180deg) scale(1.2);
-          }
-        }
-        
-        @keyframes progressFill {
-          0% {
-            width: 0%;
-          }
-          100% {
-            width: 100%;
-          }
-        }
-      `}</style>
     </div>
   );
 }
