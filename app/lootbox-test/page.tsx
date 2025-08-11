@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Card, CardBody, Input, Button, Chip } from "@nextui-org/react";
-import { Search, Package, Gift, Image, Crown, Sparkles, Star, Zap, ArrowLeft, Share, Send, Repeat } from "lucide-react";
+import { Search, Package, Gift, Image, Crown, Sparkles, Star, Zap, ArrowLeft, Share, Send, Repeat, ChevronDown, ChevronUp } from "lucide-react";
 
 // Types for collections system
 type RarityLevel = "common" | "rare" | "legendary" | "epic";
@@ -101,6 +101,17 @@ const rarityConfig = {
 export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
+  const [expandedSections, setExpandedSections] = useState({
+    collectible_cards: true,
+    lootboxes: true
+  });
+
+  const toggleSection = (section: 'collectible_cards' | 'lootboxes') => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   const filteredInventory = mockUserInventory.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -219,7 +230,7 @@ export default function InventoryPage() {
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset">
       {/* Header */}
-      <div className="p-4 pb-2">
+      <div className="p-4 pt-2 pb-2">
         <div className="flex items-center justify-between mb-4">
           <Button
             variant="light"
@@ -266,94 +277,120 @@ export default function InventoryPage() {
         {/* Collectible Cards Section */}
         {groupedInventory.collectible_cards.length > 0 && (
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+            <button
+              className="flex items-center justify-between w-full mb-4 text-left"
+              onClick={() => toggleSection('collectible_cards')}
+              type="button"
+            >
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <Image size={20} />
                 Collectible Cards
                 <span className="text-gray-400 font-normal">{groupedInventory.collectible_cards.length}</span>
               </h2>
-              <Button variant="light" size="sm" className="text-gray-400 p-0 min-w-0">
-                <Package size={16} />
-              </Button>
-            </div>
+              <div className="flex items-center gap-2">
+                <Button variant="light" size="sm" className="text-gray-400 p-0 min-w-0">
+                  <Package size={16} />
+                </Button>
+                {expandedSections.collectible_cards ? (
+                  <ChevronUp size={20} className="text-gray-400" />
+                ) : (
+                  <ChevronDown size={20} className="text-gray-400" />
+                )}
+              </div>
+            </button>
             
-            <div className="grid grid-cols-2 gap-4">
-              {groupedInventory.collectible_cards.map((item) => (
-                <button 
-                  key={item.id}
-                  className="cursor-pointer text-left w-full bg-transparent border-0 p-0"
-                  onClick={() => setSelectedItem(item)}
-                  type="button"
-                >
-                  <div className="relative group">
-                    <img 
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="w-full aspect-[3/4] object-cover rounded-lg mb-2 group-hover:opacity-80 transition-opacity"
-                    />
-                  </div>
-                  <div className="text-center">
-                    <h3 className="font-semibold text-white mb-1">{item.name} #{item.issued}</h3>
-                    <div className="flex items-center justify-center gap-1">
-                      {getRarityIcon(item.rarity)}
-                      <span 
-                        className="text-sm font-medium"
-                        style={{ color: rarityConfig[item.rarity].color }}
-                      >
-                        {rarityConfig[item.rarity].label}
-                      </span>
+            {expandedSections.collectible_cards && (
+              <div className="grid grid-cols-2 gap-4">
+                {groupedInventory.collectible_cards.map((item) => (
+                  <button 
+                    key={item.id}
+                    className="cursor-pointer text-left w-full bg-transparent border-0 p-0"
+                    onClick={() => setSelectedItem(item)}
+                    type="button"
+                  >
+                    <div className="relative group">
+                      <img 
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="w-full aspect-[3/4] object-cover rounded-lg mb-2 group-hover:opacity-80 transition-opacity"
+                      />
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <div className="text-center">
+                      <h3 className="font-semibold text-white mb-1">{item.name} #{item.issued}</h3>
+                      <div className="flex items-center justify-center gap-1">
+                        {getRarityIcon(item.rarity)}
+                        <span 
+                          className="text-sm font-medium"
+                          style={{ color: rarityConfig[item.rarity].color }}
+                        >
+                          {rarityConfig[item.rarity].label}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* Lootboxes Section */}
         {groupedInventory.lootboxes.length > 0 && (
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+            <button
+              className="flex items-center justify-between w-full mb-4 text-left"
+              onClick={() => toggleSection('lootboxes')}
+              type="button"
+            >
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <Gift size={20} />
                 Lootboxes
                 <span className="text-gray-400 font-normal">{groupedInventory.lootboxes.length}</span>
               </h2>
-              <Button variant="light" size="sm" className="text-gray-400 p-0 min-w-0">
-                <Package size={16} />
-              </Button>
-            </div>
+              <div className="flex items-center gap-2">
+                <Button variant="light" size="sm" className="text-gray-400 p-0 min-w-0">
+                  <Package size={16} />
+                </Button>
+                {expandedSections.lootboxes ? (
+                  <ChevronUp size={20} className="text-gray-400" />
+                ) : (
+                  <ChevronDown size={20} className="text-gray-400" />
+                )}
+              </div>
+            </button>
             
-            <div className="grid grid-cols-2 gap-4">
-              {groupedInventory.lootboxes.map((item) => (
-                <button 
-                  key={item.id}
-                  className="cursor-pointer text-left w-full bg-transparent border-0 p-0"
-                  onClick={() => setSelectedItem(item)}
-                  type="button"
-                >
-                  <div className="relative group">
-                    <img 
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="w-full aspect-[3/4] object-cover rounded-lg mb-2 group-hover:opacity-80 transition-opacity"
-                    />
-                  </div>
-                  <div className="text-center">
-                    <h3 className="font-semibold text-white mb-1">{item.name} #{item.issued}</h3>
-                    <div className="flex items-center justify-center gap-1">
-                      {getRarityIcon(item.rarity)}
-                      <span 
-                        className="text-sm font-medium"
-                        style={{ color: rarityConfig[item.rarity].color }}
-                      >
-                        {rarityConfig[item.rarity].label}
-                      </span>
+            {expandedSections.lootboxes && (
+              <div className="grid grid-cols-2 gap-4">
+                {groupedInventory.lootboxes.map((item) => (
+                  <button 
+                    key={item.id}
+                    className="cursor-pointer text-left w-full bg-transparent border-0 p-0"
+                    onClick={() => setSelectedItem(item)}
+                    type="button"
+                  >
+                    <div className="relative group">
+                      <img 
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="w-full aspect-[3/4] object-cover rounded-lg mb-2 group-hover:opacity-80 transition-opacity"
+                      />
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <div className="text-center">
+                      <h3 className="font-semibold text-white mb-1">{item.name} #{item.issued}</h3>
+                      <div className="flex items-center justify-center gap-1">
+                        {getRarityIcon(item.rarity)}
+                        <span 
+                          className="text-sm font-medium"
+                          style={{ color: rarityConfig[item.rarity].color }}
+                        >
+                          {rarityConfig[item.rarity].label}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
