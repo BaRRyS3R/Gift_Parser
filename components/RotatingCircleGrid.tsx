@@ -1,4 +1,4 @@
-// src/components/RotatingCircleGrid.tsx - Исправленная версия с поддержкой instantlyDeactivatedCircles
+// src/components/RotatingCircleGrid.tsx - Исправленная версия с логикой защиты от Survival Mode
 
 "use client";
 
@@ -72,12 +72,6 @@ interface TouchEventDetails {
   timestamp: number;
 }
 
-// State tracking for instant deactivation
-interface CircleVisualState {
-  isInstantDeactivated: boolean;
-  lastClickTime: number;
-}
-
 export default function RotatingCircleGrid({
   circles,
   onCircleClick,
@@ -86,10 +80,12 @@ export default function RotatingCircleGrid({
   rotationSpeed,
   onActivatedCircles = [],
   lastActivationTimestamp = 0,
-  instantlyDeactivatedCircles = [], // ИСПРАВЛЕНИЕ: Добавлено в деструктуризацию
+  instantlyDeactivatedCircles = [],
 }: RotatingCircleGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rotatingContainerRef = useRef<HTMLDivElement>(null);
+
+  // Simplified protection refs using Survival Mode logic
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
 
@@ -114,80 +110,12 @@ export default function RotatingCircleGrid({
   // State for tracking active activation pulses
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
-  // Enhanced state tracking for instant deactivation on successful clicks
-  const [circleVisualStates, setCircleVisualStates] = useState<
-    Map<number, CircleVisualState>
-  >(new Map());
-
-  // ИСПРАВЛЕНИЕ: Синхронизация внешнего состояния с внутренним
-  useEffect(() => {
-    if (instantlyDeactivatedCircles && instantlyDeactivatedCircles.length > 0) {
-      setCircleVisualStates(prev => {
-        const newMap = new Map(prev);
-        instantlyDeactivatedCircles.forEach(circleId => {
-          newMap.set(circleId, {
-            isInstantDeactivated: true,
-            lastClickTime: Date.now(),
-          });
-        });
-        return newMap;
-      });
-    }
-  }, [instantlyDeactivatedCircles]);
-
-  // ИСПРАВЛЕНИЕ: Очистка визуального состояния когда круги удаляются из instantlyDeactivatedCircles
-  useEffect(() => {
-    if (instantlyDeactivatedCircles) {
-      setCircleVisualStates(prev => {
-        const newMap = new Map(prev);
-        // Удаляем состояния для кругов, которые больше не в списке мгновенно деактивированных
-        const circleIds = Array.from(newMap.keys());
-        circleIds.forEach(circleId => {
-          if (!instantlyDeactivatedCircles.includes(circleId)) {
-            newMap.delete(circleId);
-          }
-        });
-        return newMap;
-      });
-    }
-  }, [instantlyDeactivatedCircles]);
-
-  // Enhanced visual state update for instant feedback
-  const updateCircleVisualState = useCallback((circleId: number, isInstantDeactivated: boolean) => {
-    setCircleVisualStates(prev => {
-      const newMap = new Map(prev);
-      newMap.set(circleId, {
-        isInstantDeactivated,
-        lastClickTime: Date.now(),
-      });
-      return newMap;
-    });
-  }, []);
-
   // Function to generate new variant for circle on activation
   const generateColorVariantForCircle = (circleId: number): number => {
     const variantIndex = getRandomWhiteVariantIndex();
     setCircleColorVariants((prev) => new Map(prev).set(circleId, variantIndex));
     return variantIndex;
   };
-
-  // Reset visual state when circle becomes inactive
-  useEffect(() => {
-    circles.forEach(circle => {
-      if (!circle.isActive) {
-        // ИСПРАВЛЕНИЕ: Не удаляем состояние если круг в списке мгновенно деактивированных
-        if (!instantlyDeactivatedCircles?.includes(circle.id)) {
-          setCircleVisualStates(prev => {
-            const newMap = new Map(prev);
-            if (newMap.has(circle.id)) {
-              newMap.delete(circle.id);
-            }
-            return newMap;
-          });
-        }
-      }
-    });
-  }, [circles, instantlyDeactivatedCircles]);
 
   // Effect to update variants when new circles are activated
   useEffect(() => {
@@ -356,24 +284,18 @@ export default function RotatingCircleGrid({
 
   // Enhanced circle styles with proper instant deactivation support
   const getCircleStyles = (circle: RotationCircle) => {
-    const visualState = circleVisualStates.get(circle.id);
-    const isInstantDeactivated = visualState?.isInstantDeactivated || false;
-    const isDeactivating = circle.isAnimating && !isInstantDeactivated;
-
-    // ИСПРАВЛЕНИЕ: Улучшенная проверка для мгновенной деактивации
-    const isInstantlyDeactivatedFromProps = instantlyDeactivatedCircles?.includes(circle.id) || false;
-    const shouldHideInstantly = isInstantDeactivated || isInstantlyDeactivatedFromProps;
+    const shouldHideInstantly = instantlyDeactivatedCircles?.includes(circle.id) || false;
 
     // For instant deactivation (successful clicks), no transition
     if (shouldHideInstantly) {
       return {
         className: "absolute rounded-full border-4 circle-instant-deactivate",
-        style: {},
+        style: {} as React.CSSProperties,
       };
     }
 
     // Normal transition for other state changes
-    const transitionClass = isDeactivating
+    const transitionClass = circle.isAnimating
       ? "transition-all duration-75 ease-out circle-deactivate"
       : "transition-all duration-100 ease-in-out circle-state-transition";
 
@@ -387,7 +309,7 @@ export default function RotatingCircleGrid({
           className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
                       bg-red-500 border-red-400 scale-110 shadow-lg shadow-red-500/30
                       hover:scale-115 active:scale-95 cursor-pointer circle-active red`,
-          style: {},
+          style: {} as React.CSSProperties,
         };
       } else {
         // Regular active circles: using variable white tint
@@ -402,7 +324,7 @@ export default function RotatingCircleGrid({
             backgroundColor: `var(--white-bg)`,
             borderColor: `var(--white-border)`,
             boxShadow: `0 10px 25px -5px ${WHITE_COLOR_VARIANTS[variantIndex]}30, 0 4px 6px -2px ${WHITE_COLOR_VARIANTS[variantIndex]}20`,
-          },
+          } as React.CSSProperties,
         };
       }
     } else {
@@ -410,91 +332,115 @@ export default function RotatingCircleGrid({
         className: `${baseClasses} ${visibilityClasses} ${animationClasses}
                     bg-transparent border-white/30 hover:border-white/50 hover:scale-105
                     active:scale-95 cursor-pointer`,
-        style: {},
+        style: {} as React.CSSProperties,
       };
     }
   };
 
-  // Enhanced touch event handlers with race condition protection and instant feedback
-  const handleTouchStart = useCallback(
-    (circleId: number, event: React.TouchEvent) => {
-      if (!isGameActive) return;
+  // Basic touch event details - simplified from Survival Mode
+  const getBasicTouchInfo = (event: React.TouchEvent): TouchEventDetails => {
+    const firstTouch =
+      event.touches.length > 0 ? event.touches[0] : event.changedTouches[0];
 
-      event.preventDefault();
-      event.stopPropagation();
+    return {
+      touchCount: event.touches.length,
+      firstTouchX: firstTouch?.clientX || 0,
+      firstTouchY: firstTouch?.clientY || 0,
+      timestamp: Date.now(),
+    };
+  };
 
-      const currentTime = Date.now();
-      const lastTouchTime = touchStartTimeRef.current.get(circleId);
+  // Touch event handlers using Survival Mode logic
+  const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
+    if (!isGameActive) {
+      return;
+    }
 
-      // Prevent rapid fire touches on the same circle
-      if (lastTouchTime && currentTime - lastTouchTime < 100) {
-        return;
-      }
+    // Prevent event from bubbling to background click handler
+    event.preventDefault();
+    event.stopPropagation();
 
-      touchStartTimeRef.current.set(circleId, currentTime);
+    const currentTime = Date.now();
+    const touchInfo = getBasicTouchInfo(event);
 
-      if (!processedTouchesRef.current.has(circleId)) {
-        processedTouchesRef.current.add(circleId);
+    touchStartTimeRef.current.set(circleId, currentTime);
 
-        // Check if circle is active before processing click
-        const circle = circles.find(c => c.id === circleId);
-        if (circle && circle.isActive && !circle.isDecoy && !circle.isAnimating) {
-          // ИСПРАВЛЕНИЕ: Не обновляем локальное состояние, полагаемся на props
-          // updateCircleVisualState(circleId, true);
-        }
-
-        onCircleClick(circleId);
-
-        // Cleanup processed touches after a short delay
-        setTimeout(() => {
-          processedTouchesRef.current.delete(circleId);
-        }, 200);
-      }
-    },
-    [isGameActive, onCircleClick, circles],
-  );
-
-  const handleTouchEnd = useCallback(
-    (circleId: number, event: React.TouchEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      touchStartTimeRef.current.delete(circleId);
-    },
-    [],
-  );
-
-  const handleClick = useCallback(
-    (circleId: number, event: React.MouseEvent) => {
-      if (!isGameActive) return;
-
-      const touchTime = touchStartTimeRef.current.get(circleId);
-      const currentTime = Date.now();
-
-      // Prevent double-firing of touch and click events
-      if (touchTime && currentTime - touchTime < 100) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      // Check if circle is active before processing click
-      const circle = circles.find(c => c.id === circleId);
-      if (circle && circle.isActive && !circle.isDecoy && !circle.isAnimating) {
-        // ИСПРАВЛЕНИЕ: Не обновляем локальное состояние, полагаемся на props
-        // updateCircleVisualState(circleId, true);
-      }
+    if (!processedTouchesRef.current.has(circleId)) {
+      processedTouchesRef.current.add(circleId);
 
       onCircleClick(circleId);
-    },
-    [isGameActive, onCircleClick, circles],
-  );
+
+      setTimeout(() => {
+        processedTouchesRef.current.delete(circleId);
+      }, 100);
+    }
+  };
+
+  const handleTouchEnd = (circleId: number, event: React.TouchEvent) => {
+    // Prevent event from bubbling to background click handler
+    event.preventDefault();
+    event.stopPropagation();
+
+    const touchStartTime = touchStartTimeRef.current.get(circleId);
+    const currentTime = Date.now();
+    const touchDuration = touchStartTime ? currentTime - touchStartTime : 0;
+    const touchInfo = getBasicTouchInfo(event);
+
+    touchStartTimeRef.current.delete(circleId);
+  };
+
+  const handleClick = (circleId: number, event: React.MouseEvent) => {
+    if (!isGameActive) {
+      return;
+    }
+
+    const touchTime = touchStartTimeRef.current.get(circleId);
+    const currentTime = Date.now();
+
+    // Use Survival Mode timing - 300ms window instead of 100ms
+    if (touchTime && currentTime - touchTime < 300) {
+      return;
+    }
+
+    // Prevent event from bubbling to background click handler
+    event.preventDefault();
+    event.stopPropagation();
+
+    onCircleClick(circleId);
+  };
+
+  const getInteractionProps = (circle: RotationCircle) => {
+    const shouldHideInstantly = instantlyDeactivatedCircles?.includes(circle.id) || false;
+
+    return {
+      disabled: !isGameActive || shouldHideInstantly,
+      style: {
+        transitionDelay: showCircles ? `${circle.id * 40}ms` : "0ms",
+        transition:
+          circle.isActive && !circle.isAnimating
+            ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
+            : "all 0.3s ease-out",
+        touchAction: "manipulation",
+        willChange: "transform",
+        backfaceVisibility: "hidden",
+        // Enhanced visibility controls for instant deactivation
+        opacity: shouldHideInstantly ? 0 : undefined,
+        visibility: shouldHideInstantly ? "hidden" : undefined,
+        pointerEvents: shouldHideInstantly ? "none" : undefined,
+      },
+      onTouchStart: (event: React.TouchEvent) =>
+        handleTouchStart(circle.id, event),
+      onTouchEnd: (event: React.TouchEvent) => handleTouchEnd(circle.id, event),
+      onClick: (event: React.MouseEvent) => handleClick(circle.id, event),
+      onContextMenu: (event: React.MouseEvent) => {
+        event.preventDefault();
+      },
+    };
+  };
 
   // Enhanced pulse effect with white variant support
   const renderPulseEffect = (circle: RotationCircle) => {
-    const visualState = circleVisualStates.get(circle.id);
-    const isInstantlyDeactivatedFromProps = instantlyDeactivatedCircles?.includes(circle.id) || false;
-    const shouldHideInstantly = visualState?.isInstantDeactivated || isInstantlyDeactivatedFromProps;
+    const shouldHideInstantly = instantlyDeactivatedCircles?.includes(circle.id) || false;
 
     if (!circle.isActive || circle.isAnimating || shouldHideInstantly) return null;
 
@@ -588,22 +534,20 @@ export default function RotatingCircleGrid({
             willChange: "transform",
           }}
         >
-          {/* Enhanced circles with instant feedback support */}
+          {/* Enhanced circles with improved double click protection */}
           {circles.map((circle) => {
             const circleStyleConfig = getCircleStyles(circle);
             const staticPosition = getCircleStaticPosition(circle);
-            const visualState = circleVisualStates.get(circle.id);
-            const isInstantlyDeactivatedFromProps = instantlyDeactivatedCircles?.includes(circle.id) || false;
-            const shouldHideInstantly = visualState?.isInstantDeactivated || isInstantlyDeactivatedFromProps;
+            const shouldHideInstantly = instantlyDeactivatedCircles?.includes(circle.id) || false;
 
             return (
               <button
                 key={circle.id}
                 aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
-                    ? circle.isDecoy
-                      ? " - trap target"
-                      : " - active target"
-                    : ""
+                  ? circle.isDecoy
+                    ? " - trap target"
+                    : " - active target"
+                  : ""
                   }`}
                 className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
                 data-circle-id={circle.id}
@@ -617,25 +561,29 @@ export default function RotatingCircleGrid({
                   top: "50%",
                   transform: `translate(calc(-50% + ${staticPosition.x}px), calc(-50% + ${staticPosition.y}px))`,
                   transitionDelay: showCircles ? `${circle.id * 40}ms` : "0ms",
+                  transition:
+                    circle.isActive && !circle.isAnimating
+                      ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
+                      : "all 0.3s ease-out",
                   touchAction: "manipulation",
                   willChange: "transform",
                   backfaceVisibility: "hidden",
-                  // ИСПРАВЛЕНИЕ: Улучшенная логика скрытия мгновенно деактивированных кругов
+                  // Enhanced visibility controls for instant deactivation
                   opacity: shouldHideInstantly ? 0 : undefined,
                   visibility: shouldHideInstantly ? "hidden" : undefined,
                   pointerEvents: shouldHideInstantly ? "none" : undefined,
                   ...circleStyleConfig.style,
                 }}
                 type="button"
-                onClick={(event) => handleClick(circle.id, event)}
-                onContextMenu={(event) => event.preventDefault()}
-                onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
-                onTouchStart={(event) => handleTouchStart(circle.id, event)}
+                onClick={getInteractionProps(circle).onClick}
+                onContextMenu={getInteractionProps(circle).onContextMenu}
+                onTouchEnd={getInteractionProps(circle).onTouchEnd}
+                onTouchStart={getInteractionProps(circle).onTouchStart}
               >
                 {/* Continuous pulse effect - only for non-deactivated circles */}
-                {!shouldHideInstantly && renderPulseEffect(circle)}
+                {renderPulseEffect(circle)}
                 {/* Fast activation pulse effect */}
-                {!shouldHideInstantly && renderActivationPulse(circle)}
+                {renderActivationPulse(circle)}
               </button>
             );
           })}
