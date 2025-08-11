@@ -1,6 +1,6 @@
 // Enhanced Lootbox Test Page with OGL and Advanced Effects - Production Ready
 
-"useClient";
+"use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Package, Sparkles, Zap, Star, Gift, Lock, ChevronRight, Gem, Crown, Shield, Swords } from 'lucide-react';
