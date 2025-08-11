@@ -279,10 +279,11 @@ export default function InventoryPage() {
             
             <div className="grid grid-cols-2 gap-4">
               {groupedInventory.collectible_cards.map((item) => (
-                <div 
+                <button 
                   key={item.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer text-left w-full bg-transparent border-0 p-0"
                   onClick={() => setSelectedItem(item)}
+                  type="button"
                 >
                   <div className="relative group">
                     <img 
@@ -303,7 +304,7 @@ export default function InventoryPage() {
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -325,10 +326,11 @@ export default function InventoryPage() {
             
             <div className="grid grid-cols-2 gap-4">
               {groupedInventory.lootboxes.map((item) => (
-                <div 
+                <button 
                   key={item.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer text-left w-full bg-transparent border-0 p-0"
                   onClick={() => setSelectedItem(item)}
+                  type="button"
                 >
                   <div className="relative group">
                     <img 
@@ -349,7 +351,7 @@ export default function InventoryPage() {
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
