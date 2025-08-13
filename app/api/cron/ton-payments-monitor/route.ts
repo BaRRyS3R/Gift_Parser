@@ -115,13 +115,13 @@ interface ToncenterTransaction {
     created_lt?: string;
     body_hash?: string;
     msg_data?:
-      | {
-          "@type": string;
-          body?: string;
-          text?: string;
-          init_state?: string;
-        }
-      | string;
+    | {
+      "@type": string;
+      body?: string;
+      text?: string;
+      init_state?: string;
+    }
+    | string;
     message?: string;
   };
   out_msgs?: any[];
@@ -211,17 +211,17 @@ function convertToncenterToGetBlock(
     other_fee: tx.other_fee,
     in_msg: tx.in_msg
       ? {
-          "@type": tx.in_msg["@type"] || "raw.internalMessage",
-          source: tx.in_msg.source || "",
-          destination: tx.in_msg.destination || "",
-          value: tx.in_msg.value || "0",
-          fwd_fee: tx.in_msg.fwd_fee || "0",
-          ihr_fee: tx.in_msg.ihr_fee || "0",
-          created_lt: tx.in_msg.created_lt || "0",
-          body_hash: tx.in_msg.body_hash || "",
-          msg_data: msgData,
-          message: tx.in_msg.message || "",
-        }
+        "@type": tx.in_msg["@type"] || "raw.internalMessage",
+        source: tx.in_msg.source || "",
+        destination: tx.in_msg.destination || "",
+        value: tx.in_msg.value || "0",
+        fwd_fee: tx.in_msg.fwd_fee || "0",
+        ihr_fee: tx.in_msg.ihr_fee || "0",
+        created_lt: tx.in_msg.created_lt || "0",
+        body_hash: tx.in_msg.body_hash || "",
+        msg_data: msgData,
+        message: tx.in_msg.message || "",
+      }
       : undefined,
     out_msgs: tx.out_msgs,
   };
@@ -534,7 +534,7 @@ async function fetchRecentTransactionsWithFallback(): Promise<{
       );
       throw new Error(
         `Both APIs failed. GetBlock: ${CRON_CONFIG.GETBLOCK_ACCESS_TOKEN ? "failed" : "no key"}. ` +
-          `Toncenter: ${error instanceof Error ? error.message : "failed"}`,
+        `Toncenter: ${error instanceof Error ? error.message : "failed"}`,
       );
     }
   }
@@ -1538,11 +1538,18 @@ async function creditAttemptsToUser(
     console.log(`[TON_MONITOR] - Adding attempts: ${attempts}`);
     console.log(`[TON_MONITOR] - New total: ${newAttemptsCount}`);
 
-    await serverUserService.updateUser(telegramId, {
-      attempts_remaining: newAttemptsCount,
-      attempts_reset_at: null,
-      updated_at: new Date().toISOString(),
-    });
+    const { error } = await supabaseServer
+      .from("users")
+      .update({
+        attempts_remaining: newAttemptsCount,
+        attempts_reset_at: null,  // Прямой вызов принимает null
+        updated_at: new Date().toISOString(),
+      })
+      .eq("telegram_id", telegramId);
+
+    if (error) {
+      throw error;
+    }
 
     console.log(
       `[TON_MONITOR] ✅ Successfully credited ${attempts} attempts to user ${telegramId}. New total: ${newAttemptsCount}`,

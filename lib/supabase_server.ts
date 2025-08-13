@@ -47,7 +47,7 @@ export interface ServerUser {
   blocked_until?: string;
   attempts_remaining: number;
   last_attempt_at?: string;
-  attempts_reset_at?: string | null;
+  attempts_reset_at?: string;
   referral_code: string;
   referred_by?: string;
   referral_bonus: number;
