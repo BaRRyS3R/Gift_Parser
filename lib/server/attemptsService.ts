@@ -258,6 +258,7 @@ export const serverAttemptsService = {
       .from("users")
       .update({
         attempts_remaining: newAttempts,
+        attempts_reset_at: null,
         updated_at: serverTime.toISOString(),
       })
       .eq("telegram_id", telegramId);

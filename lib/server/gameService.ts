@@ -234,6 +234,7 @@ export const serverGameService = {
       const levelsGained = newLevel - previousLevel;
 
       levelAttemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
+      updates.attempts_reset_at = null;
       updates.attempts_remaining =
         user.attempts_remaining + levelAttemptsAwarded;
     }

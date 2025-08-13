@@ -47,7 +47,7 @@ export interface ServerUser {
   blocked_until?: string;
   attempts_remaining: number;
   last_attempt_at?: string;
-  attempts_reset_at?: string;
+  attempts_reset_at?: string | null;
   referral_code: string;
   referred_by?: string;
   referral_bonus: number;
@@ -210,6 +210,7 @@ export const serverUserService = {
           .update({
             referral_count: referrer.referral_count + 1,
             attempts_remaining: referrer.attempts_remaining + 5,
+            attempts_reset_at: null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", referrer.id);

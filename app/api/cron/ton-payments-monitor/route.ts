@@ -1540,6 +1540,7 @@ async function creditAttemptsToUser(
 
     await serverUserService.updateUser(telegramId, {
       attempts_remaining: newAttemptsCount,
+      attempts_reset_at: null,
       updated_at: new Date().toISOString(),
     });
 
