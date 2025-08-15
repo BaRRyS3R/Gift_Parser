@@ -93,6 +93,7 @@ class DevToolsProtection {
 
     // Защита методов от переопределения
     private protectMethods(): void {
+        // Защищаем методы от переопределения
         const methods = [
             'init', 'detectDevTools', 'freezeApplication',
             'isMobileDevice', 'detectEmulation'
@@ -111,8 +112,15 @@ class DevToolsProtection {
             }
         });
 
-        // Защищаем сам объект
-        Object.freeze(this.state);
+        // Защищаем state от замены, но позволяем изменять его свойства
+        Object.defineProperty(this, 'state', {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value: this.state
+        });
+
+        // Защищаем сам объект от добавления новых свойств
         Object.seal(this);
     }
 
@@ -397,7 +405,10 @@ class DevToolsProtection {
 
     // Обнаружение DevTools
     private detectDevTools(method: string): void {
-        this.state.detectionMethods.add(method);
+        // Используем защищенное изменение state
+        if (!this.state.detectionMethods.has(method)) {
+            this.state.detectionMethods.add(method);
+        }
 
         if (!this.state.isOpen) {
             this.state.isOpen = true;
