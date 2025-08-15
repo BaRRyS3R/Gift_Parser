@@ -107,3 +107,18 @@ export async function POST(
   }
 }
 
+/**
+ * OPTIONS /api/user/attempts/consume
+ * Handle CORS preflight requests
+ */
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}

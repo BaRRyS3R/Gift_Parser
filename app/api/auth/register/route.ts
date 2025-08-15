@@ -1,4 +1,4 @@
-// src/app/api/auth/register/route.ts - Updated without OPTIONS handler
+// src/app/api/auth/register/route.ts - Updated to use server league service
 
 import type { TelegramUser } from "@/lib/supabase";
 
@@ -52,8 +52,6 @@ interface RegisterResponse {
 /**
  * POST /api/auth/register
  * Registers a new user with Telegram WebApp data validation
- * 
- * CORS is now handled by middleware, no need for OPTIONS method here
  */
 export async function POST(
   request: NextRequest,
@@ -232,4 +230,18 @@ export async function POST(
   }
 }
 
-// OPTIONS метод удален - обрабатывается в middleware
+/**
+ * OPTIONS /api/auth/register
+ * Handle CORS preflight requests
+ */
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}

@@ -164,6 +164,23 @@ export async function POST(
 }
 
 /**
+ * OPTIONS /api/security/suspicious-activity
+ * Handle CORS preflight requests for cross-origin requests
+ */
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers":
+        "Content-Type, Authorization, X-Telegram-ID, X-User-ID",
+      "Access-Control-Max-Age": "86400", // 24 hours
+    },
+  });
+}
+
+/**
  * Fixed validation of suspicious activity data
  * Now properly handles both click-based and gyroscope-based suspicious activity
  * @param data - The suspicious activity data to validate
