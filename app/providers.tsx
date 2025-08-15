@@ -1,4 +1,4 @@
-// src/app/providers.tsx - Enhanced with DevTools protection
+// src/app/providers.tsx - Enhanced with comprehensive device detection
 
 "use client";
 
@@ -13,14 +13,13 @@ import {
   isAccessAllowed,
   getAccessDenialReason,
 } from "@/utils/deviceDetection";
-import { devToolsProtection } from "@/utils/devtools-protection";
 
 interface AccessState {
   isAllowed: boolean | null;
   denialReason: string | null;
 }
 
-// Access control wrapper component with DevTools protection
+// Access control wrapper component
 function AccessControlWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -33,15 +32,6 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
     // Skip access control entirely for the mobile-only page
     if (pathname === "/mobile-only") {
       return;
-    }
-
-    // Initialize DevTools protection
-    if (process.env.NODE_ENV === 'production') {
-      try {
-        devToolsProtection.init();
-      } catch (error) {
-        console.error("Failed to initialize DevTools protection:", error);
-      }
     }
 
     // Perform device verification only once on mount for non-mobile-only pages
@@ -65,13 +55,6 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
     };
 
     verifyDevice();
-
-    // Cleanup on unmount
-    return () => {
-      if (process.env.NODE_ENV === 'production') {
-        devToolsProtection.destroy();
-      }
-    };
   }, [pathname, router]);
 
   // Always allow mobile-only page to render without checks
@@ -115,16 +98,9 @@ function ConditionalProviders({ children }: { children: React.ReactNode }) {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Type for Telegram WebApp
-    const win = window as Window & {
-      Telegram?: {
-        WebApp?: any;
-      };
-    };
-    
     // Initialize Telegram Web App with enhanced fullscreen configuration
-    if (typeof window !== "undefined" && win.Telegram?.WebApp) {
-      const tg = win.Telegram.WebApp;
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
 
       try {
         // Core initialization
@@ -227,8 +203,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return () => {
       document.removeEventListener("touchend", preventZoom);
 
-      if (typeof window !== "undefined" && win.Telegram?.WebApp) {
-        const tg = win.Telegram.WebApp;
+      if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+        const tg = window.Telegram.WebApp;
 
         // Re-enable vertical swipes on cleanup (if supported)
         if (tg.enableVerticalSwipes) {
