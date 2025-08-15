@@ -97,8 +97,8 @@ const nextConfig = {
             '**/utils/**/*.ts',      // Утилиты
             '**/store/**/*.ts',      // State management
             '**/context/**/*.tsx',    // React contexts
-            '**/game-modes/**/*tsx',
-            '**/game-modes/**/*ts',
+            '**/game-modes/**/*.tsx',
+            '**/game-modes/**/*.ts',
             
             // Service Worker и PWA
             '**/sw.js',
