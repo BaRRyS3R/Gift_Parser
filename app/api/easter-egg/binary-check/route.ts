@@ -103,19 +103,3 @@ export async function POST(
   }
 }
 
-/**
- * OPTIONS /api/easter-egg/binary-check
- * Handle CORS preflight requests
- */
-export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers":
-        "Content-Type, Authorization, X-Telegram-ID, X-User-ID",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
-}
