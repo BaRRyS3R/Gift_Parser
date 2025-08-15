@@ -1,4 +1,4 @@
-// src/app/api/auth/login/route.ts - Updated with Nebula Security Integration
+// src/app/api/auth/login/route.ts - Updated without OPTIONS handler
 
 import type { TelegramUser } from "@/lib/supabase";
 
@@ -59,6 +59,8 @@ interface LoginResponse {
 /**
  * POST /api/auth/login
  * Authenticates existing user with Telegram WebApp data validation and Nebula security checks
+ * 
+ * CORS is now handled by middleware, no need for OPTIONS method here
  */
 export async function POST(
   request: NextRequest,
@@ -370,18 +372,4 @@ export async function POST(
   }
 }
 
-/**
- * OPTIONS /api/auth/login
- * Handle CORS preflight requests
- */
-export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
-}
+// OPTIONS метод удален - обрабатывается в middleware
