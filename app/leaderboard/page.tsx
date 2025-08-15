@@ -476,15 +476,15 @@ function LeaderboardPageContent() {
 
     switch (activeTab) {
       case "season":
-        return leaderboardData.season.slice(0, 10);
+        return leaderboardData.season.slice(0, 100);
       case "reaction":
-        return leaderboardData.reaction.slice(0, 10);
+        return leaderboardData.reaction.slice(0, 100);
       case "survival":
-        return leaderboardData.survival.slice(0, 10);
+        return leaderboardData.survival.slice(0, 100);
       case "physics":
-        return leaderboardData.physics.slice(0, 10);
+        return leaderboardData.physics.slice(0, 100);
       case "rotation":
-        return leaderboardData.rotation.slice(0, 10);
+        return leaderboardData.rotation.slice(0, 100);
     }
   }, [leaderboardData, activeTab]);
 
