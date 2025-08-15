@@ -1,4 +1,4 @@
-// src/app/providers.tsx - Enhanced with comprehensive device detection
+// src/app/providers.tsx - Updated with DevTools protection
 
 "use client";
 
@@ -13,6 +13,9 @@ import {
   isAccessAllowed,
   getAccessDenialReason,
 } from "@/utils/deviceDetection";
+
+// Import DevTools protection
+import { devToolsProtection } from "@/utils/devToolsProtection";
 
 interface AccessState {
   isAllowed: boolean | null;
@@ -74,6 +77,17 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
 // Conditional providers wrapper that excludes auth providers for mobile-only page
 function ConditionalProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  // Initialize DevTools protection for all pages
+  useEffect(() => {
+    // Start DevTools protection
+    devToolsProtection.start();
+    
+    // Cleanup on unmount
+    return () => {
+      devToolsProtection.stop();
+    };
+  }, []);
 
   // For mobile-only page, skip authentication and access control providers
   if (pathname === "/mobile-only") {
