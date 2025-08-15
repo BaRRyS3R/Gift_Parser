@@ -90,13 +90,15 @@ const nextConfig = {
             
             // === ВАШИ ПАПКИ С API И ХУКАМИ ===
             // Исключаем целиком, чтобы не ломать
-            '**/api/**/*.js',        // Все API routes
-            '**/lib/**/*.js',        // Библиотеки и утилиты
-            '**/hooks/**/*.js',      // Все хуки
-            '**/services/**/*.js',   // Сервисы
-            '**/utils/**/*.js',      // Утилиты
-            '**/store/**/*.js',      // State management
-            '**/context/**/*.js',    // React contexts
+            '**/api/**/*.ts',        // Все API routes
+            '**/lib/**/*.ts',        // Библиотеки и утилиты
+            '**/hooks/**/*.ts',      // Все хуки
+            '**/services/**/*.jts',   // Сервисы
+            '**/utils/**/*.ts',      // Утилиты
+            '**/store/**/*.ts',      // State management
+            '**/context/**/*.tsx',    // React contexts
+            '**/game-modes/**/*tsx',
+            '**/game-modes/**/*ts',
             
             // Service Worker и PWA
             '**/sw.js',
