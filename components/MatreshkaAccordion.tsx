@@ -109,12 +109,6 @@ export default function MatreshkaAccordion() {
             {isLastLevel && level.isOpen ? (
               // Final level content with button to open video modal
               <div className="text-center space-y-4">
-                <div className="text-3xl font-bold text-green-400 animate-pulse">
-                  Congratz! 🎊
-                </div>
-                <p className="text-white/70 text-sm">
-                  Final level!
-                </p>
                 <Button
                   className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold"
                   size="lg"
