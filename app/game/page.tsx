@@ -22,7 +22,7 @@ import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAt
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
 // Константа для настройки шанса появления пасхалки
-const EASTER_EGG_CHANCE = 0.91; // 1% шанс (изменить здесь для настройки)
+const EASTER_EGG_CHANCE = 0.005; // 1% шанс (изменить здесь для настройки)
 
 interface GameMode {
   id: string;
