@@ -1,5 +1,13 @@
 // src/locales/ru/game.ts - Game modes and gameplay (Updated with play again functionality)
 export const game = {
+  easterEgg: {
+    title: "СЮРПРИЗ!",
+    congratulations: "Поздравляем!",
+    message: "Вы - феечка Winx!",
+    chanceText: "Шанс этого события:",
+    closeButton: "МАГИЧЕСКИ ЗАКРЫТЬ",
+    subtitle: "Волшебство случилось!",
+  },
   modes: {
     title: "МОД",
     subtitle: "Выберите испытание",

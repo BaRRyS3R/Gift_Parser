@@ -1,471 +1,477 @@
-// src/app/page.tsx - Simplified authentication page with single initialization button
+// src/app/game/page.tsx - Исправленная страница игр с автозагрузкой попыток и Future Tech стилистикой + ПАСХАЛКА
 
 "use client";
 
-import type { TelegramUser } from "@/lib/supabase";
-import type { RegistrationResult, LoginResult } from "@/hooks/modules/useAuth";
-
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Spinner } from "@nextui-org/react";
-import { Zap, Gift, AlertTriangle } from "lucide-react";
+import { Card, CardHeader, CardFooter, Image, Button } from "@nextui-org/react";
+import {
+  Crosshair,
+  Play,
+  Shield,
+  Atom,
+  RotateCw,
+  Zap,
+  AlertTriangle,
+} from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
-import {
-  extractReferralCode,
-  parseTelegramInitData,
-  getTelegramInitData,
-} from "@/lib/telegram-auth";
+import AuthGuard from "@/components/Auth/AuthGuard";
+import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
+import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
-interface PageState {
-  isInitializing: boolean;
-  needsAuthentication: boolean;
-  referralInfo?: {
-    code: string;
-    bonus: number;
-    referrerName?: string;
-    referrerUsername?: string;
+// Константа для настройки шанса появления пасхалки
+const EASTER_EGG_CHANCE = 0.99; // 1% шанс (изменить здесь для настройки)
+
+interface GameMode {
+  id: string;
+  nameKey: string;
+  descriptionKey: string;
+  icon: React.ComponentType<any>;
+  route: string;
+  difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
+  durationKey: string;
+  imageUrl: string;
+  color: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    buttonColor: "primary" | "danger" | "secondary" | "warning";
   };
+  featuresKeys: string[];
+  basicRules: string[];
 }
 
-export default function IntroPage(): JSX.Element {
+const GAME_MODES: GameMode[] = [
+  {
+    id: "reaction",
+    nameKey: "game.modes.reaction.name",
+    descriptionKey: "game.modes.reaction.description",
+    icon: Zap,
+    route: "/game/reaction",
+    difficulty: "🤡",
+    durationKey: "game.modes.reaction.duration",
+    imageUrl: "https://notfren.com/circusle/reaction.jpg",
+    color: {
+      primary: "text-white",
+      secondary: "text-white/90",
+      accent: "text-white/80",
+      buttonColor: "primary",
+    },
+    featuresKeys: [
+      "game.modes.reaction.features.0",
+      "game.modes.reaction.features.1",
+      "game.modes.reaction.features.2",
+      "game.modes.reaction.features.3",
+    ],
+    basicRules: [
+      "game.modes.reaction.rules.0",
+      "game.modes.reaction.rules.1",
+      "game.modes.reaction.rules.2",
+    ],
+  },
+  {
+    id: "survival",
+    nameKey: "game.modes.survival.name",
+    descriptionKey: "game.modes.survival.description",
+    icon: Crosshair,
+    route: "/game/survival",
+    difficulty: "💋😈",
+    durationKey: "game.modes.survival.duration",
+    imageUrl: "https://notfren.com/circusle/survival.jpg",
+    color: {
+      primary: "text-red-100",
+      secondary: "text-red-200",
+      accent: "text-red-300",
+      buttonColor: "danger",
+    },
+    featuresKeys: [
+      "game.modes.survival.features.0",
+      "game.modes.survival.features.1",
+      "game.modes.survival.features.2",
+      "game.modes.survival.features.3",
+    ],
+    basicRules: [
+      "game.modes.survival.rules.0",
+      "game.modes.survival.rules.1",
+      "game.modes.survival.rules.2",
+    ],
+  },
+  {
+    id: "physics",
+    nameKey: "game.modes.physics.name",
+    descriptionKey: "game.modes.physics.description",
+    icon: Atom,
+    route: "/game/physics",
+    difficulty: "👉👌",
+    durationKey: "game.modes.physics.duration",
+    imageUrl: "https://notfren.com/circusle/physics.jpg",
+    color: {
+      primary: "text-purple-100",
+      secondary: "text-purple-200",
+      accent: "text-purple-300",
+      buttonColor: "secondary",
+    },
+    featuresKeys: [
+      "game.modes.physics.features.0",
+      "game.modes.physics.features.1",
+      "game.modes.physics.features.2",
+      "game.modes.physics.features.3",
+    ],
+    basicRules: [
+      "game.modes.physics.rules.0",
+      "game.modes.physics.rules.1",
+      "game.modes.physics.rules.2",
+    ],
+  },
+  {
+    id: "rotation",
+    nameKey: "game.modes.rotation.name",
+    descriptionKey: "game.modes.rotation.description",
+    icon: RotateCw,
+    route: "/game/rotation",
+    difficulty: "🌀",
+    durationKey: "game.modes.rotation.duration",
+    imageUrl: "https://notfren.com/circusle/rotation.jpg",
+    color: {
+      primary: "text-orange-100",
+      secondary: "text-orange-200",
+      accent: "text-orange-300",
+      buttonColor: "warning",
+    },
+    featuresKeys: [
+      "game.modes.rotation.features.0",
+      "game.modes.rotation.features.1",
+      "game.modes.rotation.features.2",
+      "game.modes.rotation.features.3",
+    ],
+    basicRules: [
+      "game.modes.rotation.rules.0",
+      "game.modes.rotation.rules.1",
+      "game.modes.rotation.rules.2",
+    ],
+  },
+];
+
+function GamePageContent() {
   const router = useRouter();
+  const { user, makeAuthenticatedRequest } = useUser();
+  const {
+    attemptsStatus,
+    isLoading: attemptsLoading,
+    error: attemptsError,
+    canPlay,
+    attemptsRemaining,
+    fetchAttemptsStatus,
+    consumeAttempt,
+    clearError,
+  } = useAttempts(makeAuthenticatedRequest);
   const t = useT();
 
-  const {
-    authState,
-    telegramUser,
-    setTelegramUser,
-    register,
-    login,
-    isLoading: userLoading,
-  } = useUser();
+  const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
+  const [consumeError, setConsumeError] = useState<string | null>(null);
+  
+  // Состояние для пасхалки
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [easterEggChecked, setEasterEggChecked] = useState(false);
 
-  const authInitializedRef = useRef<boolean>(false);
-  const operationInProgressRef = useRef<boolean>(false);
-
-  const [pageState, setPageState] = useState<PageState>({
-    isInitializing: true,
-    needsAuthentication: false,
-  });
-
-  const [fontLoaded, setFontLoaded] = useState<boolean>(false);
-
-  const authStateRef = useRef(authState);
-
+  /* -------------------------------------------------
+   * Инициализация загрузки статуса попыток для страницы игры
+   * -------------------------------------------------*/
   useEffect(() => {
-    authStateRef.current = authState;
-  }, [authState]);
-
-  /**
-   * Extract Telegram user data from WebApp API
-   */
-  const getTelegramUserData = useCallback((): {
-    user: TelegramUser | null;
-    initData: string;
-  } => {
-    const initData = getTelegramInitData();
-
-    if (!initData) {
-      console.warn("No Telegram initData available");
-
-      return { user: null, initData: "" };
-    }
-
-    const parseResult = parseTelegramInitData(initData);
-
-    if (!parseResult.success || !parseResult.user) {
-      console.error("Failed to parse Telegram data:", parseResult.error);
-
-      return { user: null, initData };
-    }
-
-    return { user: parseResult.user, initData };
-  }, []);
-
-  /**
-   * Validate referral code
-   */
-  const validateReferralCode = useCallback(
-    async (
-      code: string,
-    ): Promise<{
-      isValid: boolean;
-      code: string;
-      bonus: number;
-      referrerName?: string;
-      referrerUsername?: string;
-    }> => {
-      try {
-        return {
-          isValid: true,
-          code,
-          bonus: 5,
-        };
-      } catch (error) {
-        console.error("Error validating referral code:", error);
-
-        return { isValid: false, code, bonus: 0 };
-      }
-    },
-    [],
-  );
-
-  /**
-   * Attempt user authentication with comprehensive Nebula security integration
-   */
-  const attemptAuthentication = useCallback(
-    async (initData: string): Promise<LoginResult> => {
-      try {
-        const result = await login(initData);
-
-        if (!result.success && result.error === "USER_NOT_FOUND") {
-          return result;
-        }
-
-        if (result.success && result.user) {
-          if (result.security) {
-            if (result.security.blocked) {
-              setTimeout(() => {
-                router.push("/blocked");
-              }, 1000);
-
-              return result;
-            }
-
-            if (
-              result.security.verificationRequired &&
-              result.security.verificationType
-            ) {
-              setTimeout(() => {
-                router.push("/nebula");
-              }, 1000);
-
-              return result;
-            }
-          } else {
-          }
-
-          setTimeout(() => {
-            router.push("/main");
-          }, 1000);
-        } else {
-          console.error("Login failed with error:", result.error);
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Authentication error:", error);
-
-        return {
-          success: false,
-          error:
-            error instanceof Error ? error.message : "Authentication failed",
-        };
-      }
-    },
-    [login, router],
-  );
-
-  /**
-   * Register new user and redirect to main page
-   */
-  const registerNewUser = useCallback(
-    async (
-      initData: string,
-      referralCode?: string,
-    ): Promise<RegistrationResult> => {
-      if (operationInProgressRef.current) {
-        return { success: false, error: "Registration already in progress" };
-      }
-
-      operationInProgressRef.current = true;
-
-      try {
-        const result = await register(initData, referralCode);
-
-        if (result.success && result.user) {
-          setPageState((prev) => ({
-            ...prev,
-            isInitializing: false,
-            needsAuthentication: false,
-          }));
-
-          setTimeout(() => {
-            router.push("/main");
-          }, 1000);
-        }
-
-        return result;
-      } catch (error) {
-        console.error("Registration error:", error);
-
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : "Registration failed",
-        };
-      } finally {
-        operationInProgressRef.current = false;
-      }
-    },
-    [register, router],
-  );
-
-  /**
-   * Initialize authentication flow with proper handling for existing and new users
-   */
-  const initializeAuthentication = useCallback(async () => {
-    if (authInitializedRef.current) {
-      return;
-    }
-
-    authInitializedRef.current = true;
-
-    try {
-      const { user: telegramUserData, initData } = getTelegramUserData();
-
-      if (!telegramUserData || !initData) {
-        console.error("Telegram data unavailable");
-        setPageState((prev) => ({
-          ...prev,
-          isInitializing: false,
-        }));
-
-        return;
-      }
-
-      setTelegramUser(telegramUserData);
-
-      const referralCode = extractReferralCode(initData);
-      let referralInfo:
-        | {
-            code: string;
-            bonus: number;
-            referrerName?: string;
-            referrerUsername?: string;
-          }
-        | undefined;
-
-      if (referralCode) {
-        const validation = await validateReferralCode(referralCode);
-
-        if (validation.isValid) {
-          referralInfo = {
-            code: referralCode,
-            bonus: validation.bonus,
-            referrerName: validation.referrerName,
-            referrerUsername: validation.referrerUsername,
-          };
-        }
-      }
-
-      setPageState((prev) => ({
-        ...prev,
-        referralInfo,
-      }));
-
-      const authResult = await attemptAuthentication(initData);
-
-      if (!authResult.success && authResult.error === "USER_NOT_FOUND") {
-        setPageState((prev) => ({
-          ...prev,
-          isInitializing: false,
-          needsAuthentication: true,
-        }));
-
-        return;
-      }
-
-      if (!authResult.success && authResult.error !== "USER_NOT_FOUND") {
-        console.error("Authentication failed with error:", authResult.error);
-        setPageState((prev) => ({
-          ...prev,
-          isInitializing: false,
-        }));
-
-        return;
-      }
-    } catch (error) {
-      console.error("Authentication initialization error:", error);
-      setPageState((prev) => ({
-        ...prev,
-        isInitializing: false,
-      }));
+    if (user && !attemptsLoading && !attemptsStatus) {
+      fetchAttemptsStatus();
     }
   }, [
-    getTelegramUserData,
-    setTelegramUser,
-    validateReferralCode,
-    attemptAuthentication,
+    user,
+    makeAuthenticatedRequest,
+    attemptsLoading,
+    attemptsStatus,
+    fetchAttemptsStatus,
   ]);
 
-  /**
-   * Handle initialization button click
-   */
-  const handleInitialization = useCallback(async () => {
-    const initData = getTelegramInitData();
-
-    if (
-      !initData ||
-      authState.isRegistering ||
-      operationInProgressRef.current
-    ) {
-      return;
-    }
-
-    const registrationResult = await registerNewUser(
-      initData,
-      pageState.referralInfo?.code,
-    );
-
-    if (!registrationResult.success) {
-      console.error("Initialization failed:", registrationResult.error);
-    }
-  }, [authState.isRegistering, registerNewUser, pageState.referralInfo?.code]);
-
-  // Initialize Service Worker and font loading
+  /* -------------------------------------------------
+   * Проверка пасхалки при загрузке страницы
+   * -------------------------------------------------*/
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then((registration) => console.log("ServiceWorker registered"))
-        .catch((err) =>
-          console.error("ServiceWorker registration failed:", err),
-        );
+    if (!easterEggChecked) {
+      const randomValue = Math.random();
+      console.log(`Easter egg check: ${randomValue} (threshold: ${EASTER_EGG_CHANCE})`);
+      
+      if (randomValue < EASTER_EGG_CHANCE) {
+        console.log('🎉 Easter egg triggered!');
+        setShowEasterEgg(true);
+      }
+      
+      setEasterEggChecked(true);
     }
+  }, [easterEggChecked]);
 
-    if ("fonts" in document) {
-      document.fonts
-        .load('1rem "BPDots Diamond"')
-        .then(() => setFontLoaded(true))
-        .catch(() => setFontLoaded(true));
-    } else {
-      setTimeout(() => setFontLoaded(true), 1000);
-    }
+  const handleModeStart = useCallback(
+    async (mode: GameMode) => {
+      if (loadingModeId || !canPlay) {
+        console.warn("Cannot start game:", { loadingModeId, canPlay });
+
+        return;
+      }
+
+      setLoadingModeId(mode.id);
+      setConsumeError(null);
+
+      try {
+        // Потребляем попытку перед началом игры
+        const updatedStatus = await consumeAttempt();
+
+        if (!updatedStatus) {
+          throw new Error("Failed to consume attempt");
+        }
+
+        // Небольшая задержка для показа анимации загрузки
+        setTimeout(() => {
+          router.push(mode.route);
+        }, 600);
+      } catch (error) {
+        console.error("Error consuming attempt:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to start game";
+
+        setConsumeError(errorMessage);
+        setLoadingModeId(null);
+
+        // Обновляем статус попыток после ошибки
+        setTimeout(() => {
+          fetchAttemptsStatus(true);
+        }, 1000);
+      }
+    },
+    [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus],
+  );
+
+  const handleAttemptsRetry = useCallback(() => {
+    clearError();
+    setConsumeError(null);
+    fetchAttemptsStatus(true);
+  }, [clearError, fetchAttemptsStatus]);
+
+  const handleCloseEasterEgg = useCallback(() => {
+    setShowEasterEgg(false);
   }, []);
 
-  // Initialize authentication flow
+  // Clear consume error when attempts change
   useEffect(() => {
-    if (!authInitializedRef.current && !authState.isAuthenticated) {
-      initializeAuthentication();
+    if (consumeError && attemptsStatus) {
+      setConsumeError(null);
     }
-  }, [initializeAuthentication, authState.isAuthenticated]);
+  }, [attemptsStatus, consumeError]);
 
-  const isInitialLoading =
-    pageState.isInitializing || userLoading || !fontLoaded;
+  // Telegram WebApp back button
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        router.push("/main");
+      });
+
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => {});
+      };
+    }
+  }, [router]);
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Loading Screen */}
-      {isInitialLoading && (
-        <div className="loader-container">
-          <div className="progress-bar">
-            <div className="progress-bar-fill" style={{ width: "100%" }} />
-          </div>
-          <p className="text-white mt-4 text-sm">
-            {pageState.isInitializing
-              ? t("auth.checkingUser")
-              : t("common.loading")}
+    <div
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
+        loadingModeId
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
+      }`}
+    >
+      {/* Пасхалка модальное окно */}
+      <WinxEasterEggModal
+        isOpen={showEasterEgg}
+        onClose={handleCloseEasterEgg}
+        chance={EASTER_EGG_CHANCE * 100} // Преобразуем в проценты
+      />
+
+      <div className="px-4">
+        <div className="text-center space-y-4 mb-8">
+          <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+            {t("game.modes.title")}
+          </h1>
+          <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+            {t("game.modes.subtitle")}
           </p>
         </div>
-      )}
 
-      {/* Authentication Error Screen */}
-      {authState.error && !isInitialLoading && (
-        <div className="loader-container">
-          <div className="flex items-center justify-center mb-4">
-            <AlertTriangle className="text-red-400" size={48} />
-          </div>
-          <p className="text-white text-center mb-4">{authState.error}</p>
-          <button
-            className="px-4 py-2 bg-white text-black rounded"
-            onClick={() => {
-              authInitializedRef.current = false;
-              operationInProgressRef.current = false;
-              setPageState((prev) => ({
-                ...prev,
-                isInitializing: true,
-              }));
-              initializeAuthentication();
-            }}
-          >
-            {t("common.retry")}
-          </button>
-        </div>
-      )}
-
-      {/* Registration Screen */}
-      {pageState.needsAuthentication &&
-        !pageState.isInitializing &&
-        !authState.error &&
-        !isInitialLoading && (
-          <div className="min-h-screen bg-black flex items-center justify-center p-6 fixed inset-0 z-50">
-            <div className="w-full max-w-md space-y-8">
-              {authState.isRegistering ? (
-                <div className="text-center">
-                  <Spinner color="white" size="lg" />
-                  <p className="text-white mt-4">{t("auth.registering")}</p>
-                  {pageState.referralInfo && (
-                    <p className="text-green-400 mt-2 text-sm">
-                      {t("auth.processingReferralBonus")}
-                    </p>
-                  )}
+        {/* Отображение ошибки потребления попыток */}
+        {consumeError && (
+          <div className="mb-6 animate-fade-in">
+            <div
+              className="bg-black/90 backdrop-blur-xl border-2 border-red-400/40 text-white w-full relative overflow-hidden"
+              style={{
+                clipPath:
+                  "polygon(15px 0, 100% 0, calc(100% - 15px) 100%, 0 100%)",
+              }}
+            >
+              <div className="absolute inset-0 bg-red-500/10 pointer-events-none" />
+              <div className="relative z-10 p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <AlertTriangle className="text-red-400" size={16} />
+                  <span className="text-red-400 font-mono text-sm tracking-wider uppercase">
+                    {t("common.error")}
+                  </span>
                 </div>
-              ) : (
-                <div className="text-center space-y-8">
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <h1 className="text-4xl font-bold text-white tracking-wider">
-                        {t("main.welcome")}
-                      </h1>
-                      <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-                    </div>
-                    <p className="text-white/70 text-sm">
-                      {t("main.greeting", {
-                        name: telegramUser?.first_name || "User",
-                      })}
-                    </p>
-
-                    {pageState.referralInfo && (
-                      <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
-                        <div className="flex items-center justify-center space-x-2">
-                          <Gift className="text-green-400" size={20} />
-                          <span className="text-green-300 font-bold">
-                            {t("auth.referralBonus")}
-                          </span>
-                        </div>
-                        <p className="text-green-400/60 text-xs">by John Doe</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-6">
-                    <button
-                      className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      disabled={authState.isRegistering}
-                      style={{ pointerEvents: "auto", zIndex: 100 }}
-                      onClick={handleInitialization}
-                    >
-                      <div className="flex items-center justify-center space-x-4">
-                        <div className="relative">
-                          <Zap
-                            className="text-white group-hover:translate-x-1 transition-transform duration-300"
-                            size={24}
-                          />
-                        </div>
-                        <span className="tracking-wider">
-                          {t("main.initialize")}
-                        </span>
-                      </div>
-                      <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
-                    </button>
-                  </div>
-                </div>
-              )}
+                <div className="h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent mb-2" />
+                <p className="text-red-300 font-mono text-xs mb-2">
+                  {consumeError}
+                </p>
+                <button
+                  className="font-mono text-xs tracking-wider text-red-300 hover:text-red-200 transition-colors underline"
+                  onClick={handleAttemptsRetry}
+                >
+                  {t("common.retry")}
+                </button>
+              </div>
             </div>
           </div>
         )}
+
+        {/* Future Tech стилистика для отображения попыток */}
+        <div className="mb-8 animate-fade-in">
+          <FutureTechAttemptsDisplay
+            attemptsRemaining={attemptsRemaining}
+            attemptsStatus={attemptsStatus}
+            canPlay={canPlay}
+            error={attemptsError}
+            isLoading={attemptsLoading}
+            showShopButton={true}
+            onRetry={handleAttemptsRetry}
+          />
+        </div>
+      </div>
+
+      {/* Горизонтальная прокрутка карточек без padding */}
+      <div className="mb-8 animate-fade-in">
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex space-x-4 px-4" style={{ width: "max-content" }}>
+            {GAME_MODES.map((mode) => {
+              const Icon = mode.icon;
+              const isCurrentModeLoading = loadingModeId === mode.id;
+              const isAnyModeLoading = loadingModeId !== null;
+              const isDisabled = !canPlay;
+
+              return (
+                <div key={mode.id} className="relative">
+                  <Card
+                    isFooterBlurred
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${
+                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                    }`}
+                  >
+                    <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                          <Icon className={mode.color.primary} size={20} />
+                        </div>
+                        <div>
+                          <h4
+                            className={`font-bold text-xl ${mode.color.primary}`}
+                          >
+                            {t(mode.nameKey as any)}
+                          </h4>
+                          <div className="flex items-center space-x-2 text-xs">
+                            <span className={mode.color.accent}>
+                              {t(mode.durationKey as any)}
+                            </span>
+                            <div className="w-1 h-1 rounded-full bg-white/40" />
+                            <span className={mode.color.accent}>
+                              {mode.difficulty}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p
+                        className={`text-sm ${mode.color.secondary} leading-relaxed`}
+                      >
+                        {t(mode.descriptionKey as any)}
+                      </p>
+                    </CardHeader>
+
+                    <Image
+                      removeWrapper
+                      alt={`${mode.id}_game_card`}
+                      className="z-0 w-full h-full object-cover"
+                      fallbackSrc="/game-placeholder.jpg"
+                      src={mode.imageUrl}
+                    />
+
+                    <CardFooter className="absolute bg-black/40 backdrop-blur-sm bottom-0 border-t-1 border-white/20 z-10 justify-between">
+                      <Button
+                        className="text-tiny min-w-[80px]"
+                        color={mode.color.buttonColor}
+                        isDisabled={isAnyModeLoading || isDisabled}
+                        isLoading={isCurrentModeLoading}
+                        radius="full"
+                        size="sm"
+                        startContent={
+                          !isCurrentModeLoading && !isAnyModeLoading ? (
+                            isDisabled ? (
+                              <Shield size={14} />
+                            ) : (
+                              <Play size={14} />
+                            )
+                          ) : null
+                        }
+                        onClick={() => handleModeStart(mode)}
+                      >
+                        {isCurrentModeLoading
+                          ? t("common.loading")
+                          : isAnyModeLoading && !isCurrentModeLoading
+                            ? t("game.general.lock")
+                            : isDisabled
+                              ? t("game.general.lock")
+                              : t("common.play")}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+
+                  {/* Overlay для заблокированного состояния */}
+                  {isDisabled && !isAnyModeLoading && (
+                    <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
+                      <div className="text-center space-y-2">
+                        <Shield className="text-white/60 mx-auto" size={32} />
+                        <p className="text-white/80 text-sm font-bold">
+                          {t("game.general.noAttemptsLeft")}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4">
+        <div className="text-center space-y-2 animate-fade-in pb-8">
+          <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
+        </div>
+      </div>
     </div>
+  );
+}
+
+export default function GamePage() {
+  return (
+    <AuthGuard requireCompleteAuth={true} showError={true}>
+      <GamePageContent />
+    </AuthGuard>
   );
 }
