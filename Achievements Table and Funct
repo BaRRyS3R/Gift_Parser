@@ -1,0 +1,178 @@
+create table public.user_achievements (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  achievement_id text not null,
+  unlocked_at timestamp with time zone null default timezone ('utc'::text, now()),
+  attempts_awarded integer not null default 0,
+  progress integer null default 0,
+  created_at timestamp with time zone null default timezone ('utc'::text, now()),
+  constraint user_achievements_pkey primary key (id),
+  constraint user_achievements_user_id_achievement_id_key unique (user_id, achievement_id),
+  constraint user_achievements_achievement_id_fkey foreign KEY (achievement_id) references achievements (id),
+  constraint user_achievements_user_id_fkey foreign KEY (user_id) references users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_user_achievements_user_id on public.user_achievements using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_user_achievements_achievement_id on public.user_achievements using btree (achievement_id) TABLESPACE pg_default;
+
+create table public.achievements (
+  id text not null,
+  name text not null,
+  description text null,
+  attempts_reward integer not null default 0,
+  icon text null,
+  color text null,
+  bg_color text null,
+  sort_order integer null default 0,
+  created_at timestamp with time zone null default timezone ('utc'::text, now()),
+  constraint achievements_pkey primary key (id)
+) TABLESPACE pg_default;
+
+FUNCTIONS:
+
+DECLARE
+  v_new_achievements RECORD;
+  v_count INTEGER := 0;
+BEGIN
+  -- Проверяем достижения только если таблицы существуют
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'achievements') 
+     AND EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_achievements') THEN
+    
+    RAISE NOTICE 'Trigger fired for user telegram_id: %', NEW.telegram_id;
+    
+    BEGIN
+      -- Проверяем новые достижения
+      FOR v_new_achievements IN 
+        SELECT * FROM check_and_award_achievements(NEW.telegram_id)
+      LOOP
+        v_count := v_count + 1;
+        RAISE NOTICE 'Achievement unlocked: % for user % with % attempts', 
+          v_new_achievements.achievement_id, 
+          NEW.telegram_id,
+          v_new_achievements.attempts_awarded;
+      END LOOP;
+      
+      IF v_count > 0 THEN
+        RAISE NOTICE 'Total achievements unlocked: %', v_count;
+      END IF;
+      
+    EXCEPTION
+      WHEN OTHERS THEN
+        -- Логируем ошибку но не прерываем обновление
+        RAISE WARNING 'Error checking achievements in trigger: %', SQLERRM;
+    END;
+  END IF;
+  
+  RETURN NEW;
+END;
+
+DECLARE
+  v_user_id UUID;
+  v_user RECORD;
+  v_achievement RECORD;
+  v_already_unlocked BOOLEAN;
+  v_attempts_to_award INTEGER;
+  v_inserted BOOLEAN;
+BEGIN
+  -- Получаем данные пользователя
+  SELECT * INTO v_user FROM users WHERE telegram_id = p_telegram_id;
+  IF NOT FOUND THEN
+    RAISE WARNING 'User not found for telegram_id: %', p_telegram_id;
+    RETURN;
+  END IF;
+  
+  v_user_id := v_user.id;
+  RAISE NOTICE 'Checking achievements for user_id: %', v_user_id;
+  
+  -- Проверяем каждое достижение
+  FOR v_achievement IN SELECT * FROM achievements a ORDER BY a.sort_order LOOP
+    v_already_unlocked := FALSE;
+    v_attempts_to_award := 0;
+    v_inserted := FALSE;
+    
+    -- Проверяем, уже разблокировано ли
+    SELECT EXISTS(
+      SELECT 1 FROM user_achievements ua 
+      WHERE ua.user_id = v_user_id AND ua.achievement_id = v_achievement.id
+    ) INTO v_already_unlocked;
+    
+    IF v_already_unlocked THEN
+      RAISE NOTICE 'Achievement % already unlocked for user %', v_achievement.id, v_user_id;
+      CONTINUE;
+    END IF;
+    
+    -- Проверяем условия достижения
+    CASE v_achievement.id
+      WHEN 'first_game' THEN
+        IF v_user.total_games >= 1 THEN
+          v_attempts_to_award := v_achievement.attempts_reward;
+          RAISE NOTICE 'User qualifies for first_game achievement';
+        END IF;
+        
+      WHEN 'all_modes_player' THEN
+        IF COALESCE(v_user.reaction_games, 0) >= 1 
+           AND COALESCE(v_user.survival_games, 0) >= 1 
+           AND COALESCE(v_user.physics_games, 0) >= 1 
+           AND COALESCE(v_user.rotation_games, 0) >= 1 THEN
+          v_attempts_to_award := v_achievement.attempts_reward;
+          RAISE NOTICE 'User qualifies for all_modes_player achievement';
+        END IF;
+        
+      WHEN 'super_recruiter' THEN
+        IF COALESCE(v_user.referral_count, 0) >= 100 THEN
+          v_attempts_to_award := v_achievement.attempts_reward;
+          RAISE NOTICE 'User qualifies for super_recruiter achievement';
+        END IF;
+        
+      WHEN 'lightning_reflexes' THEN
+        IF v_user.reaction_best_time > 0 AND v_user.reaction_best_time < 10 THEN
+          v_attempts_to_award := v_achievement.attempts_reward;
+          RAISE NOTICE 'User qualifies for lightning_reflexes achievement';
+        END IF;
+    END CASE;
+    
+    -- Награждаем достижением если условия выполнены
+    IF v_attempts_to_award > 0 THEN
+      RAISE NOTICE 'Attempting to award achievement % with % attempts', v_achievement.id, v_attempts_to_award;
+      
+      -- Вставляем запись о достижении
+      BEGIN
+        INSERT INTO user_achievements (user_id, achievement_id, attempts_awarded)
+        VALUES (v_user_id, v_achievement.id, v_attempts_to_award);
+        v_inserted := TRUE;
+        RAISE NOTICE 'Successfully inserted achievement record';
+      EXCEPTION
+        WHEN unique_violation THEN
+          RAISE NOTICE 'Achievement already exists (unique violation)';
+          v_inserted := FALSE;
+        WHEN OTHERS THEN
+          RAISE WARNING 'Failed to insert achievement: %', SQLERRM;
+          v_inserted := FALSE;
+      END;
+      
+      -- Добавляем попытки пользователю только если вставка прошла успешно
+      IF v_inserted THEN
+        UPDATE users 
+        SET attempts_remaining = COALESCE(attempts_remaining, 0) + v_attempts_to_award,
+        attempts_reset_at = NULL,
+            updated_at = TIMEZONE('utc', NOW())
+        WHERE id = v_user_id;
+        
+        RAISE NOTICE 'Updated user attempts by %', v_attempts_to_award;
+        
+        -- Возвращаем новое разблокированное достижение
+        RETURN QUERY 
+        SELECT v_achievement.id, v_achievement.name, v_attempts_to_award, true;
+      END IF;
+    END IF;
+  END LOOP;
+  
+  RETURN;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Логируем ошибку но не прерываем процесс
+    RAISE WARNING 'Error in check_and_award_achievements: %', SQLERRM;
+    RETURN;
+END;
+
