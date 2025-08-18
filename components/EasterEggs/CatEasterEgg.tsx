@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Gift, Trophy } from "lucide-react";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface CatEasterEggProps {
   isVisible: boolean;
@@ -19,6 +20,7 @@ export default function CatEasterEgg({
   onComplete,
   makeAuthenticatedRequest,
 }: CatEasterEggProps) {
+  const t = useT(); // ADD localization
   const [isActive, setIsActive] = useState(false);
   const [showReward, setShowReward] = useState(false);
   const [rewardInfo, setRewardInfo] = useState<{
@@ -47,13 +49,13 @@ export default function CatEasterEgg({
       }
 
       const data = await response.json();
-
+      
       if (data.success) {
         setRewardInfo({
           attemptsAwarded: data.achievement?.attemptsAwarded || 0,
           alreadyUnlocked: data.alreadyUnlocked || false,
         });
-
+        
         return data;
       } else {
         console.error("Failed to award Cat Easter Egg achievement:", data.error);
@@ -135,13 +137,13 @@ export default function CatEasterEgg({
             }}
           />
 
-          {/* Reward notification */}
+          {/* Reward notification - FIXED positioning to center */}
           {showReward && rewardInfo && (
-            <div
-              className="absolute -top-24 left-1/2 transform -translate-x-1/2 pointer-events-auto animate-fade-in-up"
-              style={{ width: "300px" }}
+            <div 
+              className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto animate-fade-in-up z-60"
+              style={{ width: "320px", maxWidth: "90vw" }}
             >
-              <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/40 rounded-lg p-3 backdrop-blur-sm">
+              <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/40 rounded-lg p-4 backdrop-blur-sm mx-4">
                 <div className="flex items-center justify-center space-x-2 mb-2">
                   {rewardInfo.alreadyUnlocked ? (
                     <Trophy className="text-pink-400" size={20} />
@@ -149,20 +151,23 @@ export default function CatEasterEgg({
                     <Gift className="text-pink-400" size={20} />
                   )}
                   <span className="text-pink-400 font-bold text-sm">
-                    {rewardInfo.alreadyUnlocked ? "Achievement Already Unlocked" : "Achievement Unlocked!"}
+                    {rewardInfo.alreadyUnlocked 
+                      ? t("profile.achievements.achievementAlreadyUnlocked" as any)
+                      : t("profile.achievements.achievementUnlocked" as any)
+                    }
                   </span>
                 </div>
-
+                
                 {!rewardInfo.alreadyUnlocked && (
                   <div className="space-y-1 text-center">
                     <div className="text-pink-300 text-xs font-bold">
-                      🐱 CAT WHISPERER
+                      🐱 {t("profile.achievements.catEasterEgg" as any)}
                     </div>
                     <div className="text-pink-300/80 text-xs">
-                      +{rewardInfo.attemptsAwarded} attempts awarded!
+                      {t("profile.achievements.attemptsAwarded" as any, { count: rewardInfo.attemptsAwarded })}
                     </div>
                     <div className="text-pink-300/60 text-xs italic">
-                      &quot;A mysterious cat appeared. Did you pet it or did it judge you?&quot;
+                      &quot;{t("profile.achievements.descriptions.catEasterEgg" as any)}&quot;
                     </div>
                   </div>
                 )}

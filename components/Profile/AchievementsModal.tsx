@@ -42,7 +42,7 @@ const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<any>> = {
   all_modes_player: Gamepad2,
   super_recruiter: Users,
   lightning_reflexes: Zap,
-
+  
   // NEW: Easter Egg achievements
   binary_easter_egg: Hash,      // 🔢 Binary symbol
   cat_easter_egg: Cat,          // 🐱 Cat icon  
@@ -89,7 +89,7 @@ const ACHIEVEMENT_COLORS: Record<
     icon: "text-emerald-400",
     progressBar: "bg-gradient-to-r from-emerald-500 to-teal-500",
   },
-
+  
   // NEW: Easter Egg achievement colors
   binary_easter_egg: {
     gradient: "from-green-500/20 to-lime-600/20",
@@ -287,9 +287,10 @@ export default function AchievementsModal({
                         key={achievement.id}
                         className={`
                           relative p-4 rounded-lg border transition-all duration-300
-                          ${achievement.unlocked
-                            ? `bg-gradient-to-r ${colors.gradient} ${colors.border} ${colors.glow}`
-                            : "bg-black/40 border-white/5 opacity-60"
+                          ${
+                            achievement.unlocked
+                              ? `bg-gradient-to-r ${colors.gradient} ${colors.border} ${colors.glow}`
+                              : "bg-black/40 border-white/5 opacity-60"
                           }
                           hover:scale-[1.02] cursor-pointer
                         `}
@@ -316,10 +317,11 @@ export default function AchievementsModal({
                             <div
                               className={`
                               relative w-10 h-10 rounded-lg flex items-center justify-center
-                              ${achievement.unlocked
+                              ${
+                                achievement.unlocked
                                   ? `bg-black/50 border ${colors.border}`
                                   : "bg-white/5 border border-white/10"
-                                }
+                              }
                             `}
                             >
                               <Icon
@@ -359,10 +361,11 @@ export default function AchievementsModal({
                               <div
                                 className={`
                                 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono
-                                ${achievement.unlocked
+                                ${
+                                  achievement.unlocked
                                     ? "bg-green-500/20 text-green-400 border border-green-500/30"
                                     : "bg-white/5 text-white/30 border border-white/10"
-                                  }
+                                }
                               `}
                               >
                                 {achievement.unlocked ? (
@@ -374,9 +377,11 @@ export default function AchievementsModal({
                               </div>
                             </div>
 
-                            {/* Progress bar with gradient */}
+                            {/* Progress bar with gradient - hide for Easter Eggs and binary achievements */}
                             {achievement.progress !== undefined &&
-                              achievement.max_progress !== undefined && (
+                              achievement.max_progress !== undefined &&
+                              achievement.max_progress > 1 && // Only show progress for multi-step achievements
+                              (
                                 <div className="space-y-1">
                                   <div className="flex justify-between text-xs font-mono">
                                     <span className="text-white/50">

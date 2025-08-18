@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { Button } from "@nextui-org/react";
 import { Check, X, Gift, Trophy } from "lucide-react";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface BinaryEasterEggProps {
   isVisible: boolean;
@@ -20,6 +21,7 @@ export default function BinaryEasterEgg({
   onClose,
   makeAuthenticatedRequest,
 }: BinaryEasterEggProps) {
+  const t = useT(); // ADD localization
   const [binaryString, setBinaryString] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [resultMessage, setResultMessage] = useState<string>("");
@@ -73,13 +75,13 @@ export default function BinaryEasterEgg({
       }
 
       const data = await response.json();
-
+      
       if (data.success) {
         setRewardInfo({
           attemptsAwarded: data.achievement?.attemptsAwarded || 0,
           alreadyUnlocked: data.alreadyUnlocked || false,
         });
-
+        
         return data;
       } else {
         console.error("Failed to award Easter Egg achievement:", data.error);
@@ -118,16 +120,16 @@ export default function BinaryEasterEgg({
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Server error: ${response.status}`);
       }
-
+      
       const data = await response.json();
 
       if (data.success) {
         setIsSuccess(true);
         setResultMessage(data.message);
-
+        
         // ONLY award the Easter Egg achievement if binary sequence is CORRECT
         const rewardData = await awardEasterEggAchievement();
-
+        
         // Success haptic feedback
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
           try {
@@ -144,7 +146,7 @@ export default function BinaryEasterEgg({
         setResultMessage(data.error || "Wrong binary sequence!");
         setBinaryString("");
         setRewardInfo(null); // Clear any previous reward info
-
+        
         // Error haptic feedback
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
           try {
@@ -161,7 +163,7 @@ export default function BinaryEasterEgg({
       setResultMessage("Network error. Try again!");
       setBinaryString("");
       setRewardInfo(null);
-
+      
       // Error haptic feedback
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         try {
@@ -304,20 +306,23 @@ export default function BinaryEasterEgg({
                           <Gift className="text-yellow-400" size={20} />
                         )}
                         <span className="text-yellow-400 font-bold text-sm">
-                          {rewardInfo.alreadyUnlocked ? "Achievement Already Unlocked" : "Achievement Unlocked!"}
+                          {rewardInfo.alreadyUnlocked 
+                            ? t("profile.achievements.achievementAlreadyUnlocked" as any)
+                            : t("profile.achievements.achievementUnlocked" as any)
+                          }
                         </span>
                       </div>
-
+                      
                       {!rewardInfo.alreadyUnlocked && (
                         <div className="space-y-1">
                           <div className="text-yellow-300 text-xs font-bold">
-                            🔢 BINARY GENIUS
+                            🔢 {t("profile.achievements.binaryEasterEgg" as any)}
                           </div>
                           <div className="text-yellow-300/80 text-xs">
-                            +{rewardInfo.attemptsAwarded} attempts awarded!
+                            {t("profile.achievements.attemptsAwarded" as any, { count: rewardInfo.attemptsAwarded })}
                           </div>
                           <div className="text-yellow-300/60 text-xs italic">
-                            &quot;Found the secret binary sequence. Congrats, you can count to 2!&quot;
+                            &quot;{t("profile.achievements.descriptions.binaryEasterEgg" as any)}&quot;
                           </div>
                         </div>
                       )}

@@ -127,6 +127,11 @@ export const profile = {
       "Rewards are automatically added to your account when you unlock an achievement.",
     unlockedOn: "Unlocked on {date}",
 
+    // NEW: Easter Egg notification strings
+    achievementUnlocked: "Achievement Unlocked!",
+    achievementAlreadyUnlocked: "Achievement Already Unlocked",
+    attemptsAwarded: "+{count} attempts awarded!",
+
     // Regular achievement names (camelCase keys matching the toCamelCase conversion)
     firstGame: "FIRST STEPS",
     allModesPlayer: "UNIVERSAL PLAYER",

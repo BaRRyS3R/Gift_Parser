@@ -131,6 +131,11 @@ export const profile = {
       "Награды автоматически добавляются на ваш аккаунт при разблокировке достижения.",
     unlockedOn: "Разблокировано {date}",
 
+    // NEW: Easter Egg notification strings
+    achievementUnlocked: "Достижение разблокировано!",
+    achievementAlreadyUnlocked: "Достижение уже разблокировано",
+    attemptsAwarded: "+{count} попыток получено!",
+
     // Regular achievement names (camelCase keys matching the toCamelCase conversion)
     firstGame: "ПЕРВЫЕ ШАГИ",
     allModesPlayer: "УНИВЕРСАЛЬНЫЙ ИГРОК",
@@ -148,7 +153,7 @@ export const profile = {
       allModesPlayer: "ПОПРОБОВАЛ ВСЕ ИГРОВЫЕ РЕЖИМЫ",
       superRecruiter: "ПРИГЛАСИЛ {count}+ ДРУЗЕЙ",
       lightningReflexes: "РЕАКЦИЯ МЕНЕЕ {time} МС",
-
+      
       // NEW: Easter Egg achievement descriptions
       binaryEasterEgg: "Нашёл секретную бинарную последовательность. Поздравляю, ты умеешь считать до 2!",
       catEasterEgg: "Появился загадочный кот. Ты его погладил или он тебя осудил?",
