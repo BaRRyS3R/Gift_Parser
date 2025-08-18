@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Card, CardBody } from "@nextui-org/react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Card, CardBody, Modal, ModalContent, ModalHeader, ModalBody, Button } from "@nextui-org/react";
+import { ChevronDown, ChevronRight, Play } from "lucide-react";
 
 interface AccordionLevel {
   id: number;
@@ -19,6 +19,23 @@ export default function MatreshkaAccordion() {
     { id: 4, emoji: "🎨", isOpen: false },
     { id: 5, emoji: "🎉", isOpen: false },
   ]);
+
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+
+  const openVideoModal = () => {
+    setIsVideoModalOpen(true);
+    
+    // Haptic feedback for video opening
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      try {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred("heavy");
+      } catch (error) {
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200]); // Celebration vibration
+        }
+      }
+    }
+  };
 
   const toggleLevel = (levelId: number) => {
     setLevels(prev => prev.map(level => {
@@ -71,9 +88,6 @@ export default function MatreshkaAccordion() {
           >
             <div className="flex items-center space-x-3">
               <span className="text-2xl">{level.emoji}</span>
-              <span className="text-white/70 text-sm font-medium">
-                Level {level.id}
-              </span>
             </div>
             
             <div className="text-white/50">
@@ -93,24 +107,22 @@ export default function MatreshkaAccordion() {
             `}
           >
             {isLastLevel && level.isOpen ? (
-              // Final level content with video
+              // Final level content with button to open video modal
               <div className="text-center space-y-4">
                 <div className="text-3xl font-bold text-green-400 animate-pulse">
                   Congratz! 🎊
                 </div>
-                <div className="flex justify-center">
-                  <video 
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="rounded-lg max-w-full h-auto border border-white/20"
-                    style={{ maxHeight: '200px' }}
-                  >
-                    <source src="https://notfren.com/circusle/kek.webm" type="video/webm" />
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
+                <p className="text-white/70 text-sm">
+                  You've reached the final level!
+                </p>
+                <Button
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold"
+                  size="lg"
+                  startContent={<Play size={20} />}
+                  onPress={openVideoModal}
+                >
+                  Watch Reward Video
+                </Button>
               </div>
             ) : (
               // Render next level if current is open and there is a next level
@@ -132,6 +144,47 @@ export default function MatreshkaAccordion() {
         </span>
       </div>
       {renderLevel(firstLevel)}
+
+      {/* Video Modal */}
+      <Modal 
+        isOpen={isVideoModalOpen} 
+        onClose={() => setIsVideoModalOpen(false)}
+        size="lg"
+        classNames={{
+          body: "py-6",
+          backdrop: "bg-black/50 backdrop-opacity-40",
+          base: "border-white/20 bg-gradient-to-r from-gray-900 to-black text-white",
+          header: "border-b-[1px] border-white/20",
+          footer: "border-t-[1px] border-white/20",
+        }}
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <h2 className="text-2xl font-bold text-center">
+              🎉 Congratulations! 🎉
+            </h2>
+            <p className="text-white/70 text-sm text-center">
+              You've unlocked the secret matreshka reward!
+            </p>
+          </ModalHeader>
+          <ModalBody>
+            <div className="flex justify-center">
+              <video 
+                autoPlay
+                loop
+                muted
+                playsInline
+                controls
+                className="rounded-lg max-w-full h-auto border border-white/20"
+                style={{ maxHeight: '300px' }}
+              >
+                <source src="https://notfren.com/circusle/kek.webm" type="video/webm" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
