@@ -137,13 +137,17 @@ export default function CatEasterEgg({
             }}
           />
 
-          {/* Reward notification - FIXED positioning to true center */}
+          {/* Reward notification - positioned ABOVE the cat image */}
           {showReward && rewardInfo && (
             <div 
-              className="fixed inset-0 flex items-center justify-center pointer-events-none z-60"
-              style={{ padding: "20px" }}
+              className="fixed left-1/2 transform -translate-x-1/2 pointer-events-auto animate-fade-in-up z-60"
+              style={{ 
+                bottom: "420px", // Position above the cat (cat is ~280px + shadow + margin)
+                width: "320px", 
+                maxWidth: "90vw" 
+              }}
             >
-              <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/40 rounded-lg p-4 backdrop-blur-sm pointer-events-auto animate-fade-in-up max-w-xs w-full mx-4">
+              <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/40 rounded-lg p-4 backdrop-blur-sm mx-4">
                 <div className="flex items-center justify-center space-x-2 mb-2">
                   {rewardInfo.alreadyUnlocked ? (
                     <Trophy className="text-pink-400" size={20} />
