@@ -1,10 +1,10 @@
-// src/components/EasterEggs/BinaryEasterEgg.tsx
+// src/components/EasterEggs/BinaryEasterEgg.tsx - Updated with reward system
 
 "use client";
 
 import React, { useState } from "react";
 import { Button } from "@nextui-org/react";
-import { Check, X } from "lucide-react";
+import { Check, X, Gift, Trophy } from "lucide-react";
 
 interface BinaryEasterEggProps {
   isVisible: boolean;
@@ -24,6 +24,10 @@ export default function BinaryEasterEgg({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [resultMessage, setResultMessage] = useState<string>("");
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [rewardInfo, setRewardInfo] = useState<{
+    attemptsAwarded: number;
+    alreadyUnlocked: boolean;
+  } | null>(null);
 
   // Haptic feedback helper
   const triggerHaptic = (type: "light" | "medium" | "heavy" = "light") => {
@@ -47,16 +51,50 @@ export default function BinaryEasterEgg({
 
   // Handle binary digit click (0 or 1)
   const handleBinaryClick = (digit: "0" | "1") => {
-    triggerHaptic("medium"); // Enhanced haptic feedback for circle clicks
+    triggerHaptic("medium");
     setBinaryString((prev) => prev + digit);
-    setResultMessage(""); // Clear any previous messages
+    setResultMessage("");
+    setRewardInfo(null);
+  };
+
+  // Award Easter Egg achievement
+  const awardEasterEggAchievement = async () => {
+    try {
+      const response = await makeAuthenticatedRequest("/api/easter-egg/reward", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ easterEggType: "binary" }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setRewardInfo({
+          attemptsAwarded: data.achievement?.attemptsAwarded || 0,
+          alreadyUnlocked: data.alreadyUnlocked || false,
+        });
+
+        return data;
+      } else {
+        console.error("Failed to award Easter Egg achievement:", data.error);
+        return null;
+      }
+    } catch (error) {
+      console.error("Error awarding Easter Egg achievement:", error);
+      return null;
+    }
   };
 
   // Handle check button click
   const handleCheck = async () => {
     if (binaryString.length === 0) {
       setResultMessage("Enter some binary digits first!");
-
       return;
     }
 
@@ -64,6 +102,7 @@ export default function BinaryEasterEgg({
     triggerHaptic("light");
 
     try {
+      // Check the binary sequence first
       const response = await makeAuthenticatedRequest(
         "/api/easter-egg/binary-check",
         {
@@ -77,20 +116,22 @@ export default function BinaryEasterEgg({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-
         throw new Error(errorData.error || `Server error: ${response.status}`);
       }
+
       const data = await response.json();
 
       if (data.success) {
         setIsSuccess(true);
         setResultMessage(data.message);
+
+        // ONLY award the Easter Egg achievement if binary sequence is CORRECT
+        const rewardData = await awardEasterEggAchievement();
+
         // Success haptic feedback
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
           try {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred(
-              "success",
-            );
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
           } catch (error) {
             if (navigator.vibrate) {
               navigator.vibrate([100, 50, 100]);
@@ -98,10 +139,12 @@ export default function BinaryEasterEgg({
           }
         }
       } else {
+        // Wrong sequence - no reward given
         setIsSuccess(false);
         setResultMessage(data.error || "Wrong binary sequence!");
-        // Clear the binary string for retry
         setBinaryString("");
+        setRewardInfo(null); // Clear any previous reward info
+
         // Error haptic feedback
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
           try {
@@ -117,6 +160,8 @@ export default function BinaryEasterEgg({
       setIsSuccess(false);
       setResultMessage("Network error. Try again!");
       setBinaryString("");
+      setRewardInfo(null);
+
       // Error haptic feedback
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         try {
@@ -138,6 +183,7 @@ export default function BinaryEasterEgg({
     setBinaryString("");
     setResultMessage("");
     setIsSuccess(false);
+    setRewardInfo(null);
     onClose();
   };
 
@@ -147,7 +193,6 @@ export default function BinaryEasterEgg({
       try {
         await navigator.clipboard.writeText(resultMessage);
         triggerHaptic("medium");
-        // Could add a temporary "Copied!" indicator here
       } catch (error) {
         console.error("Failed to copy:", error);
       }
@@ -175,6 +220,12 @@ export default function BinaryEasterEgg({
 
         {/* Binary input area */}
         <div className="space-y-4">
+          {/* Title */}
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-bold text-white mb-1">🔢 Binary Challenge</h3>
+            <p className="text-white/60 text-sm">Find the correct sequence</p>
+          </div>
+
           {/* Binary circles - no numbers shown */}
           <div className="flex items-center justify-center space-x-4">
             <button
@@ -199,6 +250,15 @@ export default function BinaryEasterEgg({
             </button>
           </div>
 
+          {/* Current sequence display */}
+          {binaryString && (
+            <div className="text-center">
+              <div className="bg-black/50 rounded-lg p-2 font-mono text-white/80 text-sm">
+                {binaryString}
+              </div>
+            </div>
+          )}
+
           {/* Check button */}
           <div className="flex justify-center">
             <Button
@@ -217,20 +277,53 @@ export default function BinaryEasterEgg({
 
           {/* Result message */}
           {resultMessage && (
-            <div className="text-center">
+            <div className="text-center space-y-3">
               {isSuccess ? (
-                <button
-                  aria-label="Copy success message"
-                  className="w-full p-3 rounded-lg text-sm font-medium bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
-                  style={{ touchAction: "manipulation" }}
-                  type="button"
-                  onTouchEnd={handleCopyMessage}
-                >
-                  {resultMessage}
-                  <div className="text-green-300/80 text-xs mt-1">
-                    Tap to copy
-                  </div>
-                </button>
+                <div className="space-y-3">
+                  {/* Success message */}
+                  <button
+                    aria-label="Copy success message"
+                    className="w-full p-3 rounded-lg text-sm font-medium bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
+                    style={{ touchAction: "manipulation" }}
+                    type="button"
+                    onTouchEnd={handleCopyMessage}
+                  >
+                    {resultMessage}
+                    <div className="text-green-300/80 text-xs mt-1">
+                      Tap to copy
+                    </div>
+                  </button>
+
+                  {/* Reward notification */}
+                  {rewardInfo && (
+                    <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/40 rounded-lg p-3">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        {rewardInfo.alreadyUnlocked ? (
+                          <Trophy className="text-yellow-400" size={20} />
+                        ) : (
+                          <Gift className="text-yellow-400" size={20} />
+                        )}
+                        <span className="text-yellow-400 font-bold text-sm">
+                          {rewardInfo.alreadyUnlocked ? "Achievement Already Unlocked" : "Achievement Unlocked!"}
+                        </span>
+                      </div>
+
+                      {!rewardInfo.alreadyUnlocked && (
+                        <div className="space-y-1">
+                          <div className="text-yellow-300 text-xs font-bold">
+                            🔢 BINARY GENIUS
+                          </div>
+                          <div className="text-yellow-300/80 text-xs">
+                            +{rewardInfo.attemptsAwarded} attempts awarded!
+                          </div>
+                          <div className="text-yellow-300/60 text-xs italic">
+                            "Found the secret binary sequence. Congrats, you can count to 2!"
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="p-3 rounded-lg text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/40">
                   {resultMessage}

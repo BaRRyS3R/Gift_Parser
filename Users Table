@@ -1,0 +1,126 @@
+create table public.users (
+  id uuid not null default extensions.uuid_generate_v4 (),
+  telegram_id bigint not null,
+  first_name character varying(255) not null,
+  last_name character varying(255) null,
+  username character varying(255) null,
+  language_code character varying(10) null,
+  is_premium boolean null default false,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  total_games integer null default 0,
+  total_score integer null default 0,
+  best_score integer null default 0,
+  reaction_games integer null default 0,
+  reaction_best_score integer null default 0,
+  reaction_best_time integer null default 0,
+  reaction_average_time integer null default 0,
+  survival_games integer null default 0,
+  survival_best_score integer null default 0,
+  survival_best_time integer null default 0,
+  survival_max_level integer null default 0,
+  survival_best_streak integer null default 0,
+  total_correct_hits integer null default 0,
+  total_wrong_hits integer null default 0,
+  total_missed_circles integer null default 0,
+  best_accuracy numeric(5, 2) null default 0.00,
+  last_played_at timestamp with time zone null,
+  is_active boolean null default true,
+  attempts_remaining integer null default 5,
+  last_attempt_at timestamp with time zone null,
+  attempts_reset_at timestamp with time zone null,
+  referral_code character varying(8) not null,
+  referred_by character varying(8) null,
+  referral_bonus integer null default 1,
+  referral_count integer null default 0,
+  physics_games integer null default 0,
+  physics_best_score integer null default 0,
+  physics_best_time integer null default 0,
+  physics_total_hits integer null default 0,
+  physics_best_hits integer null default 0,
+  physics_least_mistakes integer null,
+  rotation_games integer not null default 0,
+  rotation_best_score integer not null default 0,
+  rotation_best_time integer not null default 0,
+  rotation_max_level integer not null default 0,
+  rotation_best_streak integer not null default 0,
+  rotation_total_hits integer not null default 0,
+  current_level integer null default 1,
+  trust_score integer null default 50,
+  blocked_until timestamp with time zone null,
+  constraint users_pkey primary key (id),
+  constraint users_referral_code_key unique (referral_code),
+  constraint users_telegram_id_key unique (telegram_id),
+  constraint fk_users_referred_by foreign KEY (referred_by) references users (referral_code) on delete set null,
+  constraint check_reaction_average_time check ((reaction_average_time >= 0)),
+  constraint check_survival_max_level check (
+    (
+      (survival_max_level >= 0)
+      and (survival_max_level <= 15)
+    )
+  ),
+  constraint check_reaction_best_time check ((reaction_best_time >= 0)),
+  constraint check_survival_best_streak check ((survival_best_streak >= 0)),
+  constraint check_survival_best_time check ((survival_best_time >= 0))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_users_survival_best_time on public.users using btree (survival_best_time desc) TABLESPACE pg_default
+where
+  (survival_games > 0);
+
+create index IF not exists idx_users_total_games on public.users using btree (total_games desc) TABLESPACE pg_default;
+
+create index IF not exists idx_users_telegram_id on public.users using btree (telegram_id) TABLESPACE pg_default;
+
+create index IF not exists idx_users_created_at on public.users using btree (created_at) TABLESPACE pg_default;
+
+create index IF not exists idx_users_last_played_at on public.users using btree (last_played_at) TABLESPACE pg_default;
+
+create index IF not exists idx_users_best_score on public.users using btree (best_score desc) TABLESPACE pg_default;
+
+create index IF not exists idx_users_reaction_best_time on public.users using btree (reaction_best_time) TABLESPACE pg_default
+where
+  (reaction_games > 0);
+
+create index IF not exists idx_users_rotation_leaderboard on public.users using btree (
+  rotation_games,
+  rotation_best_time desc,
+  rotation_max_level desc
+) TABLESPACE pg_default
+where
+  (rotation_games > 0);
+
+create index IF not exists idx_users_rotation_best_score on public.users using btree (rotation_best_score desc) TABLESPACE pg_default
+where
+  (rotation_games > 0);
+
+create index IF not exists idx_users_rotation_max_level on public.users using btree (rotation_max_level desc) TABLESPACE pg_default
+where
+  (rotation_games > 0);
+
+create index IF not exists idx_users_attempts_reset on public.users using btree (attempts_reset_at) TABLESPACE pg_default
+where
+  (attempts_reset_at is not null);
+
+create index IF not exists idx_users_last_attempt on public.users using btree (last_attempt_at) TABLESPACE pg_default
+where
+  (last_attempt_at is not null);
+
+create index IF not exists idx_users_referral_code on public.users using btree (referral_code) TABLESPACE pg_default;
+
+create index IF not exists idx_users_referred_by on public.users using btree (referred_by) TABLESPACE pg_default;
+
+create trigger trigger_check_achievements
+after
+update OF total_games,
+reaction_games,
+survival_games,
+physics_games,
+rotation_games,
+referral_count,
+reaction_best_time on users for EACH row
+execute FUNCTION check_achievements_after_update ();
+
+create trigger update_users_updated_at BEFORE
+update on users for EACH row
+execute FUNCTION update_updated_at_column ();

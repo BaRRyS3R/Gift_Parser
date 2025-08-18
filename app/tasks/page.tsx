@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Updated with Binary Easter Egg Integration
+// src/app/tasks/page.tsx - Updated with Cat Easter Egg reward integration
 
 "use client";
 
@@ -29,7 +29,7 @@ import {
   isTaskRewarded,
 } from "@/types/tasks";
 import { useT } from "@/contexts/LocalizationContext";
-import BinaryEasterEgg from "@/components/EasterEggs/BinaryEasterEgg";
+import CatEasterEgg from "@/components/EasterEggs/CatEasterEgg";
 
 export default function TasksPage() {
   const router = useRouter();
@@ -41,9 +41,9 @@ export default function TasksPage() {
 
   const [isExploding, setIsExploding] = useState(false);
 
-  // Easter egg state
+  // Easter egg state - ONLY Cat Easter Egg on Tasks page
   const [titleClickCount, setTitleClickCount] = useState(0);
-  const [showBinaryEasterEgg, setShowBinaryEasterEgg] = useState(false);
+  const [showCatEasterEgg, setShowCatEasterEgg] = useState(false);
   const titleClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle title clicks for easter egg activation
@@ -61,18 +61,18 @@ export default function TasksPage() {
         setTitleClickCount(0);
       }, 2000);
 
-      // Activate easter egg on 5th click
-      if (newCount === 5) {
-        setShowBinaryEasterEgg(true);
+      // Activate cat easter egg on 3rd click
+      if (newCount === 3) {
+        setShowCatEasterEgg(true);
         setTitleClickCount(0); // Reset counter
 
-        // Haptic feedback for activation
+        // Haptic feedback for cat activation
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
           try {
-            window.Telegram.WebApp.HapticFeedback.impactOccurred("medium");
+            window.Telegram.WebApp.HapticFeedback.impactOccurred("heavy");
           } catch (error) {
             if (navigator.vibrate) {
-              navigator.vibrate(100);
+              navigator.vibrate([100, 50, 100, 50, 100]); // Multiple vibrations for cat
             }
           }
         }
@@ -82,9 +82,9 @@ export default function TasksPage() {
     });
   };
 
-  // Close easter egg
-  const handleCloseEasterEgg = () => {
-    setShowBinaryEasterEgg(false);
+  // Close cat easter egg
+  const handleCloseCatEasterEgg = () => {
+    setShowCatEasterEgg(false);
   };
 
   // Fetch tasks on mount
@@ -117,7 +117,7 @@ export default function TasksPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -335,14 +335,12 @@ export default function TasksPage() {
         </p>
       </div>
 
-      {/* Binary Easter Egg - positioned between header and content */}
-      <div className="max-w-2xl mx-auto">
-        <BinaryEasterEgg
-          isVisible={showBinaryEasterEgg}
-          makeAuthenticatedRequest={makeAuthenticatedRequest}
-          onClose={handleCloseEasterEgg}
-        />
-      </div>
+      {/* Cat Easter Egg - positioned between header and content */}
+      <CatEasterEgg
+        isVisible={showCatEasterEgg}
+        onComplete={handleCloseCatEasterEgg}
+        makeAuthenticatedRequest={makeAuthenticatedRequest}
+      />
 
       {/* Error message */}
       {tasksModule.error && (
@@ -444,10 +442,10 @@ function TaskCard({
       style={
         task.image_url
           ? {
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }
           : undefined
       }
     >
@@ -500,13 +498,12 @@ function TaskCard({
               <Button
                 className={`
                                     relative z-20 
-                                    ${
-                                      button.variant === "success"
-                                        ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
-                                        : button.variant === "secondary"
-                                          ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
-                                          : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
-                                    }
+                                    ${button.variant === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
+                    : button.variant === "secondary"
+                      ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
+                      : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
+                  }
                                     disabled:opacity-50 disabled:cursor-not-allowed
                                 `}
                 isDisabled={button.disabled}

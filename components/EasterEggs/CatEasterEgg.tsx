@@ -1,27 +1,88 @@
-// src/components/EasterEggs/CatEasterEgg.tsx
+// src/components/EasterEggs/CatEasterEgg.tsx - Updated with reward system
 
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Gift, Trophy } from "lucide-react";
 
 interface CatEasterEggProps {
   isVisible: boolean;
   onComplete: () => void;
+  makeAuthenticatedRequest?: (
+    url: string,
+    options?: RequestInit,
+  ) => Promise<Response>;
 }
 
 export default function CatEasterEgg({
   isVisible,
   onComplete,
+  makeAuthenticatedRequest,
 }: CatEasterEggProps) {
   const [isActive, setIsActive] = useState(false);
+  const [showReward, setShowReward] = useState(false);
+  const [rewardInfo, setRewardInfo] = useState<{
+    attemptsAwarded: number;
+    alreadyUnlocked: boolean;
+  } | null>(null);
+
+  // Award Easter Egg achievement
+  const awardEasterEggAchievement = async () => {
+    if (!makeAuthenticatedRequest) {
+      console.warn("No authenticated request function provided to CatEasterEgg");
+      return null;
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest("/api/easter-egg/reward", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ easterEggType: "cat" }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setRewardInfo({
+          attemptsAwarded: data.achievement?.attemptsAwarded || 0,
+          alreadyUnlocked: data.alreadyUnlocked || false,
+        });
+
+        return data;
+      } else {
+        console.error("Failed to award Cat Easter Egg achievement:", data.error);
+        return null;
+      }
+    } catch (error) {
+      console.error("Error awarding Cat Easter Egg achievement:", error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (isVisible && !isActive) {
       setIsActive(true);
 
-      // Complete animation after 9 seconds
+      // Award achievement when cat appears
+      if (makeAuthenticatedRequest) {
+        awardEasterEggAchievement().then(() => {
+          // Show reward notification after a short delay
+          setTimeout(() => {
+            setShowReward(true);
+          }, 1000);
+        });
+      }
+
+      // Complete animation after 6 seconds
       const completeTimeout = setTimeout(() => {
         setIsActive(false);
+        setShowReward(false);
         onComplete();
       }, 6000);
 
@@ -29,7 +90,7 @@ export default function CatEasterEgg({
         clearTimeout(completeTimeout);
       };
     }
-  }, [isVisible, isActive, onComplete]);
+  }, [isVisible, isActive, onComplete, makeAuthenticatedRequest]);
 
   if (!isActive) {
     return null;
@@ -44,6 +105,7 @@ export default function CatEasterEgg({
     >
       <div className="flex items-end justify-center h-full pb-16">
         <div className="relative cat-image-container">
+          {/* Main cat image */}
           <img
             alt=""
             className="cat-image"
@@ -60,6 +122,7 @@ export default function CatEasterEgg({
             onContextMenu={(e) => e.preventDefault()}
           />
 
+          {/* Shadow */}
           <div
             className="absolute bottom-0 left-1/2 transform -translate-x-1/2"
             style={{
@@ -71,6 +134,41 @@ export default function CatEasterEgg({
               zIndex: -1,
             }}
           />
+
+          {/* Reward notification */}
+          {showReward && rewardInfo && (
+            <div
+              className="absolute -top-24 left-1/2 transform -translate-x-1/2 pointer-events-auto animate-fade-in-up"
+              style={{ width: "300px" }}
+            >
+              <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/40 rounded-lg p-3 backdrop-blur-sm">
+                <div className="flex items-center justify-center space-x-2 mb-2">
+                  {rewardInfo.alreadyUnlocked ? (
+                    <Trophy className="text-pink-400" size={20} />
+                  ) : (
+                    <Gift className="text-pink-400" size={20} />
+                  )}
+                  <span className="text-pink-400 font-bold text-sm">
+                    {rewardInfo.alreadyUnlocked ? "Achievement Already Unlocked" : "Achievement Unlocked!"}
+                  </span>
+                </div>
+
+                {!rewardInfo.alreadyUnlocked && (
+                  <div className="space-y-1 text-center">
+                    <div className="text-pink-300 text-xs font-bold">
+                      🐱 CAT WHISPERER
+                    </div>
+                    <div className="text-pink-300/80 text-xs">
+                      +{rewardInfo.attemptsAwarded} attempts awarded!
+                    </div>
+                    <div className="text-pink-300/60 text-xs italic">
+                      "A mysterious cat appeared. Did you pet it or did it judge you?"
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-// src/locales/ru/profile.ts - Updated Russian profile translations with achievement rewards
+// src/locales/ru/profile.ts - Updated Russian profile translations with Easter Egg achievements
 
 export const profile = {
   title: "PROFILE",
@@ -131,18 +131,28 @@ export const profile = {
       "Награды автоматически добавляются на ваш аккаунт при разблокировке достижения.",
     unlockedOn: "Разблокировано {date}",
 
-    // Achievement names (camelCase keys matching the toCamelCase conversion)
+    // Regular achievement names (camelCase keys matching the toCamelCase conversion)
     firstGame: "ПЕРВЫЕ ШАГИ",
     allModesPlayer: "УНИВЕРСАЛЬНЫЙ ИГРОК",
     superRecruiter: "СУПЕР ВЕРБОВЩИК",
     lightningReflexes: "МОЛНИЕНОСНЫЕ РЕФЛЕКСЫ",
 
-    // Achievement descriptions (camelCase keys)
+    // NEW: Easter Egg achievement names  
+    binaryEasterEgg: "БИНАРНЫЙ ГЕНИЙ",
+    catEasterEgg: "КОШАЧИЙ ЗАКЛИНАТЕЛЬ",
+    winxEasterEgg: "КРЁСТНАЯ ФЕЯ",
+
+    // Regular achievement descriptions (camelCase keys)
     descriptions: {
       firstGame: "СЫГРАЛ ПЕРВУЮ ИГРУ",
       allModesPlayer: "ПОПРОБОВАЛ ВСЕ ИГРОВЫЕ РЕЖИМЫ",
       superRecruiter: "ПРИГЛАСИЛ {count}+ ДРУЗЕЙ",
       lightningReflexes: "РЕАКЦИЯ МЕНЕЕ {time} МС",
+
+      // NEW: Easter Egg achievement descriptions
+      binaryEasterEgg: "Нашёл секретную бинарную последовательность. Поздравляю, ты умеешь считать до 2!",
+      catEasterEgg: "Появился загадочный кот. Ты его погладил или он тебя осудил?",
+      winxEasterEgg: "Стал феечкой Winx! Твоё превращение было... волшебным? Или просто повезло.",
     },
   },
 } as const;

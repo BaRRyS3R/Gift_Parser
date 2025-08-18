@@ -1,4 +1,4 @@
-// src/components/Profile/EnhancedProfileHeader.tsx - Future Tech styled profile header
+// src/components/Profile/EnhancedProfileHeader.tsx - Updated with Easter Egg achievement icons
 
 "use client";
 
@@ -8,7 +8,7 @@ import type {
 } from "@/hooks/modules/useProfile";
 
 import React, { useState } from "react";
-import { Trophy, Gamepad2, Users, Zap, Sparkles } from "lucide-react";
+import { Trophy, Gamepad2, Users, Zap, Sparkles, Hash, Cat, Wand2 } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -17,15 +17,21 @@ interface EnhancedProfileHeaderProps {
   achievements?: Achievement[];
 }
 
-// Map achievement IDs to their icon components
+// Map achievement IDs to their icon components - UPDATED with Easter Egg icons
 const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<any>> = {
+  // Regular achievements
   first_game: Trophy,
   all_modes_player: Gamepad2,
   super_recruiter: Users,
   lightning_reflexes: Zap,
+
+  // NEW: Easter Egg achievements
+  binary_easter_egg: Hash,      // 🔢 Binary symbol
+  cat_easter_egg: Cat,          // 🐱 Cat icon
+  winx_easter_egg: Wand2,       // 🧚‍♀️ Magic wand for fairy
 };
 
-// Future tech color schemes matching the modal
+// Future tech color schemes - UPDATED with Easter Egg colors
 const ACHIEVEMENT_COLORS: Record<
   string,
   {
@@ -36,6 +42,7 @@ const ACHIEVEMENT_COLORS: Record<
     bgGradient: string;
   }
 > = {
+  // Regular achievements
   first_game: {
     gradient: "from-cyan-500/20 to-blue-600/20",
     border: "border-cyan-500/30",
@@ -63,6 +70,29 @@ const ACHIEVEMENT_COLORS: Record<
     glow: "shadow-[0_0_20px_rgba(16,185,129,0.4)]",
     icon: "text-emerald-400",
     bgGradient: "from-emerald-500 to-teal-600",
+  },
+
+  // NEW: Easter Egg achievement colors
+  binary_easter_egg: {
+    gradient: "from-green-500/20 to-lime-600/20",
+    border: "border-green-500/30",
+    glow: "shadow-[0_0_20px_rgba(34,197,94,0.4)]",
+    icon: "text-green-400",
+    bgGradient: "from-green-500 to-lime-600",
+  },
+  cat_easter_egg: {
+    gradient: "from-pink-500/20 to-rose-600/20",
+    border: "border-pink-500/30",
+    glow: "shadow-[0_0_20px_rgba(236,72,153,0.4)]",
+    icon: "text-pink-400",
+    bgGradient: "from-pink-500 to-rose-600",
+  },
+  winx_easter_egg: {
+    gradient: "from-violet-500/20 to-fuchsia-600/20",
+    border: "border-violet-500/30",
+    glow: "shadow-[0_0_20px_rgba(139,92,246,0.4)]",
+    icon: "text-violet-400",
+    bgGradient: "from-violet-500 to-fuchsia-600",
   },
 };
 

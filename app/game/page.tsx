@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Исправленная страница игр с автозагрузкой попыток и Future Tech стилистикой + ПАСХАЛКА
+// src/app/game/page.tsx - Updated with Easter Egg rewards integration
 
 "use client";
 
@@ -21,8 +21,8 @@ import { useT } from "@/contexts/LocalizationContext";
 import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
-// Константа для настройки шанса появления пасхалки
-const EASTER_EGG_CHANCE = 0.005; // 1% шанс (изменить здесь для настройки)
+// Easter Egg chance configuration
+const EASTER_EGG_CHANCE = 0.60; // 0.5% chance
 
 interface GameMode {
   id: string;
@@ -172,13 +172,11 @@ function GamePageContent() {
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [consumeError, setConsumeError] = useState<string | null>(null);
 
-  // Состояние для пасхалки
+  // Easter Egg state
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [easterEggChecked, setEasterEggChecked] = useState(false);
 
-  /* -------------------------------------------------
-   * Инициализация загрузки статуса попыток для страницы игры
-   * -------------------------------------------------*/
+  // Initialize attempts status loading
   useEffect(() => {
     if (user && !attemptsLoading && !attemptsStatus) {
       fetchAttemptsStatus();
@@ -191,9 +189,7 @@ function GamePageContent() {
     fetchAttemptsStatus,
   ]);
 
-  /* -------------------------------------------------
-   * Проверка пасхалки при загрузке страницы
-   * -------------------------------------------------*/
+  // Easter Egg check on page load
   useEffect(() => {
     if (!easterEggChecked) {
       const randomValue = Math.random();
@@ -212,7 +208,6 @@ function GamePageContent() {
     async (mode: GameMode) => {
       if (loadingModeId || !canPlay) {
         console.warn("Cannot start game:", { loadingModeId, canPlay });
-
         return;
       }
 
@@ -220,14 +215,14 @@ function GamePageContent() {
       setConsumeError(null);
 
       try {
-        // Потребляем попытку перед началом игры
+        // Consume attempt before starting game
         const updatedStatus = await consumeAttempt();
 
         if (!updatedStatus) {
           throw new Error("Failed to consume attempt");
         }
 
-        // Небольшая задержка для показа анимации загрузки
+        // Small delay for loading animation
         setTimeout(() => {
           router.push(mode.route);
         }, 600);
@@ -239,7 +234,7 @@ function GamePageContent() {
         setConsumeError(errorMessage);
         setLoadingModeId(null);
 
-        // Обновляем статус попыток после ошибки
+        // Refresh attempts status after error
         setTimeout(() => {
           fetchAttemptsStatus(true);
         }, 1000);
@@ -285,15 +280,16 @@ function GamePageContent() {
   return (
     <div
       className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : "opacity-100 transition-opacity duration-1000 ease-out"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
-      {/* Пасхалка модальное окно */}
+      {/* Easter Egg Modal with authentication */}
       <WinxEasterEggModal
         isOpen={showEasterEgg}
         onClose={handleCloseEasterEgg}
-        chance={EASTER_EGG_CHANCE * 100} // Преобразуем в проценты
+        chance={EASTER_EGG_CHANCE * 100} // Convert to percentage
+        makeAuthenticatedRequest={makeAuthenticatedRequest}
       />
 
       <div className="px-4">
@@ -306,7 +302,7 @@ function GamePageContent() {
           </p>
         </div>
 
-        {/* Отображение ошибки потребления попыток */}
+        {/* Consume error display */}
         {consumeError && (
           <div className="mb-6 animate-fade-in">
             <div
@@ -339,7 +335,7 @@ function GamePageContent() {
           </div>
         )}
 
-        {/* Future Tech стилистика для отображения попыток */}
+        {/* Future Tech attempts display */}
         <div className="mb-8 animate-fade-in">
           <FutureTechAttemptsDisplay
             attemptsRemaining={attemptsRemaining}
@@ -353,7 +349,7 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* Горизонтальная прокрутка карточек без padding */}
+      {/* Horizontal scrolling cards */}
       <div className="mb-8 animate-fade-in">
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex space-x-4 px-4" style={{ width: "max-content" }}>
@@ -438,7 +434,7 @@ function GamePageContent() {
                     </CardFooter>
                   </Card>
 
-                  {/* Overlay для заблокированного состояния */}
+                  {/* Locked state overlay */}
                   {isDisabled && !isAnyModeLoading && (
                     <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
                       <div className="text-center space-y-2">
@@ -467,6 +463,6 @@ function GamePageContent() {
 
 export default function GamePage() {
   return (
-      <GamePageContent />
+    <GamePageContent />
   );
 }

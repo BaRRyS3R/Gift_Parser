@@ -1,4 +1,4 @@
-// src/app/shop/page.tsx - Обновленная страница покупок с интеграцией TON
+// src/app/shop/page.tsx - Updated with Binary Easter Egg (5 clicks) instead of Cat
 
 "use client";
 
@@ -20,7 +20,7 @@ import { useUser } from "@/hooks/useUser";
 import { usePurchase } from "@/hooks/modules/usePurchase";
 import { PRODUCTS, ProductType } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
-import CatEasterEgg from "@/components/EasterEggs/CatEasterEgg";
+import BinaryEasterEgg from "@/components/EasterEggs/BinaryEasterEgg";
 import TONPurchaseButton from "@/components/TON/TONPurchaseButton";
 
 interface SuccessNotification {
@@ -53,7 +53,7 @@ export default function ShopPage() {
       icon: null,
     });
 
-  // Easter egg state
+  // UPDATED: Easter egg state for Binary Easter Egg (5 clicks)
   const [easterEggState, setEasterEggState] = useState<EasterEggState>({
     clickCount: 0,
     lastClickTime: 0,
@@ -85,7 +85,7 @@ export default function ShopPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -99,6 +99,7 @@ export default function ShopPage() {
     };
   }, []);
 
+  // UPDATED: Handle title click for Binary Easter Egg (5 clicks)
   const handleTitleClick = (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -106,7 +107,7 @@ export default function ShopPage() {
     const currentTime = Date.now();
     const timeDifference = currentTime - easterEggState.lastClickTime;
 
-    // Если прошло больше 5 секунд с последнего клика, сбрасываем счетчик
+    // If more than 5 seconds passed since last click, reset counter
     if (timeDifference > 5000) {
       setEasterEggState({
         clickCount: 1,
@@ -119,17 +120,17 @@ export default function ShopPage() {
 
     const newClickCount = easterEggState.clickCount + 1;
 
-    if (newClickCount >= 3) {
-      // Активируем пасхалку и добавляем вибрацию только при успешной активации
+    // Activate Binary Easter Egg on 5th click
+    if (newClickCount >= 5) {
       setEasterEggState({
         clickCount: 0,
         lastClickTime: 0,
         isActive: true,
       });
 
-      // Вибрация только при успешной активации пасхалки
+      // Enhanced vibration for Binary Easter Egg activation
       if (typeof window !== "undefined" && window.navigator?.vibrate) {
-        window.navigator.vibrate([100, 50, 100]); // Двойная вибрация для успеха
+        window.navigator.vibrate([100, 50, 100]); // Double vibration for success
       }
     } else {
       setEasterEggState({
@@ -168,9 +169,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-          attempts: attemptsText,
-          plural: plural,
-        });
+        attempts: attemptsText,
+        plural: plural,
+      });
 
     setSuccessNotification({
       show: true,
@@ -249,7 +250,7 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header with clickable title for Binary Easter Egg */}
       <div className="text-center space-y-4 mb-8 pt-6">
         <div
           className="text-4xl font-bold tracking-widest text-white animate-fade-in select-none cursor-default"
@@ -267,6 +268,15 @@ export default function ShopPage() {
         <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
           {t("shop.subtitle")}
         </p>
+      </div>
+
+      {/* Binary Easter Egg - positioned between header and content */}
+      <div className="max-w-2xl mx-auto">
+        <BinaryEasterEgg
+          isVisible={easterEggState.isActive}
+          makeAuthenticatedRequest={makeAuthenticatedRequest}
+          onClose={handleEasterEggComplete}
+        />
       </div>
 
       {/* Error message */}
@@ -383,12 +393,6 @@ export default function ShopPage() {
           </Card>
         </div>
       )}
-
-      {/* Easter Egg */}
-      <CatEasterEgg
-        isVisible={easterEggState.isActive}
-        onComplete={handleEasterEggComplete}
-      />
 
       {/* Bottom spacing for safe area */}
       <div className="h-24" />

@@ -1,4 +1,4 @@
-// src/locales/en/profile.ts - Updated English profile translations with achievement rewards
+// src/locales/en/profile.ts - Updated English profile translations with Easter Egg achievements
 
 export const profile = {
   title: "PROFILE",
@@ -127,18 +127,28 @@ export const profile = {
       "Rewards are automatically added to your account when you unlock an achievement.",
     unlockedOn: "Unlocked on {date}",
 
-    // Achievement names (camelCase keys matching the toCamelCase conversion)
+    // Regular achievement names (camelCase keys matching the toCamelCase conversion)
     firstGame: "FIRST STEPS",
     allModesPlayer: "UNIVERSAL PLAYER",
     superRecruiter: "SUPER RECRUITER",
     lightningReflexes: "LIGHTNING REFLEXES",
 
-    // Achievement descriptions (camelCase keys)
+    // NEW: Easter Egg achievement names
+    binaryEasterEgg: "BINARY GENIUS",
+    catEasterEgg: "CAT WHISPERER",
+    winxEasterEgg: "FAIRY GODPARENT",
+
+    // Regular achievement descriptions (camelCase keys)
     descriptions: {
       firstGame: "PLAYED FIRST GAME",
       allModesPlayer: "TRIED ALL GAME MODES",
       superRecruiter: "INVITED {count}+ FRIENDS",
       lightningReflexes: "SUB {time}MS REACTION",
+
+      // NEW: Easter Egg achievement descriptions
+      binaryEasterEgg: "Found the secret binary sequence. Congrats, you can count to 2!",
+      catEasterEgg: "A mysterious cat appeared. Did you pet it or did it judge you?",
+      winxEasterEgg: "Became a Winx fairy! Your transformation was... magical? Or just lucky.",
     },
   },
 } as const;
