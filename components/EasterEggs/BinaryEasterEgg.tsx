@@ -317,7 +317,7 @@ export default function BinaryEasterEgg({
                             +{rewardInfo.attemptsAwarded} attempts awarded!
                           </div>
                           <div className="text-yellow-300/60 text-xs italic">
-                            "Found the secret binary sequence. Congrats, you can count to 2!"
+                            &quot;Found the secret binary sequence. Congrats, you can count to 2!&quot;
                           </div>
                         </div>
                       )}

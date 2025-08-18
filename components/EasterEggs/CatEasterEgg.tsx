@@ -162,7 +162,7 @@ export default function CatEasterEgg({
                       +{rewardInfo.attemptsAwarded} attempts awarded!
                     </div>
                     <div className="text-pink-300/60 text-xs italic">
-                      "A mysterious cat appeared. Did you pet it or did it judge you?"
+                      &quot;A mysterious cat appeared. Did you pet it or did it judge you?&quot;
                     </div>
                   </div>
                 )}

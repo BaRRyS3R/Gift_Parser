@@ -207,7 +207,7 @@ export default function WinxEasterEggModal({
                                         +{rewardInfo.attemptsAwarded} attempts awarded!
                                     </div>
                                     <div className="text-yellow-300/60 text-xs italic">
-                                        "Became a Winx fairy! Your transformation was... magical? Or just lucky."
+                                        &quot;Became a Winx fairy! Your transformation was... magical? Or just lucky.&quot;
                                     </div>
                                 </div>
                             )}
