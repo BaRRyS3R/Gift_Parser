@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Исправленная страница игр с автозагрузкой попыток и Future Tech стилистикой
+// src/app/game/page.tsx - Исправленная страница игр с автозагрузкой попыток и Future Tech стилистикой + ПАСХАЛКА
 
 "use client";
 
@@ -18,8 +18,11 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
-import AuthGuard from "@/components/Auth/AuthGuard";
 import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
+import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
+
+// Константа для настройки шанса появления пасхалки
+const EASTER_EGG_CHANCE = 0.91; // 1% шанс (изменить здесь для настройки)
 
 interface GameMode {
   id: string;
@@ -169,6 +172,10 @@ function GamePageContent() {
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [consumeError, setConsumeError] = useState<string | null>(null);
 
+  // Состояние для пасхалки
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [easterEggChecked, setEasterEggChecked] = useState(false);
+
   /* -------------------------------------------------
    * Инициализация загрузки статуса попыток для страницы игры
    * -------------------------------------------------*/
@@ -183,6 +190,23 @@ function GamePageContent() {
     attemptsStatus,
     fetchAttemptsStatus,
   ]);
+
+  /* -------------------------------------------------
+   * Проверка пасхалки при загрузке страницы
+   * -------------------------------------------------*/
+  useEffect(() => {
+    if (!easterEggChecked) {
+      const randomValue = Math.random();
+      console.log(`Easter egg check: ${randomValue} (threshold: ${EASTER_EGG_CHANCE})`);
+
+      if (randomValue < EASTER_EGG_CHANCE) {
+        console.log('🎉 Easter egg triggered!');
+        setShowEasterEgg(true);
+      }
+
+      setEasterEggChecked(true);
+    }
+  }, [easterEggChecked]);
 
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
@@ -230,6 +254,10 @@ function GamePageContent() {
     fetchAttemptsStatus(true);
   }, [clearError, fetchAttemptsStatus]);
 
+  const handleCloseEasterEgg = useCallback(() => {
+    setShowEasterEgg(false);
+  }, []);
+
   // Clear consume error when attempts change
   useEffect(() => {
     if (consumeError && attemptsStatus) {
@@ -249,19 +277,25 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
-        loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-      }`}
+        }`}
     >
+      {/* Пасхалка модальное окно */}
+      <WinxEasterEggModal
+        isOpen={showEasterEgg}
+        onClose={handleCloseEasterEgg}
+        chance={EASTER_EGG_CHANCE * 100} // Преобразуем в проценты
+      />
+
       <div className="px-4">
         <div className="text-center space-y-4 mb-8">
           <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
@@ -333,9 +367,8 @@ function GamePageContent() {
                 <div key={mode.id} className="relative">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 ${
-                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                    }`}
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                      }`}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
                       <div className="flex items-center space-x-3 mb-2">
@@ -434,8 +467,6 @@ function GamePageContent() {
 
 export default function GamePage() {
   return (
-    <AuthGuard requireCompleteAuth={true} showError={true}>
       <GamePageContent />
-    </AuthGuard>
   );
 }
