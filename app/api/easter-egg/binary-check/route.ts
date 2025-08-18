@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // The secret binary string - change this to whatever you want
-const SECRET_BINARY = "01110000";
+const SECRET_BINARY = "011011000110111101101100";
 
 // Response interface
 interface BinaryCheckResponse {
@@ -58,7 +58,7 @@ export async function POST(
 
       return NextResponse.json({
         success: true,
-        message: "You fucking right!",
+        message: "OH MY GOSH THAT'S CORRECT!",
         result: "correct",
       });
     } else {

@@ -235,9 +235,9 @@ export default function BinaryEasterEgg({
           {/* Title */}
           <div className="text-center mb-4">
             <h3 className="text-lg font-bold text-white mb-1">
-              🔢 Binary Challenge
+              01
             </h3>
-            <p className="text-white/60 text-sm">Find the correct sequence</p>
+            <p className="text-white/60 text-sm">10???????</p>
           </div>
 
           {/* Binary circles - no numbers shown */}
@@ -295,18 +295,7 @@ export default function BinaryEasterEgg({
               {isSuccess ? (
                 <div className="space-y-3">
                   {/* Success message */}
-                  <button
-                    aria-label="Copy success message"
-                    className="w-full p-3 rounded-lg text-sm font-medium bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
-                    style={{ touchAction: "manipulation" }}
-                    type="button"
-                    onTouchEnd={handleCopyMessage}
-                  >
-                    {resultMessage}
-                    <div className="text-green-300/80 text-xs mt-1">
-                      Tap to copy
-                    </div>
-                  </button>
+                  {resultMessage}
 
                   {/* Reward notification */}
                   {rewardInfo && (
