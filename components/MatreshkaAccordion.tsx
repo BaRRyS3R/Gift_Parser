@@ -51,7 +51,16 @@ export default function MatreshkaAccordion() {
         <CardBody className="p-3">
           <div 
             className="flex items-center justify-between cursor-pointer select-none"
+            role="button"
+            tabIndex={0}
+            aria-expanded={level.isOpen}
             onClick={() => toggleLevel(level.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleLevel(level.id);
+              }
+            }}
             style={{
               WebkitTapHighlightColor: "transparent",
               WebkitTouchCallout: "none",

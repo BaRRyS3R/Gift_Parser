@@ -320,6 +320,9 @@ export default function TasksPage() {
       <div className="text-center space-y-4 mb-8 pt-6">
         <div
           className="text-4xl font-bold tracking-widest text-white animate-fade-in select-none cursor-default"
+          role="button"
+          tabIndex={0}
+          aria-label="Activate easter egg"
           style={{
             WebkitTapHighlightColor: "transparent",
             WebkitTouchCallout: "none",
@@ -328,6 +331,12 @@ export default function TasksPage() {
             touchAction: "manipulation",
           }}
           onTouchEnd={handleTitleClick}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleTitleClick();
+            }
+          }}
         >
           <h1 className="m-0 p-0">{t("tasks.title")}</h1>
         </div>
