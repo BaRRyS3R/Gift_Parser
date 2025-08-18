@@ -49,13 +49,13 @@ export default function CatEasterEgg({
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setRewardInfo({
           attemptsAwarded: data.achievement?.attemptsAwarded || 0,
           alreadyUnlocked: data.alreadyUnlocked || false,
         });
-        
+
         return data;
       } else {
         console.error("Failed to award Cat Easter Egg achievement:", data.error);
@@ -137,40 +137,39 @@ export default function CatEasterEgg({
             }}
           />
 
-          {/* Reward notification - positioned ABOVE the cat image */}
+          {/* Reward notification - positioned ABOVE the cat image with proper centering */}
           {showReward && rewardInfo && (
-            <div 
-              className="fixed left-1/2 transform -translate-x-1/2 pointer-events-auto animate-fade-in-up z-60"
-              style={{ 
-                bottom: "420px", // Position above the cat (cat is ~280px + shadow + margin)
-                width: "320px", 
-                maxWidth: "90vw" 
+            <div
+              className="fixed inset-x-0 pointer-events-none z-60 flex justify-center"
+              style={{
+                bottom: "420px", // Position above the cat
+                padding: "0 16px" // Side padding to prevent overflow
               }}
             >
-              <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/40 rounded-lg p-4 backdrop-blur-sm mx-4">
+              <div className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border border-yellow-500/40 rounded-lg p-4 backdrop-blur-sm pointer-events-auto animate-fade-in-up max-w-sm">
                 <div className="flex items-center justify-center space-x-2 mb-2">
                   {rewardInfo.alreadyUnlocked ? (
-                    <Trophy className="text-pink-400" size={20} />
+                    <Trophy className="text-yellow-400" size={20} />
                   ) : (
-                    <Gift className="text-pink-400" size={20} />
+                    <Gift className="text-yellow-400" size={20} />
                   )}
-                  <span className="text-pink-400 font-bold text-sm">
-                    {rewardInfo.alreadyUnlocked 
+                  <span className="text-yellow-400 font-bold text-sm">
+                    {rewardInfo.alreadyUnlocked
                       ? t("profile.achievements.achievementAlreadyUnlocked" as any)
                       : t("profile.achievements.achievementUnlocked" as any)
                     }
                   </span>
                 </div>
-                
+
                 {!rewardInfo.alreadyUnlocked && (
                   <div className="space-y-1 text-center">
-                    <div className="text-pink-300 text-xs font-bold">
+                    <div className="text-yellow-300 text-xs font-bold">
                       🐱 {t("profile.achievements.catEasterEgg" as any)}
                     </div>
-                    <div className="text-pink-300/80 text-xs">
+                    <div className="text-yellow-300/80 text-xs">
                       {t("profile.achievements.attemptsAwarded" as any, { count: rewardInfo.attemptsAwarded })}
                     </div>
-                    <div className="text-pink-300/60 text-xs italic">
+                    <div className="text-yellow-300/60 text-xs italic">
                       &quot;{t("profile.achievements.descriptions.catEasterEgg" as any)}&quot;
                     </div>
                   </div>
