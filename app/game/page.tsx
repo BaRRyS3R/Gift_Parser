@@ -22,7 +22,7 @@ import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAt
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
 // Easter Egg chance configuration
-const EASTER_EGG_CHANCE = 0.6; // 0.5% chance
+const EASTER_EGG_CHANCE = 0.001; // 0.5% chance
 
 interface GameMode {
   id: string;
