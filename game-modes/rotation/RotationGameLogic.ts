@@ -183,6 +183,7 @@ export const initializeRotationGameState = (): RotationGameState => {
 
 export const getLevelConfig = (level: number): RotationLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, ROTATION_LEVELS.length));
+
   return ROTATION_LEVELS[clampedLevel - 1];
 };
 
@@ -253,6 +254,7 @@ export const getRandomCircleIds = (
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
+
     selectedIds.push(selectedId);
   }
 
@@ -273,7 +275,8 @@ export const activateRotationCircles = (
   }
 
   const levelConfig = getLevelConfig(state.currentLevel);
-  const availableSlots = levelConfig.simultaneousCircles - state.activeCircleIds.length;
+  const availableSlots =
+    levelConfig.simultaneousCircles - state.activeCircleIds.length;
 
   if (availableSlots <= 0) {
     return state;
@@ -289,11 +292,18 @@ export const activateRotationCircles = (
     return state;
   }
 
-  const whiteCirclesNeeded = Math.max(1, selectedIds.length - levelConfig.redCircles);
-  const actualRedCircles = Math.min(levelConfig.redCircles, selectedIds.length - whiteCirclesNeeded);
+  const whiteCirclesNeeded = Math.max(
+    1,
+    selectedIds.length - levelConfig.redCircles,
+  );
+  const actualRedCircles = Math.min(
+    levelConfig.redCircles,
+    selectedIds.length - whiteCirclesNeeded,
+  );
 
   const shuffledIds = [...selectedIds].sort(() => Math.random() - 0.5);
-  const redIds = actualRedCircles > 0 ? shuffledIds.slice(0, actualRedCircles) : [];
+  const redIds =
+    actualRedCircles > 0 ? shuffledIds.slice(0, actualRedCircles) : [];
 
   const newActiveCircleIds = [...state.activeCircleIds, ...selectedIds];
   const newCircleTimeouts = new Map(state.circleTimeouts);
@@ -330,6 +340,7 @@ export const activateRotationCircles = (
         isAnimating: false,
       };
     }
+
     return circle;
   });
 
@@ -379,15 +390,19 @@ export const handleRotationCircleClick = (
       };
     } else {
       // Calculate reaction time
-      const activationTime = updatedState.circleActivationTimes.get(clickedCircleId);
-      const actualReactionTime = activationTime ? clickTime - activationTime : 0;
+      const activationTime =
+        updatedState.circleActivationTimes.get(clickedCircleId);
+      const actualReactionTime = activationTime
+        ? clickTime - activationTime
+        : 0;
 
       const newStats = {
         ...updatedState.stats,
         correctHits: updatedState.stats.correctHits + 1,
         perfectStreak: updatedState.stats.perfectStreak + 1,
         hitCount: updatedState.stats.hitCount + 1,
-        totalReactionTime: updatedState.stats.totalReactionTime + actualReactionTime,
+        totalReactionTime:
+          updatedState.stats.totalReactionTime + actualReactionTime,
       };
 
       return {
@@ -433,6 +448,7 @@ export const deactivateRotationCircle = (
 
   // Clean up activation time
   const newActivationTimes = new Map(state.circleActivationTimes);
+
   newActivationTimes.delete(circleId);
 
   const newCircles = state.circles.map((circle) =>
@@ -467,6 +483,7 @@ export const getRotationDeathCause = (
   if (stats.decoyHits > 0) return "decoy_hit";
   if (stats.wrongHits > 0) return "wrong_click";
   if (stats.missedCircles > 0) return "miss";
+
   return "timeout";
 };
 
@@ -480,9 +497,10 @@ export const createRotationGameResult = (
   const finalScore = timeScore + levelScore + hitsScore;
   const deathCause = getRotationDeathCause(state.stats);
 
-  const averageReactionTime = state.stats.hitCount > 0
-    ? state.stats.totalReactionTime / state.stats.hitCount
-    : 0;
+  const averageReactionTime =
+    state.stats.hitCount > 0
+      ? state.stats.totalReactionTime / state.stats.hitCount
+      : 0;
 
   return {
     mode: GameMode.ROTATION,

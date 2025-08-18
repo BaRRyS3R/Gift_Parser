@@ -12,6 +12,7 @@ import {
   Image,
 } from "@nextui-org/react";
 import { Sparkles, Star, Gift, Trophy } from "lucide-react";
+
 import { useT } from "@/contexts/LocalizationContext";
 
 interface WinxEasterEggModalProps {
@@ -40,40 +41,51 @@ export default function WinxEasterEggModal({
   // Award Easter Egg achievement
   const awardEasterEggAchievement = async () => {
     if (!makeAuthenticatedRequest) {
-      console.warn("No authenticated request function provided to WinxEasterEggModal");
+      console.warn(
+        "No authenticated request function provided to WinxEasterEggModal",
+      );
+
       return null;
     }
 
     setIsAwarding(true);
 
     try {
-      const response = await makeAuthenticatedRequest("/api/easter-egg/reward", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await makeAuthenticatedRequest(
+        "/api/easter-egg/reward",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ easterEggType: "winx" }),
         },
-        body: JSON.stringify({ easterEggType: "winx" }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setRewardInfo({
           attemptsAwarded: data.achievement?.attemptsAwarded || 0,
           alreadyUnlocked: data.alreadyUnlocked || false,
         });
-        
+
         return data;
       } else {
-        console.error("Failed to award Winx Easter Egg achievement:", data.error);
+        console.error(
+          "Failed to award Winx Easter Egg achievement:",
+          data.error,
+        );
+
         return null;
       }
     } catch (error) {
       console.error("Error awarding Winx Easter Egg achievement:", error);
+
       return null;
     } finally {
       setIsAwarding(false);
@@ -94,17 +106,14 @@ export default function WinxEasterEggModal({
 
   return (
     <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      size="lg"
       backdrop="blur"
-      placement="center"
       classNames={{
         base: "bg-gradient-to-br from-pink-900/95 to-purple-900/95 backdrop-blur-xl border-2 border-pink-400/30",
         header: "border-b border-pink-400/20",
         body: "py-6",
         footer: "border-t border-pink-400/20",
       }}
+      isOpen={isOpen}
       motionProps={{
         variants: {
           enter: {
@@ -127,6 +136,9 @@ export default function WinxEasterEggModal({
           },
         },
       }}
+      placement="center"
+      size="lg"
+      onClose={handleClose}
     >
       <ModalContent>
         <ModalHeader className="flex flex-col gap-2 text-center">
@@ -158,12 +170,12 @@ export default function WinxEasterEggModal({
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-pink-500/20 to-purple-500/20 rounded-full blur-xl animate-pulse" />
               <Image
-                src="https://notfren.com/circusle/winx.png"
                 alt="Winx Fairy"
                 className="relative z-10 rounded-xl border-2 border-pink-400/30 shadow-2xl"
-                width={200}
-                height={200}
                 fallbackSrc="/winx-placeholder.png"
+                height={200}
+                src="https://notfren.com/circusle/winx.png"
+                width={200}
               />
             </div>
           </div>
@@ -194,23 +206,30 @@ export default function WinxEasterEggModal({
                   <Gift className="text-yellow-400" size={20} />
                 )}
                 <span className="text-yellow-400 font-bold text-sm">
-                  {rewardInfo.alreadyUnlocked 
-                    ? t("profile.achievements.achievementAlreadyUnlocked" as any)
-                    : t("profile.achievements.achievementUnlocked" as any)
-                  }
+                  {rewardInfo.alreadyUnlocked
+                    ? t(
+                        "profile.achievements.achievementAlreadyUnlocked" as any,
+                      )
+                    : t("profile.achievements.achievementUnlocked" as any)}
                 </span>
               </div>
-              
+
               {!rewardInfo.alreadyUnlocked && (
                 <div className="space-y-1">
                   <div className="text-yellow-300 text-sm font-bold">
                     🧚‍♀️ {t("profile.achievements.winxEasterEgg" as any)}
                   </div>
                   <div className="text-yellow-300/80 text-sm">
-                    {t("profile.achievements.attemptsAwarded" as any, { count: rewardInfo.attemptsAwarded })}
+                    {t("profile.achievements.attemptsAwarded" as any, {
+                      count: rewardInfo.attemptsAwarded,
+                    })}
                   </div>
                   <div className="text-yellow-300/60 text-xs italic">
-                    "{t("profile.achievements.descriptions.winxEasterEgg" as any)}"
+                    &quot;
+                    {t(
+                      "profile.achievements.descriptions.winxEasterEgg" as any,
+                    )}
+                    &quot;
                   </div>
                 </div>
               )}
@@ -232,9 +251,9 @@ export default function WinxEasterEggModal({
 
         <ModalFooter className="justify-center">
           <Button
-            onClick={handleClose}
             className="bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold px-8 py-2 rounded-full hover:from-pink-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105"
             startContent={<Sparkles size={16} />}
+            onClick={handleClose}
           >
             {t("game.easterEgg.closeButton" as any)}
           </Button>

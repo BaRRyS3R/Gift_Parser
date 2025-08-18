@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Gift, Trophy } from "lucide-react";
+
 import { useT } from "@/contexts/LocalizationContext";
 
 interface CatEasterEggProps {
@@ -31,38 +32,49 @@ export default function CatEasterEgg({
   // Award Easter Egg achievement
   const awardEasterEggAchievement = async () => {
     if (!makeAuthenticatedRequest) {
-      console.warn("No authenticated request function provided to CatEasterEgg");
+      console.warn(
+        "No authenticated request function provided to CatEasterEgg",
+      );
+
       return null;
     }
 
     try {
-      const response = await makeAuthenticatedRequest("/api/easter-egg/reward", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await makeAuthenticatedRequest(
+        "/api/easter-egg/reward",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ easterEggType: "cat" }),
         },
-        body: JSON.stringify({ easterEggType: "cat" }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setRewardInfo({
           attemptsAwarded: data.achievement?.attemptsAwarded || 0,
           alreadyUnlocked: data.alreadyUnlocked || false,
         });
-        
+
         return data;
       } else {
-        console.error("Failed to award Cat Easter Egg achievement:", data.error);
+        console.error(
+          "Failed to award Cat Easter Egg achievement:",
+          data.error,
+        );
+
         return null;
       }
     } catch (error) {
       console.error("Error awarding Cat Easter Egg achievement:", error);
+
       return null;
     }
   };
@@ -139,7 +151,7 @@ export default function CatEasterEgg({
 
           {/* Reward notification - FIXED positioning to center */}
           {showReward && rewardInfo && (
-            <div 
+            <div
               className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto animate-fade-in-up z-60"
               style={{ width: "320px", maxWidth: "90vw" }}
             >
@@ -151,23 +163,30 @@ export default function CatEasterEgg({
                     <Gift className="text-pink-400" size={20} />
                   )}
                   <span className="text-pink-400 font-bold text-sm">
-                    {rewardInfo.alreadyUnlocked 
-                      ? t("profile.achievements.achievementAlreadyUnlocked" as any)
-                      : t("profile.achievements.achievementUnlocked" as any)
-                    }
+                    {rewardInfo.alreadyUnlocked
+                      ? t(
+                          "profile.achievements.achievementAlreadyUnlocked" as any,
+                        )
+                      : t("profile.achievements.achievementUnlocked" as any)}
                   </span>
                 </div>
-                
+
                 {!rewardInfo.alreadyUnlocked && (
                   <div className="space-y-1 text-center">
                     <div className="text-pink-300 text-xs font-bold">
                       🐱 {t("profile.achievements.catEasterEgg" as any)}
                     </div>
                     <div className="text-pink-300/80 text-xs">
-                      {t("profile.achievements.attemptsAwarded" as any, { count: rewardInfo.attemptsAwarded })}
+                      {t("profile.achievements.attemptsAwarded" as any, {
+                        count: rewardInfo.attemptsAwarded,
+                      })}
                     </div>
                     <div className="text-pink-300/60 text-xs italic">
-                      &quot;{t("profile.achievements.descriptions.catEasterEgg" as any)}&quot;
+                      &quot;
+                      {t(
+                        "profile.achievements.descriptions.catEasterEgg" as any,
+                      )}
+                      &quot;
                     </div>
                   </div>
                 )}

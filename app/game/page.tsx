@@ -22,7 +22,7 @@ import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAt
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
 // Easter Egg chance configuration
-const EASTER_EGG_CHANCE = 0.60; // 0.5% chance
+const EASTER_EGG_CHANCE = 0.6; // 0.5% chance
 
 interface GameMode {
   id: string;
@@ -193,10 +193,13 @@ function GamePageContent() {
   useEffect(() => {
     if (!easterEggChecked) {
       const randomValue = Math.random();
-      console.log(`Easter egg check: ${randomValue} (threshold: ${EASTER_EGG_CHANCE})`);
+
+      console.log(
+        `Easter egg check: ${randomValue} (threshold: ${EASTER_EGG_CHANCE})`,
+      );
 
       if (randomValue < EASTER_EGG_CHANCE) {
-        console.log('🎉 Easter egg triggered!');
+        console.log("🎉 Easter egg triggered!");
         setShowEasterEgg(true);
       }
 
@@ -208,6 +211,7 @@ function GamePageContent() {
     async (mode: GameMode) => {
       if (loadingModeId || !canPlay) {
         console.warn("Cannot start game:", { loadingModeId, canPlay });
+
         return;
       }
 
@@ -272,24 +276,25 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
+        loadingModeId
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
+      }`}
     >
       {/* Easter Egg Modal with authentication */}
       <WinxEasterEggModal
-        isOpen={showEasterEgg}
-        onClose={handleCloseEasterEgg}
         chance={EASTER_EGG_CHANCE * 100} // Convert to percentage
+        isOpen={showEasterEgg}
         makeAuthenticatedRequest={makeAuthenticatedRequest}
+        onClose={handleCloseEasterEgg}
       />
 
       <div className="px-4">
@@ -363,8 +368,9 @@ function GamePageContent() {
                 <div key={mode.id} className="relative">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                      }`}
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${
+                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                    }`}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
                       <div className="flex items-center space-x-3 mb-2">
@@ -462,7 +468,5 @@ function GamePageContent() {
 }
 
 export default function GamePage() {
-  return (
-    <GamePageContent />
-  );
+  return <GamePageContent />;
 }

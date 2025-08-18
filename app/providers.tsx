@@ -82,7 +82,7 @@ function ConditionalProviders({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Start DevTools protection
     devToolsProtection.start();
-    
+
     // Cleanup on unmount
     return () => {
       devToolsProtection.stop();

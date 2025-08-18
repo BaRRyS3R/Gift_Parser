@@ -8,7 +8,16 @@ import type {
 } from "@/hooks/modules/useProfile";
 
 import React, { useState } from "react";
-import { Trophy, Gamepad2, Users, Zap, Sparkles, Hash, Cat, Wand2 } from "lucide-react";
+import {
+  Trophy,
+  Gamepad2,
+  Users,
+  Zap,
+  Sparkles,
+  Hash,
+  Cat,
+  Wand2,
+} from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -26,9 +35,9 @@ const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<any>> = {
   lightning_reflexes: Zap,
 
   // NEW: Easter Egg achievements
-  binary_easter_egg: Hash,      // 🔢 Binary symbol
-  cat_easter_egg: Cat,          // 🐱 Cat icon
-  winx_easter_egg: Wand2,       // 🧚‍♀️ Magic wand for fairy
+  binary_easter_egg: Hash, // 🔢 Binary symbol
+  cat_easter_egg: Cat, // 🐱 Cat icon
+  winx_easter_egg: Wand2, // 🧚‍♀️ Magic wand for fairy
 };
 
 // Future tech color schemes - UPDATED with Easter Egg colors

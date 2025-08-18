@@ -85,7 +85,7 @@ export default function ShopPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -169,9 +169,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-        attempts: attemptsText,
-        plural: plural,
-      });
+          attempts: attemptsText,
+          plural: plural,
+        });
 
     setSuccessNotification({
       show: true,

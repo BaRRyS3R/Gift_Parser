@@ -113,7 +113,9 @@ export default function RotatingCircleGrid({
   // Function to generate new variant for circle on activation
   const generateColorVariantForCircle = (circleId: number): number => {
     const variantIndex = getRandomWhiteVariantIndex();
+
     setCircleColorVariants((prev) => new Map(prev).set(circleId, variantIndex));
+
     return variantIndex;
   };
 
@@ -123,6 +125,7 @@ export default function RotatingCircleGrid({
       onActivatedCircles.forEach((circleId) => {
         // Generate new variant only if circle is activated and not a trap
         const circle = circles.find((c) => c.id === circleId);
+
         if (circle && circle.isActive && !circle.isDecoy) {
           generateColorVariantForCircle(circleId);
         }
@@ -136,6 +139,7 @@ export default function RotatingCircleGrid({
       // Create new pulses for activated circles
       const newPulses: ActivePulse[] = onActivatedCircles.map((circleId) => {
         const circle = circles.find((c) => c.id === circleId);
+
         return {
           circleId,
           isRed: circle?.isDecoy || false,
@@ -221,16 +225,19 @@ export default function RotatingCircleGrid({
 
     const now = Date.now();
     const deltaTime = now - lastUpdateTimeRef.current;
+
     lastUpdateTimeRef.current = now;
 
     // Smooth speed interpolation for level transitions
     const speedDifference = targetSpeedRef.current - currentSpeedRef.current;
     const interpolationFactor = Math.min(deltaTime * 0.002, 1);
+
     currentSpeedRef.current += speedDifference * interpolationFactor;
 
     // Convert rotation speed from radians-per-frame to radians-per-millisecond
     const speedInRadPerMs = currentSpeedRef.current / 16.67;
     const rotationIncrement = speedInRadPerMs * deltaTime;
+
     currentRotationRef.current += rotationIncrement;
 
     // Apply rotation to container
@@ -277,6 +284,7 @@ export default function RotatingCircleGrid({
     (circle: RotationCircle) => {
       const x = Math.cos(circle.angle) * effectiveRadius;
       const y = Math.sin(circle.angle) * effectiveRadius;
+
       return { x, y };
     },
     [effectiveRadius],
@@ -284,7 +292,8 @@ export default function RotatingCircleGrid({
 
   // Enhanced circle styles with proper instant deactivation support
   const getCircleStyles = (circle: RotationCircle) => {
-    const shouldHideInstantly = instantlyDeactivatedCircles?.includes(circle.id) || false;
+    const shouldHideInstantly =
+      instantlyDeactivatedCircles?.includes(circle.id) || false;
 
     // For instant deactivation (successful clicks), no transition
     if (shouldHideInstantly) {
@@ -300,8 +309,11 @@ export default function RotatingCircleGrid({
       : "transition-all duration-100 ease-in-out circle-state-transition";
 
     const baseClasses = `absolute rounded-full border-4 ${transitionClass}`;
-    const visibilityClasses = showCircles ? "opacity-100 scale-100" : "opacity-0 scale-0";
-    const animationClasses = circle.isAnimating && !shouldHideInstantly ? "opacity-0 scale-50" : "";
+    const visibilityClasses = showCircles
+      ? "opacity-100 scale-100"
+      : "opacity-0 scale-0";
+    const animationClasses =
+      circle.isAnimating && !shouldHideInstantly ? "opacity-0 scale-50" : "";
 
     if (circle.isActive && !circle.isAnimating && !shouldHideInstantly) {
       if (circle.isDecoy) {
@@ -410,7 +422,8 @@ export default function RotatingCircleGrid({
   };
 
   const getInteractionProps = (circle: RotationCircle) => {
-    const shouldHideInstantly = instantlyDeactivatedCircles?.includes(circle.id) || false;
+    const shouldHideInstantly =
+      instantlyDeactivatedCircles?.includes(circle.id) || false;
 
     return {
       disabled: !isGameActive || shouldHideInstantly,
@@ -440,9 +453,11 @@ export default function RotatingCircleGrid({
 
   // Enhanced pulse effect with white variant support
   const renderPulseEffect = (circle: RotationCircle) => {
-    const shouldHideInstantly = instantlyDeactivatedCircles?.includes(circle.id) || false;
+    const shouldHideInstantly =
+      instantlyDeactivatedCircles?.includes(circle.id) || false;
 
-    if (!circle.isActive || circle.isAnimating || shouldHideInstantly) return null;
+    if (!circle.isActive || circle.isAnimating || shouldHideInstantly)
+      return null;
 
     if (circle.isDecoy) {
       const pulseColor = "border-red-400";
@@ -492,6 +507,7 @@ export default function RotatingCircleGrid({
       borderColor = "rgb(248, 113, 113)"; // border-red-400
     } else {
       const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+
       borderColor = WHITE_BORDER_VARIANTS[variantIndex];
     }
 
@@ -538,17 +554,19 @@ export default function RotatingCircleGrid({
           {circles.map((circle) => {
             const circleStyleConfig = getCircleStyles(circle);
             const staticPosition = getCircleStaticPosition(circle);
-            const shouldHideInstantly = instantlyDeactivatedCircles?.includes(circle.id) || false;
+            const shouldHideInstantly =
+              instantlyDeactivatedCircles?.includes(circle.id) || false;
 
             return (
               <button
                 key={circle.id}
-                aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
-                  ? circle.isDecoy
-                    ? " - trap target"
-                    : " - active target"
-                  : ""
-                  }`}
+                aria-label={`Rotating circle ${circle.id + 1}${
+                  circle.isActive
+                    ? circle.isDecoy
+                      ? " - trap target"
+                      : " - active target"
+                    : ""
+                }`}
                 className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
                 data-circle-id={circle.id}
                 disabled={!isGameActive || shouldHideInstantly}

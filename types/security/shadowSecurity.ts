@@ -256,36 +256,38 @@ export function hasAnySuspiciousActivity(
 ): boolean {
   // Проверка подозрительных кликов
   const hasSuspiciousClicks = data.suspiciousClicksCount > 0;
-  
+
   // Проверка подозрительной активности гироскопа
-  const hasSuspiciousGyroscope = 
+  const hasSuspiciousGyroscope =
     data.gyroscopeEnabled && data.gyroscopeSuspicious;
-  
+
   // Проверка недоступности гироскопа (исключая iOS оптимизацию)
-  const hasGyroscopeUnavailability = 
+  const hasGyroscopeUnavailability =
     !data.gyroscopeEnabled &&
     data.gyroscopeErrorReason !== null &&
     data.gyroscopeErrorReason !== "ios_optimization_disabled";
-  
+
   // НОВОЕ: Проверка ультракоротких сессий (менее 3 секунд)
   const gameDuration = data.gameEndTime - data.gameStartTime;
   const isUltraShortSession = gameDuration < 3000;
-  
+
   // Считаем ультракороткие сессии подозрительными только если есть клики
   // Это помогает выявлять ботов, которые быстро кликают и выходят
   const suspiciousShortSession = isUltraShortSession && data.totalClicks > 0;
-  
+
   // Логирование для мониторинга ультракоротких сессий
   if (suspiciousShortSession) {
     console.log(
-      `Shadow Security: Ultra-short session detected - Duration: ${gameDuration}ms, Clicks: ${data.totalClicks}`
+      `Shadow Security: Ultra-short session detected - Duration: ${gameDuration}ms, Clicks: ${data.totalClicks}`,
     );
   }
-  
-  return hasSuspiciousClicks || 
-         hasSuspiciousGyroscope || 
-         hasGyroscopeUnavailability ||
-         suspiciousShortSession;
+
+  return (
+    hasSuspiciousClicks ||
+    hasSuspiciousGyroscope ||
+    hasGyroscopeUnavailability ||
+    suspiciousShortSession
+  );
 }
 
 /**
@@ -302,20 +304,24 @@ export function calculateCombinedRiskScore(
   if (data.totalClicks > 0) {
     const clickSuspiciousPercentage =
       (data.suspiciousClicksCount / data.totalClicks) * 100;
+
     riskScore += clickSuspiciousPercentage * 0.4;
   }
 
   // Factor 2: Lack of gyroscope movement (weight: 25%)
   if (data.gyroscopeEnabled && data.totalGyroscopeChecks > 0) {
     const lackOfMovement = 100 - data.gyroscopeMovementPercentage;
+
     riskScore += lackOfMovement * 0.25;
   }
 
   // Factor 3: Ultra-short session (weight: 20%)
   const gameDuration = data.gameEndTime - data.gameStartTime;
+
   if (gameDuration < 3000 && data.totalClicks > 0) {
     // Максимальный штраф для сессий менее 1 секунды
-    const shortSessionPenalty = Math.max(0, 100 - (gameDuration / 30));
+    const shortSessionPenalty = Math.max(0, 100 - gameDuration / 30);
+
     riskScore += shortSessionPenalty * 0.2;
   }
 
@@ -329,9 +335,11 @@ export function calculateCombinedRiskScore(
   }
 
   // Factor 5: Gyroscope error presence (weight: 5%)
-  if (data.gyroscopeEnabled && 
-      data.gyroscopeErrorReason && 
-      data.gyroscopeErrorReason !== "ios_optimization_disabled") {
+  if (
+    data.gyroscopeEnabled &&
+    data.gyroscopeErrorReason &&
+    data.gyroscopeErrorReason !== "ios_optimization_disabled"
+  ) {
     riskScore += 5;
   }
 
@@ -344,15 +352,16 @@ export function calculateCombinedRiskScore(
  * Provides clear categorization for administrative review and automated actions
  */
 export function categorizeSuspiciousActivitySeverity(
-  data: SuspiciousActivityData
-): 'none' | 'low' | 'medium' | 'high' | 'critical' {
+  data: SuspiciousActivityData,
+): "none" | "low" | "medium" | "high" | "critical" {
   const riskScore = calculateCombinedRiskScore(data);
-  
-  if (riskScore === 0) return 'none';
-  if (riskScore < 20) return 'low';
-  if (riskScore < 40) return 'medium';
-  if (riskScore < 70) return 'high';
-  return 'critical';
+
+  if (riskScore === 0) return "none";
+  if (riskScore < 20) return "low";
+  if (riskScore < 40) return "medium";
+  if (riskScore < 70) return "high";
+
+  return "critical";
 }
 
 /**
@@ -360,64 +369,68 @@ export function categorizeSuspiciousActivitySeverity(
  * Provides human-readable summary of all suspicious indicators
  */
 export function formatSuspiciousActivitySummary(
-  data: SuspiciousActivityData
+  data: SuspiciousActivityData,
 ): string {
   const details: string[] = [];
   const gameDuration = data.gameEndTime - data.gameStartTime;
-  
+
   // Информация о длительности игры
   if (gameDuration < 3000) {
     details.push(`ultra-short session (${gameDuration}ms)`);
   } else if (gameDuration < 10000) {
     details.push(`short session (${Math.round(gameDuration / 1000)}s)`);
   }
-  
+
   // Информация о кликах
   if (data.suspiciousClicksCount > 0) {
-    const percentage = data.totalClicks > 0 
-      ? Math.round((data.suspiciousClicksCount / data.totalClicks) * 100)
-      : 0;
+    const percentage =
+      data.totalClicks > 0
+        ? Math.round((data.suspiciousClicksCount / data.totalClicks) * 100)
+        : 0;
+
     details.push(
-      `${data.suspiciousClicksCount}/${data.totalClicks} suspicious clicks (${percentage}%)`
+      `${data.suspiciousClicksCount}/${data.totalClicks} suspicious clicks (${percentage}%)`,
     );
   } else if (data.totalClicks > 0) {
     details.push(`${data.totalClicks} normal clicks`);
   }
-  
+
   // Информация о гироскопе
   if (data.gyroscopeEnabled) {
     if (data.totalGyroscopeChecks === 0) {
-      details.push('no gyroscope checks (ended too quickly)');
+      details.push("no gyroscope checks (ended too quickly)");
     } else {
       details.push(
         `gyroscope movement: ${data.gyroscopeMovementPercentage.toFixed(1)}%` +
-        (data.gyroscopeSuspicious ? ' [SUSPICIOUS]' : '')
+          (data.gyroscopeSuspicious ? " [SUSPICIOUS]" : ""),
       );
     }
   } else if (data.gyroscopeErrorReason) {
     details.push(`gyroscope: ${data.gyroscopeErrorReason}`);
   }
-  
+
   // Информация о времени реакции
   if (data.totalClicks > 0) {
     const reactionInfo = `reaction times: ${data.minReactionTime}-${data.maxReactionTime}ms (avg: ${data.avgReactionTime}ms)`;
+
     if (data.minReactionTime < 100) {
-      details.push(reactionInfo + ' [SUPERHUMAN]');
+      details.push(reactionInfo + " [SUPERHUMAN]");
     } else if (data.minReactionTime < 150) {
-      details.push(reactionInfo + ' [VERY FAST]');
+      details.push(reactionInfo + " [VERY FAST]");
     } else {
       details.push(reactionInfo);
     }
   }
-  
+
   // Добавляем уровень риска
   const severity = categorizeSuspiciousActivitySeverity(data);
   const riskScore = calculateCombinedRiskScore(data);
-  if (severity !== 'none') {
+
+  if (severity !== "none") {
     details.push(`risk: ${severity.toUpperCase()} (${riskScore.toFixed(1)}%)`);
   }
-  
-  return details.join(', ');
+
+  return details.join(", ");
 }
 
 /**
@@ -426,6 +439,7 @@ export function formatSuspiciousActivitySummary(
  */
 export function isUltraShortSession(data: SuspiciousActivityData): boolean {
   const gameDuration = data.gameEndTime - data.gameStartTime;
+
   return gameDuration < 3000 && data.totalClicks > 0;
 }
 
@@ -435,7 +449,9 @@ export function isUltraShortSession(data: SuspiciousActivityData): boolean {
  */
 export function calculateClickRate(data: SuspiciousActivityData): number {
   const gameDurationSeconds = (data.gameEndTime - data.gameStartTime) / 1000;
+
   if (gameDurationSeconds === 0) return 0;
+
   return Math.round((data.totalClicks / gameDurationSeconds) * 100) / 100;
 }
 
@@ -445,9 +461,11 @@ export function calculateClickRate(data: SuspiciousActivityData): number {
  */
 export function hasInhumanReactionTimes(data: SuspiciousActivityData): boolean {
   // Человеческая реакция редко бывает стабильно ниже 150мс
-  return data.minReactionTime < 150 && 
-         data.avgReactionTime < 200 && 
-         data.totalClicks > 5; // Требуем несколько кликов для надежности
+  return (
+    data.minReactionTime < 150 &&
+    data.avgReactionTime < 200 &&
+    data.totalClicks > 5
+  ); // Требуем несколько кликов для надежности
 }
 
 /**
@@ -456,7 +474,7 @@ export function hasInhumanReactionTimes(data: SuspiciousActivityData): boolean {
  */
 export function generateRiskAssessment(data: SuspiciousActivityData): {
   riskScore: number;
-  severity: 'none' | 'low' | 'medium' | 'high' | 'critical';
+  severity: "none" | "low" | "medium" | "high" | "critical";
   factors: string[];
   recommendations: string[];
 } {
@@ -464,49 +482,53 @@ export function generateRiskAssessment(data: SuspiciousActivityData): {
   const severity = categorizeSuspiciousActivitySeverity(data);
   const factors: string[] = [];
   const recommendations: string[] = [];
-  
+
   // Анализ факторов риска
   if (data.suspiciousClicksCount > 0) {
-    const percentage = Math.round((data.suspiciousClicksCount / data.totalClicks) * 100);
+    const percentage = Math.round(
+      (data.suspiciousClicksCount / data.totalClicks) * 100,
+    );
+
     factors.push(`${percentage}% suspicious clicks detected`);
   }
-  
+
   if (isUltraShortSession(data)) {
-    factors.push('Ultra-short gaming session detected');
-    recommendations.push('Review for automated script usage');
+    factors.push("Ultra-short gaming session detected");
+    recommendations.push("Review for automated script usage");
   }
-  
+
   if (hasInhumanReactionTimes(data)) {
-    factors.push('Inhuman reaction times detected');
-    recommendations.push('Investigate for bot/macro usage');
+    factors.push("Inhuman reaction times detected");
+    recommendations.push("Investigate for bot/macro usage");
   }
-  
+
   if (data.gyroscopeEnabled && data.gyroscopeSuspicious) {
-    factors.push('Lack of device movement during gameplay');
-    recommendations.push('Check for emulator or desktop usage');
+    factors.push("Lack of device movement during gameplay");
+    recommendations.push("Check for emulator or desktop usage");
   }
-  
+
   const clickRate = calculateClickRate(data);
+
   if (clickRate > 10) {
     factors.push(`Extremely high click rate: ${clickRate} clicks/sec`);
-    recommendations.push('Review for auto-clicker usage');
+    recommendations.push("Review for auto-clicker usage");
   }
-  
+
   // Генерация рекомендаций на основе уровня риска
-  if (severity === 'critical') {
-    recommendations.push('Consider immediate account review');
-    recommendations.push('Flag for manual investigation');
-  } else if (severity === 'high') {
-    recommendations.push('Monitor future gaming sessions');
-    recommendations.push('Consider temporary restrictions');
-  } else if (severity === 'medium') {
-    recommendations.push('Add to watchlist for pattern analysis');
+  if (severity === "critical") {
+    recommendations.push("Consider immediate account review");
+    recommendations.push("Flag for manual investigation");
+  } else if (severity === "high") {
+    recommendations.push("Monitor future gaming sessions");
+    recommendations.push("Consider temporary restrictions");
+  } else if (severity === "medium") {
+    recommendations.push("Add to watchlist for pattern analysis");
   }
-  
+
   return {
     riskScore,
     severity,
     factors,
-    recommendations
+    recommendations,
   };
 }

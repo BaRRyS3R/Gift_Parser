@@ -4,7 +4,7 @@
 
 interface DevToolsDetector {
   isOpen: boolean;
-  orientation: 'vertical' | 'horizontal' | null;
+  orientation: "vertical" | "horizontal" | null;
   lastDetectionTime: number;
 }
 
@@ -14,18 +14,19 @@ export class DevToolsProtection {
   private callbacks: Set<(isOpen: boolean) => void> = new Set();
   private checkInterval: NodeJS.Timeout | null = null;
   private debuggerInterval: NodeJS.Timeout | null = null;
-  
+
   // Detection thresholds
   private readonly THRESHOLD = 160;
   private readonly EMULATION_THRESHOLD = 20;
-  
+
   // Check interval in milliseconds (configurable)
   private readonly CHECK_INTERVAL = 2000; // Change this value to adjust detection frequency
-  
+
   static getInstance(): DevToolsProtection {
     if (!DevToolsProtection.instance) {
       DevToolsProtection.instance = new DevToolsProtection();
     }
+
     return DevToolsProtection.instance;
   }
 
@@ -34,18 +35,20 @@ export class DevToolsProtection {
    * Detects when DevTools is docked by comparing window dimensions
    */
   private checkWindowSize(): boolean {
-    if (typeof window === 'undefined') return false;
-    
-    const widthThreshold = window.outerWidth - window.innerWidth > this.THRESHOLD;
-    const heightThreshold = window.outerHeight - window.innerHeight > this.THRESHOLD;
-    
+    if (typeof window === "undefined") return false;
+
+    const widthThreshold =
+      window.outerWidth - window.innerWidth > this.THRESHOLD;
+    const heightThreshold =
+      window.outerHeight - window.innerHeight > this.THRESHOLD;
+
     // Additional check for undocked DevTools
-    const suspiciousRatio = 
-      window.outerWidth < 800 || 
+    const suspiciousRatio =
+      window.outerWidth < 800 ||
       window.outerHeight < 600 ||
-      (window.screen.width / window.innerWidth > 1.4) ||
-      (window.screen.height / window.innerHeight > 1.4);
-    
+      window.screen.width / window.innerWidth > 1.4 ||
+      window.screen.height / window.innerHeight > 1.4;
+
     return widthThreshold || heightThreshold || suspiciousRatio;
   }
 
@@ -54,20 +57,20 @@ export class DevToolsProtection {
    * Measures console.log performance degradation when DevTools is open
    */
   private checkConsolePerformance(): boolean {
-    if (typeof console === 'undefined') return false;
-    
+    if (typeof console === "undefined") return false;
+
     const start = performance.now();
-    const testObj = { type: 'devtools-check' };
-    
+    const testObj = { type: "devtools-check" };
+
     // Console operations are slower when DevTools is open
     for (let i = 0; i < 50; i++) {
       console.log(testObj);
       console.clear();
     }
-    
+
     const end = performance.now();
     const executionTime = end - start;
-    
+
     // DevTools typically causes >10ms delay for this operation
     return executionTime > 10;
   }
@@ -78,19 +81,21 @@ export class DevToolsProtection {
    */
   private checkToStringOverride(): boolean {
     let detected = false;
-    
+
     const element = new Image();
-    Object.defineProperty(element, 'id', {
-      get: function() {
+
+    Object.defineProperty(element, "id", {
+      get: function () {
         detected = true;
-        return 'devtools-detection';
-      }
+
+        return "devtools-detection";
+      },
     });
-    
+
     // This will trigger the getter if DevTools is open
-    console.log('%c', element);
+    console.log("%c", element);
     console.clear();
-    
+
     return detected;
   }
 
@@ -100,11 +105,12 @@ export class DevToolsProtection {
    */
   private checkDebuggerTiming(): boolean {
     const start = performance.now();
+
     debugger; // Will pause if DevTools is open with breakpoints enabled
     const end = performance.now();
-    
+
     // If paused, there will be a significant delay
-    return (end - start) > 100;
+    return end - start > 100;
   }
 
   /**
@@ -113,15 +119,15 @@ export class DevToolsProtection {
    */
   private checkFunctionConstructor(): boolean {
     try {
-      const func = new Function('return 1');
+      const func = new Function("return 1");
       const result = func();
-      
+
       // Check if function was tampered with
       if (result !== 1) return true;
-      
+
       // Check constructor chain
       if (Function.prototype.constructor !== Function) return true;
-      
+
       return false;
     } catch {
       // Error might indicate tampering
@@ -135,33 +141,39 @@ export class DevToolsProtection {
    */
   private checkBrowserSpecific(): boolean {
     // Chrome specific
-    if ('chrome' in window && 'runtime' in (window as any).chrome) {
+    if ("chrome" in window && "runtime" in (window as any).chrome) {
       try {
         // Chrome DevTools detection via runtime
         const isChrome = !!(window as any).chrome.runtime?.id;
+
         if (!isChrome) return true;
       } catch {
         return true;
       }
     }
-    
+
     // Firefox specific - Firebug detection
-    if ('console' in window && 'firebug' in console) {
+    if ("console" in window && "firebug" in console) {
       return true;
     }
-    
+
     // Check for common DevTools global variables
-    const suspiciousGlobals = ['__REACT_DEVTOOLS_GLOBAL_HOOK__', '__VUE_DEVTOOLS_GLOBAL_HOOK__'];
+    const suspiciousGlobals = [
+      "__REACT_DEVTOOLS_GLOBAL_HOOK__",
+      "__VUE_DEVTOOLS_GLOBAL_HOOK__",
+    ];
+
     for (const global of suspiciousGlobals) {
       if (global in window) {
         // These are legitimate in dev, but check if they're being actively used
         const hook = (window as any)[global];
-        if (hook && typeof hook === 'object' && hook.isDisabled === false) {
+
+        if (hook && typeof hook === "object" && hook.isDisabled === false) {
           return true;
         }
       }
     }
-    
+
     return false;
   }
 
@@ -178,9 +190,10 @@ export class DevToolsProtection {
       // Debugger timing is more aggressive, use sparingly
       // () => this.checkDebuggerTiming(),
     ];
-    
+
     // If any two methods detect DevTools, consider it open
     let detectionCount = 0;
+
     for (const method of detectionMethods) {
       try {
         if (method()) {
@@ -193,12 +206,12 @@ export class DevToolsProtection {
         // Ignore errors in detection methods silently
       }
     }
-    
+
     // Single detection from window size is often reliable enough
     if (detectionCount === 1 && this.checkWindowSize()) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -208,12 +221,12 @@ export class DevToolsProtection {
    */
   private startDebuggerLoop(): void {
     if (this.debuggerInterval) return;
-    
+
     this.debuggerInterval = setInterval(() => {
       if (this.isDetected) {
         // Continuously trigger debugger to block DevTools usage
         debugger;
-        
+
         // Additional blocking mechanisms
         this.blockExecution();
       }
@@ -226,6 +239,7 @@ export class DevToolsProtection {
   private blockExecution(): void {
     // Override console methods
     const noop = () => {};
+
     console.log = noop;
     console.warn = noop;
     console.error = noop;
@@ -237,10 +251,10 @@ export class DevToolsProtection {
     console.groupEnd = noop;
     console.time = noop;
     console.timeEnd = noop;
-    
+
     // Continuously pause with debugger
     debugger;
-    
+
     // Create infinite loop of debugger statements
     setTimeout(() => {
       debugger;
@@ -255,23 +269,23 @@ export class DevToolsProtection {
     if (callback) {
       this.callbacks.add(callback);
     }
-    
+
     // Clear any existing interval
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
     }
-    
+
     // Initial check
     this.check();
-    
+
     // Set up periodic checking
     this.checkInterval = setInterval(() => {
       this.check();
     }, this.CHECK_INTERVAL);
-    
+
     // Listen for specific keyboard shortcuts
     this.setupKeyboardListeners();
-    
+
     // Listen for visibility changes
     this.setupVisibilityListeners();
   }
@@ -281,8 +295,9 @@ export class DevToolsProtection {
    */
   check(): void {
     const wasDetected = this.isDetected;
+
     this.isDetected = this.detectDevTools();
-    
+
     if (this.isDetected && !wasDetected) {
       this.onDevToolsOpen();
     } else if (!this.isDetected && wasDetected) {
@@ -295,11 +310,11 @@ export class DevToolsProtection {
    */
   private onDevToolsOpen(): void {
     // Notify all callbacks
-    this.callbacks.forEach(callback => callback(true));
-    
+    this.callbacks.forEach((callback) => callback(true));
+
     // Start debugger blocking loop
     this.startDebuggerLoop();
-    
+
     // Additional security measures
     this.disableContextMenu();
     this.disableTextSelection();
@@ -311,8 +326,8 @@ export class DevToolsProtection {
    */
   private onDevToolsClose(): void {
     // Notify all callbacks
-    this.callbacks.forEach(callback => callback(false));
-    
+    this.callbacks.forEach((callback) => callback(false));
+
     // Stop debugger loop
     if (this.debuggerInterval) {
       clearInterval(this.debuggerInterval);
@@ -324,69 +339,90 @@ export class DevToolsProtection {
    * Setup keyboard shortcut detection
    */
   private setupKeyboardListeners(): void {
-    document.addEventListener('keydown', (e) => {
-      // F12
-      if (e.key === 'F12') {
-        e.preventDefault();
-        e.stopPropagation();
-        this.isDetected = true;
-        this.onDevToolsOpen();
-        return false;
-      }
-      
-      // Ctrl+Shift+I / Cmd+Option+I
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i')) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.isDetected = true;
-        this.onDevToolsOpen();
-        return false;
-      }
-      
-      // Ctrl+Shift+J / Cmd+Option+J (Console)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'J' || e.key === 'j')) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.isDetected = true;
-        this.onDevToolsOpen();
-        return false;
-      }
-      
-      // Ctrl+Shift+C / Cmd+Option+C (Inspect Element)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.isDetected = true;
-        this.onDevToolsOpen();
-        return false;
-      }
-      
-      // Ctrl+U / Cmd+U (View Source)
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'U' || e.key === 'u')) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    }, true);
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        // F12
+        if (e.key === "F12") {
+          e.preventDefault();
+          e.stopPropagation();
+          this.isDetected = true;
+          this.onDevToolsOpen();
+
+          return false;
+        }
+
+        // Ctrl+Shift+I / Cmd+Option+I
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          e.shiftKey &&
+          (e.key === "I" || e.key === "i")
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.isDetected = true;
+          this.onDevToolsOpen();
+
+          return false;
+        }
+
+        // Ctrl+Shift+J / Cmd+Option+J (Console)
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          e.shiftKey &&
+          (e.key === "J" || e.key === "j")
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.isDetected = true;
+          this.onDevToolsOpen();
+
+          return false;
+        }
+
+        // Ctrl+Shift+C / Cmd+Option+C (Inspect Element)
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          e.shiftKey &&
+          (e.key === "C" || e.key === "c")
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.isDetected = true;
+          this.onDevToolsOpen();
+
+          return false;
+        }
+
+        // Ctrl+U / Cmd+U (View Source)
+        if ((e.ctrlKey || e.metaKey) && (e.key === "U" || e.key === "u")) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          return false;
+        }
+      },
+      true,
+    );
   }
 
   /**
    * Setup visibility change listeners
    */
   private setupVisibilityListeners(): void {
-    document.addEventListener('visibilitychange', () => {
+    document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         // Page is hidden, might be DevTools focus
         setTimeout(() => this.check(), 500);
       }
     });
-    
-    window.addEventListener('blur', () => {
+
+    window.addEventListener("blur", () => {
       // Window lost focus, check for DevTools
       setTimeout(() => this.check(), 500);
     });
-    
-    window.addEventListener('resize', () => {
+
+    window.addEventListener("resize", () => {
       // Window resized, might be DevTools docking
       setTimeout(() => this.check(), 500);
     });
@@ -396,36 +432,46 @@ export class DevToolsProtection {
    * Disable right-click context menu
    */
   private disableContextMenu(): void {
-    document.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      return false;
-    }, true);
+    document.addEventListener(
+      "contextmenu",
+      (e) => {
+        e.preventDefault();
+
+        return false;
+      },
+      true,
+    );
   }
 
   /**
    * Disable text selection
    */
   private disableTextSelection(): void {
-    document.body.style.userSelect = 'none';
-    document.body.style.webkitUserSelect = 'none';
+    document.body.style.userSelect = "none";
+    document.body.style.webkitUserSelect = "none";
     // @ts-ignore
-    document.body.style.msUserSelect = 'none';
+    document.body.style.msUserSelect = "none";
     // @ts-ignore
-    document.body.style.mozUserSelect = 'none';
+    document.body.style.mozUserSelect = "none";
   }
 
   /**
    * Disable keyboard shortcuts
    */
   private disableKeyboardShortcuts(): void {
-    document.addEventListener('keydown', (e) => {
-      // Block all Ctrl/Cmd combinations when DevTools is detected
-      if (this.isDetected && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    }, true);
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        // Block all Ctrl/Cmd combinations when DevTools is detected
+        if (this.isDetected && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          return false;
+        }
+      },
+      true,
+    );
   }
 
   /**
@@ -436,12 +482,12 @@ export class DevToolsProtection {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
     }
-    
+
     if (this.debuggerInterval) {
       clearInterval(this.debuggerInterval);
       this.debuggerInterval = null;
     }
-    
+
     this.callbacks.clear();
     this.isDetected = false;
   }
@@ -458,7 +504,7 @@ export class DevToolsProtection {
    */
   onStateChange(callback: (isOpen: boolean) => void): () => void {
     this.callbacks.add(callback);
-    
+
     // Return unsubscribe function
     return () => {
       this.callbacks.delete(callback);

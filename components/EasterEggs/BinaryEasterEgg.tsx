@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { Button } from "@nextui-org/react";
 import { Check, X, Gift, Trophy } from "lucide-react";
+
 import { useT } from "@/contexts/LocalizationContext";
 
 interface BinaryEasterEggProps {
@@ -62,33 +63,38 @@ export default function BinaryEasterEgg({
   // Award Easter Egg achievement
   const awardEasterEggAchievement = async () => {
     try {
-      const response = await makeAuthenticatedRequest("/api/easter-egg/reward", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await makeAuthenticatedRequest(
+        "/api/easter-egg/reward",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ easterEggType: "binary" }),
         },
-        body: JSON.stringify({ easterEggType: "binary" }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setRewardInfo({
           attemptsAwarded: data.achievement?.attemptsAwarded || 0,
           alreadyUnlocked: data.alreadyUnlocked || false,
         });
-        
+
         return data;
       } else {
         console.error("Failed to award Easter Egg achievement:", data.error);
+
         return null;
       }
     } catch (error) {
       console.error("Error awarding Easter Egg achievement:", error);
+
       return null;
     }
   };
@@ -97,6 +103,7 @@ export default function BinaryEasterEgg({
   const handleCheck = async () => {
     if (binaryString.length === 0) {
       setResultMessage("Enter some binary digits first!");
+
       return;
     }
 
@@ -118,22 +125,25 @@ export default function BinaryEasterEgg({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+
         throw new Error(errorData.error || `Server error: ${response.status}`);
       }
-      
+
       const data = await response.json();
 
       if (data.success) {
         setIsSuccess(true);
         setResultMessage(data.message);
-        
+
         // ONLY award the Easter Egg achievement if binary sequence is CORRECT
         const rewardData = await awardEasterEggAchievement();
-        
+
         // Success haptic feedback
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
           try {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred(
+              "success",
+            );
           } catch (error) {
             if (navigator.vibrate) {
               navigator.vibrate([100, 50, 100]);
@@ -146,7 +156,7 @@ export default function BinaryEasterEgg({
         setResultMessage(data.error || "Wrong binary sequence!");
         setBinaryString("");
         setRewardInfo(null); // Clear any previous reward info
-        
+
         // Error haptic feedback
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
           try {
@@ -163,7 +173,7 @@ export default function BinaryEasterEgg({
       setResultMessage("Network error. Try again!");
       setBinaryString("");
       setRewardInfo(null);
-      
+
       // Error haptic feedback
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         try {
@@ -224,7 +234,9 @@ export default function BinaryEasterEgg({
         <div className="space-y-4">
           {/* Title */}
           <div className="text-center mb-4">
-            <h3 className="text-lg font-bold text-white mb-1">🔢 Binary Challenge</h3>
+            <h3 className="text-lg font-bold text-white mb-1">
+              🔢 Binary Challenge
+            </h3>
             <p className="text-white/60 text-sm">Find the correct sequence</p>
           </div>
 
@@ -306,23 +318,33 @@ export default function BinaryEasterEgg({
                           <Gift className="text-yellow-400" size={20} />
                         )}
                         <span className="text-yellow-400 font-bold text-sm">
-                          {rewardInfo.alreadyUnlocked 
-                            ? t("profile.achievements.achievementAlreadyUnlocked" as any)
-                            : t("profile.achievements.achievementUnlocked" as any)
-                          }
+                          {rewardInfo.alreadyUnlocked
+                            ? t(
+                                "profile.achievements.achievementAlreadyUnlocked" as any,
+                              )
+                            : t(
+                                "profile.achievements.achievementUnlocked" as any,
+                              )}
                         </span>
                       </div>
-                      
+
                       {!rewardInfo.alreadyUnlocked && (
                         <div className="space-y-1">
                           <div className="text-yellow-300 text-xs font-bold">
-                            🔢 {t("profile.achievements.binaryEasterEgg" as any)}
+                            🔢{" "}
+                            {t("profile.achievements.binaryEasterEgg" as any)}
                           </div>
                           <div className="text-yellow-300/80 text-xs">
-                            {t("profile.achievements.attemptsAwarded" as any, { count: rewardInfo.attemptsAwarded })}
+                            {t("profile.achievements.attemptsAwarded" as any, {
+                              count: rewardInfo.attemptsAwarded,
+                            })}
                           </div>
                           <div className="text-yellow-300/60 text-xs italic">
-                            &quot;{t("profile.achievements.descriptions.binaryEasterEgg" as any)}&quot;
+                            &quot;
+                            {t(
+                              "profile.achievements.descriptions.binaryEasterEgg" as any,
+                            )}
+                            &quot;
                           </div>
                         </div>
                       )}

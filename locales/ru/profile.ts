@@ -142,7 +142,7 @@ export const profile = {
     superRecruiter: "СУПЕР ВЕРБОВЩИК",
     lightningReflexes: "МОЛНИЕНОСНЫЕ РЕФЛЕКСЫ",
 
-    // NEW: Easter Egg achievement names  
+    // NEW: Easter Egg achievement names
     binaryEasterEgg: "БИНАРНЫЙ ГЕНИЙ",
     catEasterEgg: "КОШАЧИЙ ЗАКЛИНАТЕЛЬ",
     winxEasterEgg: "КРЁСТНАЯ ФЕЯ",
@@ -153,11 +153,14 @@ export const profile = {
       allModesPlayer: "ПОПРОБОВАЛ ВСЕ ИГРОВЫЕ РЕЖИМЫ",
       superRecruiter: "ПРИГЛАСИЛ {count}+ ДРУЗЕЙ",
       lightningReflexes: "РЕАКЦИЯ МЕНЕЕ {time} МС",
-      
+
       // NEW: Easter Egg achievement descriptions
-      binaryEasterEgg: "Нашёл секретную бинарную последовательность. Поздравляю, ты умеешь считать до 2!",
-      catEasterEgg: "Появился загадочный кот. Ты его погладил или он тебя осудил?",
-      winxEasterEgg: "Стал феечкой Winx! Твоё превращение было... волшебным? Или просто повезло.",
+      binaryEasterEgg:
+        "Нашёл секретную бинарную последовательность. Поздравляю, ты умеешь считать до 2!",
+      catEasterEgg:
+        "Появился загадочный кот. Ты его погладил или он тебя осудил?",
+      winxEasterEgg:
+        "Стал феечкой Winx! Твоё превращение было... волшебным? Или просто повезло.",
     },
   },
 } as const;

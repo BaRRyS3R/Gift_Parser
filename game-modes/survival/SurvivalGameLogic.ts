@@ -173,13 +173,13 @@ export const createSurvivalCircleGrid = (count: number): Circle[] => {
 
 const cleanupOldEntries = (
   recentlyUsedCircles: Map<number, number>,
-  maxAge: number = SURVIVAL_CONFIG.maxHistoryRetention
+  maxAge: number = SURVIVAL_CONFIG.maxHistoryRetention,
 ): Map<number, number> => {
   const currentTime = Date.now();
   const cleanedMap = new Map<number, number>();
 
   recentlyUsedCircles.forEach((timestamp, circleId) => {
-    if ((currentTime - timestamp) < maxAge) {
+    if (currentTime - timestamp < maxAge) {
       cleanedMap.set(circleId, timestamp);
     }
   });
@@ -280,15 +280,16 @@ const getAvailableCircleIds = (
   totalCircles: number,
   excludeIds: number[],
   recentlyUsedCircles: Map<number, number>,
-  cooldownMs: number = SURVIVAL_CONFIG.circleReactivationCooldown
+  cooldownMs: number = SURVIVAL_CONFIG.circleReactivationCooldown,
 ): number[] => {
   const currentTime = Date.now();
 
-  return Array.from({ length: totalCircles }, (_, i) => i).filter(id => {
+  return Array.from({ length: totalCircles }, (_, i) => i).filter((id) => {
     if (excludeIds.includes(id)) return false;
 
     const lastUsedTime = recentlyUsedCircles.get(id);
-    if (lastUsedTime && (currentTime - lastUsedTime) < cooldownMs) {
+
+    if (lastUsedTime && currentTime - lastUsedTime < cooldownMs) {
       return false;
     }
 
@@ -307,7 +308,7 @@ export const getRandomCircleIds = (
     totalCircles,
     excludeIds,
     recentlyUsedCircles,
-    cooldownMs
+    cooldownMs,
   );
 
   const count = Math.min(targetCount, availableIds.length);
@@ -316,6 +317,7 @@ export const getRandomCircleIds = (
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
+
     selectedIds.push(selectedId);
   }
 
@@ -328,12 +330,17 @@ export const activateSurvivalCircles = (
   onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
 ): SurvivalGameState => {
   // Enhanced state validation before activation
-  if (!state.isActive || state.gameState !== GameState.PLAYING || state.isGameEnding) {
+  if (
+    !state.isActive ||
+    state.gameState !== GameState.PLAYING ||
+    state.isGameEnding
+  ) {
     return state;
   }
 
   const levelConfig = getLevelConfig(state.currentLevel);
-  const availableSlots = levelConfig.simultaneousCircles - state.activeCircleIds.length;
+  const availableSlots =
+    levelConfig.simultaneousCircles - state.activeCircleIds.length;
 
   if (availableSlots <= 0) {
     return state;
@@ -353,19 +360,24 @@ export const activateSurvivalCircles = (
 
   const currentTime = Date.now();
   const updatedRecentlyUsed = new Map(state.recentlyUsedCircles);
-  selectedIds.forEach(id => {
+
+  selectedIds.forEach((id) => {
     updatedRecentlyUsed.set(id, currentTime);
   });
 
-  const whiteCirclesNeeded = Math.max(1, selectedIds.length - levelConfig.redCircles);
+  const whiteCirclesNeeded = Math.max(
+    1,
+    selectedIds.length - levelConfig.redCircles,
+  );
   const actualRedCircles = Math.min(
     levelConfig.redCircles,
     selectedIds.length - whiteCirclesNeeded,
   );
 
   const shuffledIds = [...selectedIds].sort(() => Math.random() - 0.5);
-  const redIds = actualRedCircles > 0 ? shuffledIds.slice(0, actualRedCircles) : [];
-  const whiteIds = selectedIds.filter(id => !redIds.includes(id));
+  const redIds =
+    actualRedCircles > 0 ? shuffledIds.slice(0, actualRedCircles) : [];
+  const whiteIds = selectedIds.filter((id) => !redIds.includes(id));
 
   const newActiveCircleIds = [...state.activeCircleIds, ...selectedIds];
   const newCircleTimeouts = new Map(state.circleTimeouts);
@@ -396,6 +408,7 @@ export const activateSurvivalCircles = (
         isDecoy,
       };
     }
+
     return circle;
   });
 
@@ -480,7 +493,9 @@ export const deactivateSurvivalCircle = (
   state: SurvivalGameState,
   circleId: number,
 ): SurvivalGameState => {
-  const newActiveCircleIds = state.activeCircleIds.filter((id) => id !== circleId);
+  const newActiveCircleIds = state.activeCircleIds.filter(
+    (id) => id !== circleId,
+  );
   const newCircleTimeouts = new Map(state.circleTimeouts);
   const timeout = newCircleTimeouts.get(circleId);
 

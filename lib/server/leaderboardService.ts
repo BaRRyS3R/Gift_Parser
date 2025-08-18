@@ -94,7 +94,8 @@ export const serverLeaderboardService = {
       // Single database query to fetch all users with game data
       const { data: allUsers, error } = await supabaseServer
         .from("users")
-        .select(`
+        .select(
+          `
           id,
           telegram_id,
           first_name,
@@ -121,8 +122,11 @@ export const serverLeaderboardService = {
           rotation_best_streak,
           rotation_total_hits,
           rotation_games
-        `)
-        .or('total_games.gt.0,reaction_games.gt.0,survival_games.gt.0,physics_games.gt.0,rotation_games.gt.0');
+        `,
+        )
+        .or(
+          "total_games.gt.0,reaction_games.gt.0,survival_games.gt.0,physics_games.gt.0,rotation_games.gt.0",
+        );
 
       if (error) {
         console.error("Error fetching users data:", error);
@@ -133,10 +137,26 @@ export const serverLeaderboardService = {
 
       // Process all leaderboards in memory
       const season = this.processSeasonLeaderboard(users, currentUserId, limit);
-      const reaction = this.processReactionLeaderboard(users, currentUserId, limit);
-      const survival = this.processSurvivalLeaderboard(users, currentUserId, limit);
-      const physics = this.processPhysicsLeaderboard(users, currentUserId, limit);
-      const rotation = this.processRotationLeaderboard(users, currentUserId, limit);
+      const reaction = this.processReactionLeaderboard(
+        users,
+        currentUserId,
+        limit,
+      );
+      const survival = this.processSurvivalLeaderboard(
+        users,
+        currentUserId,
+        limit,
+      );
+      const physics = this.processPhysicsLeaderboard(
+        users,
+        currentUserId,
+        limit,
+      );
+      const rotation = this.processRotationLeaderboard(
+        users,
+        currentUserId,
+        limit,
+      );
       const userRankings = this.calculateUserRankings(users, telegramId);
 
       return {
@@ -159,14 +179,15 @@ export const serverLeaderboardService = {
   processSeasonLeaderboard(
     allUsers: any[],
     currentUserId: string,
-    limit: number = 100
+    limit: number = 100,
   ): SafeSeasonLeaderboard[] {
     const filtered = allUsers
-      .filter(user => user.total_games > 0)
+      .filter((user) => user.total_games > 0)
       .sort((a, b) => {
         if (b.total_score !== a.total_score) {
           return b.total_score - a.total_score;
         }
+
         return b.total_games - a.total_games;
       })
       .slice(0, limit);
@@ -188,14 +209,15 @@ export const serverLeaderboardService = {
   processReactionLeaderboard(
     allUsers: any[],
     currentUserId: string,
-    limit: number = 100
+    limit: number = 100,
   ): SafeReactionLeaderboard[] {
     const filtered = allUsers
-      .filter(user => user.reaction_games > 0 && user.reaction_best_time > 0)
+      .filter((user) => user.reaction_games > 0 && user.reaction_best_time > 0)
       .sort((a, b) => {
         if (a.reaction_best_time !== b.reaction_best_time) {
           return a.reaction_best_time - b.reaction_best_time;
         }
+
         return b.reaction_best_score - a.reaction_best_score;
       })
       .slice(0, limit);
@@ -218,10 +240,10 @@ export const serverLeaderboardService = {
   processSurvivalLeaderboard(
     allUsers: any[],
     currentUserId: string,
-    limit: number = 100
+    limit: number = 100,
   ): SafeSurvivalLeaderboard[] {
     const filtered = allUsers
-      .filter(user => user.survival_games > 0)
+      .filter((user) => user.survival_games > 0)
       .sort((a, b) => {
         if (b.survival_best_score !== a.survival_best_score) {
           return b.survival_best_score - a.survival_best_score;
@@ -229,6 +251,7 @@ export const serverLeaderboardService = {
         if (b.survival_best_time !== a.survival_best_time) {
           return b.survival_best_time - a.survival_best_time;
         }
+
         return b.survival_max_level - a.survival_max_level;
       })
       .slice(0, limit);
@@ -253,10 +276,10 @@ export const serverLeaderboardService = {
   processPhysicsLeaderboard(
     allUsers: any[],
     currentUserId: string,
-    limit: number = 100
+    limit: number = 100,
   ): SafePhysicsLeaderboard[] {
     const filtered = allUsers
-      .filter(user => user.physics_games > 0)
+      .filter((user) => user.physics_games > 0)
       .sort((a, b) => {
         if (b.physics_best_score !== a.physics_best_score) {
           return b.physics_best_score - a.physics_best_score;
@@ -264,6 +287,7 @@ export const serverLeaderboardService = {
         if (b.physics_best_time !== a.physics_best_time) {
           return b.physics_best_time - a.physics_best_time;
         }
+
         return b.physics_best_hits - a.physics_best_hits;
       })
       .slice(0, limit);
@@ -288,10 +312,10 @@ export const serverLeaderboardService = {
   processRotationLeaderboard(
     allUsers: any[],
     currentUserId: string,
-    limit: number = 100
+    limit: number = 100,
   ): SafeRotationLeaderboard[] {
     const filtered = allUsers
-      .filter(user => user.rotation_games > 0)
+      .filter((user) => user.rotation_games > 0)
       .sort((a, b) => {
         if (b.rotation_best_score !== a.rotation_best_score) {
           return b.rotation_best_score - a.rotation_best_score;
@@ -299,6 +323,7 @@ export const serverLeaderboardService = {
         if (b.rotation_best_time !== a.rotation_best_time) {
           return b.rotation_best_time - a.rotation_best_time;
         }
+
         return b.rotation_max_level - a.rotation_max_level;
       })
       .slice(0, limit);
@@ -322,7 +347,7 @@ export const serverLeaderboardService = {
    * Calculate user rankings from fetched data
    */
   calculateUserRankings(allUsers: any[], telegramId: number): UserRankings {
-    const user = allUsers.find(u => u.telegram_id === telegramId);
+    const user = allUsers.find((u) => u.telegram_id === telegramId);
 
     if (!user) {
       return {};
@@ -332,52 +357,67 @@ export const serverLeaderboardService = {
 
     // Season ranking
     if (user.total_games > 0) {
-      const betterUsers = allUsers.filter(u =>
-        u.total_games > 0 &&
-        (u.total_score > user.total_score ||
-          (u.total_score === user.total_score && u.total_games > user.total_games))
+      const betterUsers = allUsers.filter(
+        (u) =>
+          u.total_games > 0 &&
+          (u.total_score > user.total_score ||
+            (u.total_score === user.total_score &&
+              u.total_games > user.total_games)),
       );
+
       rankings.season = betterUsers.length + 1;
     }
 
     // Reaction ranking
     if (user.reaction_games > 0 && user.reaction_best_time > 0) {
-      const betterUsers = allUsers.filter(u =>
-        u.reaction_games > 0 &&
-        u.reaction_best_time > 0 &&
-        (u.reaction_best_time < user.reaction_best_time ||
-          (u.reaction_best_time === user.reaction_best_time && u.reaction_best_score > user.reaction_best_score))
+      const betterUsers = allUsers.filter(
+        (u) =>
+          u.reaction_games > 0 &&
+          u.reaction_best_time > 0 &&
+          (u.reaction_best_time < user.reaction_best_time ||
+            (u.reaction_best_time === user.reaction_best_time &&
+              u.reaction_best_score > user.reaction_best_score)),
       );
+
       rankings.reaction = betterUsers.length + 1;
     }
 
     // Survival ranking
     if (user.survival_games > 0) {
-      const betterUsers = allUsers.filter(u =>
-        u.survival_games > 0 &&
-        (u.survival_best_score > user.survival_best_score ||
-          (u.survival_best_score === user.survival_best_score && u.survival_best_time > user.survival_best_time))
+      const betterUsers = allUsers.filter(
+        (u) =>
+          u.survival_games > 0 &&
+          (u.survival_best_score > user.survival_best_score ||
+            (u.survival_best_score === user.survival_best_score &&
+              u.survival_best_time > user.survival_best_time)),
       );
+
       rankings.survival = betterUsers.length + 1;
     }
 
     // Physics ranking
     if (user.physics_games > 0) {
-      const betterUsers = allUsers.filter(u =>
-        u.physics_games > 0 &&
-        (u.physics_best_score > user.physics_best_score ||
-          (u.physics_best_score === user.physics_best_score && u.physics_best_time > user.physics_best_time))
+      const betterUsers = allUsers.filter(
+        (u) =>
+          u.physics_games > 0 &&
+          (u.physics_best_score > user.physics_best_score ||
+            (u.physics_best_score === user.physics_best_score &&
+              u.physics_best_time > user.physics_best_time)),
       );
+
       rankings.physics = betterUsers.length + 1;
     }
 
     // Rotation ranking
     if (user.rotation_games > 0) {
-      const betterUsers = allUsers.filter(u =>
-        u.rotation_games > 0 &&
-        (u.rotation_best_score > user.rotation_best_score ||
-          (u.rotation_best_score === user.rotation_best_score && u.rotation_best_time > user.rotation_best_time))
+      const betterUsers = allUsers.filter(
+        (u) =>
+          u.rotation_games > 0 &&
+          (u.rotation_best_score > user.rotation_best_score ||
+            (u.rotation_best_score === user.rotation_best_score &&
+              u.rotation_best_time > user.rotation_best_time)),
       );
+
       rankings.rotation = betterUsers.length + 1;
     }
 
@@ -392,14 +432,16 @@ export const serverLeaderboardService = {
     // For backward compatibility - get all data and extract season
     const { data, error } = await supabaseServer
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         first_name,
         last_name,
         username,
         total_score,
         total_games
-      `)
+      `,
+      )
       .gt("total_games", 0)
       .order("total_score", { ascending: false })
       .order("total_games", { ascending: false })
@@ -427,7 +469,8 @@ export const serverLeaderboardService = {
   ): Promise<SafeReactionLeaderboard[]> {
     const { data, error } = await supabaseServer
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         first_name,
         last_name,
@@ -435,7 +478,8 @@ export const serverLeaderboardService = {
         reaction_best_time,
         reaction_games,
         reaction_best_score
-      `)
+      `,
+      )
       .gt("reaction_games", 0)
       .gt("reaction_best_time", 0)
       .order("reaction_best_time", { ascending: true })
@@ -465,7 +509,8 @@ export const serverLeaderboardService = {
   ): Promise<SafeSurvivalLeaderboard[]> {
     const { data, error } = await supabaseServer
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         first_name,
         last_name,
@@ -475,7 +520,8 @@ export const serverLeaderboardService = {
         survival_max_level,
         survival_best_streak,
         survival_games
-      `)
+      `,
+      )
       .gt("survival_games", 0)
       .order("survival_best_score", { ascending: false })
       .order("survival_best_time", { ascending: false })
@@ -507,7 +553,8 @@ export const serverLeaderboardService = {
   ): Promise<SafePhysicsLeaderboard[]> {
     const { data, error } = await supabaseServer
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         first_name,
         last_name,
@@ -517,7 +564,8 @@ export const serverLeaderboardService = {
         physics_best_hits,
         physics_least_mistakes,
         physics_games
-      `)
+      `,
+      )
       .gt("physics_games", 0)
       .order("physics_best_score", { ascending: false })
       .order("physics_best_time", { ascending: false })
@@ -549,7 +597,8 @@ export const serverLeaderboardService = {
   ): Promise<SafeRotationLeaderboard[]> {
     const { data, error } = await supabaseServer
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         first_name,
         last_name,
@@ -560,7 +609,8 @@ export const serverLeaderboardService = {
         rotation_best_streak,
         rotation_total_hits,
         rotation_games
-      `)
+      `,
+      )
       .gt("rotation_games", 0)
       .order("rotation_best_score", { ascending: false })
       .order("rotation_best_time", { ascending: false })

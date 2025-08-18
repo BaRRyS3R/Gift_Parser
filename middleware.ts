@@ -1,14 +1,14 @@
 // src/middleware.ts - Updated middleware with centralized CORS
 
 import type { NextRequest } from "next/server";
+
 import { NextResponse } from "next/server";
 
 import { verifyJWT, extractTokenFromHeader } from "./lib/jwt";
-import { 
-  applyCorsHeaders, 
-  handleCorsPreflightRequest, 
+import {
+  applyCorsHeaders,
+  handleCorsPreflightRequest,
   isPublicPath,
-  isCronRequest 
 } from "./lib/cors";
 
 // Конфигурация для middleware - покрываем ВСЕ API роуты
@@ -28,34 +28,38 @@ export async function middleware(request: NextRequest) {
   // 1. Обрабатываем OPTIONS (preflight) запросы первыми
   if (method === "OPTIONS") {
     console.log(`[Middleware] Handling OPTIONS preflight for ${pathname}`);
+
     return handleCorsPreflightRequest(request);
   }
 
   // 2. Проверяем, является ли путь публичным
   const isPublic = isPublicPath(pathname);
-  
+
   // 3. Специальная обработка для CRON задач
   if (pathname.startsWith("/api/cron")) {
     const authHeader = request.headers.get("Authorization");
     const apiKey = authHeader?.replace("Bearer ", "");
     const cronApiKey = process.env.CRON_API_KEY;
-    
+
     if (!apiKey || !cronApiKey || apiKey !== cronApiKey) {
-      console.warn(`[Middleware] Unauthorized CRON access attempt for ${pathname}`);
-      
+      console.warn(
+        `[Middleware] Unauthorized CRON access attempt for ${pathname}`,
+      );
+
       const response = NextResponse.json(
         {
           error: "Unauthorized access",
           code: "CRON_AUTH_FAILED",
         },
-        { status: 401 }
+        { status: 401 },
       );
-      
+
       return applyCorsHeaders(request, response);
     }
-    
+
     console.log(`[Middleware] CRON authentication successful for ${pathname}`);
     const response = NextResponse.next();
+
     return applyCorsHeaders(request, response);
   }
 
@@ -63,6 +67,7 @@ export async function middleware(request: NextRequest) {
   if (isPublic) {
     console.log(`[Middleware] Public endpoint accessed: ${pathname}`);
     const response = NextResponse.next();
+
     return applyCorsHeaders(request, response);
   }
 
@@ -72,17 +77,19 @@ export async function middleware(request: NextRequest) {
     const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
-      console.log(`[Middleware] Missing token for protected route: ${pathname}`);
-      
+      console.log(
+        `[Middleware] Missing token for protected route: ${pathname}`,
+      );
+
       const response = NextResponse.json(
         {
           error: "Authentication required",
           code: "MISSING_TOKEN",
           message: "No authentication token provided",
         },
-        { status: 401 }
+        { status: 401 },
       );
-      
+
       return applyCorsHeaders(request, response);
     }
 
@@ -92,6 +99,7 @@ export async function middleware(request: NextRequest) {
 
     // Добавляем данные пользователя в заголовки для API роутов
     const requestHeaders = new Headers(request.headers);
+
     requestHeaders.set("X-User-ID", payload.userId);
     requestHeaders.set("X-Telegram-ID", payload.telegramId.toString());
     requestHeaders.set("X-Auth-Verified", "true");
@@ -107,11 +115,11 @@ export async function middleware(request: NextRequest) {
 
     // Применяем CORS заголовки
     return applyCorsHeaders(request, response);
-    
   } catch (error) {
     console.error(`[Middleware] JWT validation error for ${pathname}:`, error);
 
-    const errorMessage = error instanceof Error ? error.message : "Authentication failed";
+    const errorMessage =
+      error instanceof Error ? error.message : "Authentication failed";
     let statusCode = 401;
     let errorCode = "INVALID_TOKEN";
 
@@ -128,7 +136,7 @@ export async function middleware(request: NextRequest) {
         message: errorMessage,
         code: errorCode,
       },
-      { status: statusCode }
+      { status: statusCode },
     );
 
     return applyCorsHeaders(request, response);

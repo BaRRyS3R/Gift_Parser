@@ -117,7 +117,7 @@ export default function TasksPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -338,8 +338,8 @@ export default function TasksPage() {
       {/* Cat Easter Egg - positioned between header and content */}
       <CatEasterEgg
         isVisible={showCatEasterEgg}
-        onComplete={handleCloseCatEasterEgg}
         makeAuthenticatedRequest={makeAuthenticatedRequest}
+        onComplete={handleCloseCatEasterEgg}
       />
 
       {/* Error message */}
@@ -442,10 +442,10 @@ function TaskCard({
       style={
         task.image_url
           ? {
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }
+              backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }
           : undefined
       }
     >
@@ -498,12 +498,13 @@ function TaskCard({
               <Button
                 className={`
                                     relative z-20 
-                                    ${button.variant === "success"
-                    ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
-                    : button.variant === "secondary"
-                      ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
-                      : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
-                  }
+                                    ${
+                                      button.variant === "success"
+                                        ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
+                                        : button.variant === "secondary"
+                                          ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
+                                          : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
+                                    }
                                     disabled:opacity-50 disabled:cursor-not-allowed
                                 `}
                 isDisabled={button.disabled}

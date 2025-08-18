@@ -151,9 +151,12 @@ export const profile = {
       lightningReflexes: "SUB {time}MS REACTION",
 
       // NEW: Easter Egg achievement descriptions
-      binaryEasterEgg: "Found the secret binary sequence. Congrats, you can count to 2!",
-      catEasterEgg: "A mysterious cat appeared. Did you pet it or did it judge you?",
-      winxEasterEgg: "Became a Winx fairy! Your transformation was... magical? Or just lucky.",
+      binaryEasterEgg:
+        "Found the secret binary sequence. Congrats, you can count to 2!",
+      catEasterEgg:
+        "A mysterious cat appeared. Did you pet it or did it judge you?",
+      winxEasterEgg:
+        "Became a Winx fairy! Your transformation was... magical? Or just lucky.",
     },
   },
 } as const;

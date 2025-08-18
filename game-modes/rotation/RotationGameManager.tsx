@@ -109,10 +109,12 @@ export default function RotationGameManager() {
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === "visible";
 
-      if (!isVisible && lastVisibilityState.current &&
+      if (
+        !isVisible &&
+        lastVisibilityState.current &&
         gameStateRef.current.gameState === GameState.PLAYING &&
-        !isGameEndingRef.current) {
-
+        !isGameEndingRef.current
+      ) {
         endGame("app_minimized");
       }
 
@@ -121,24 +123,30 @@ export default function RotationGameManager() {
 
     const handleWindowBlur = () => {
       setTimeout(() => {
-        if (document.visibilityState !== "visible" &&
+        if (
+          document.visibilityState !== "visible" &&
           gameStateRef.current.gameState === GameState.PLAYING &&
-          !isGameEndingRef.current) {
+          !isGameEndingRef.current
+        ) {
           endGame("app_minimized");
         }
       }, 100);
     };
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (gameStateRef.current.gameState === GameState.PLAYING &&
-        !isGameEndingRef.current) {
+      if (
+        gameStateRef.current.gameState === GameState.PLAYING &&
+        !isGameEndingRef.current
+      ) {
         endGame("app_minimized");
       }
     };
 
     const handlePageHide = () => {
-      if (gameStateRef.current.gameState === GameState.PLAYING &&
-        !isGameEndingRef.current) {
+      if (
+        gameStateRef.current.gameState === GameState.PLAYING &&
+        !isGameEndingRef.current
+      ) {
         endGame("app_minimized");
       }
     };
@@ -149,17 +157,21 @@ export default function RotationGameManager() {
         const tg = window.Telegram.WebApp;
 
         const handleViewportChanged = (params: any) => {
-          if (params.isStateStable === false &&
+          if (
+            params.isStateStable === false &&
             gameStateRef.current.gameState === GameState.PLAYING &&
-            !isGameEndingRef.current) {
+            !isGameEndingRef.current
+          ) {
             endGame("app_minimized");
           }
         };
 
         const handleThemeChanged = () => {
-          if (gameStateRef.current.gameState === GameState.PLAYING &&
+          if (
+            gameStateRef.current.gameState === GameState.PLAYING &&
             document.visibilityState !== "visible" &&
-            !isGameEndingRef.current) {
+            !isGameEndingRef.current
+          ) {
             endGame("app_minimized");
           }
         };
@@ -172,7 +184,8 @@ export default function RotationGameManager() {
           tg.offEvent("themeChanged", handleThemeChanged);
         };
       }
-      return () => { };
+
+      return () => {};
     };
 
     // Subscribe to events
@@ -187,9 +200,11 @@ export default function RotationGameManager() {
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       const handleOrientationChange = () => {
         setTimeout(() => {
-          if (document.visibilityState !== "visible" &&
+          if (
+            document.visibilityState !== "visible" &&
             gameStateRef.current.gameState === GameState.PLAYING &&
-            !isGameEndingRef.current) {
+            !isGameEndingRef.current
+          ) {
             endGame("app_minimized");
           }
         }, 300);
@@ -198,11 +213,17 @@ export default function RotationGameManager() {
       window.addEventListener("orientationchange", handleOrientationChange);
 
       return () => {
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
         window.removeEventListener("blur", handleWindowBlur);
         window.removeEventListener("beforeunload", handleBeforeUnload);
         window.removeEventListener("pagehide", handlePageHide);
-        window.removeEventListener("orientationchange", handleOrientationChange);
+        window.removeEventListener(
+          "orientationchange",
+          handleOrientationChange,
+        );
         cleanupTelegram();
       };
     }
@@ -227,7 +248,7 @@ export default function RotationGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -259,6 +280,7 @@ export default function RotationGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -306,7 +328,7 @@ export default function RotationGameManager() {
                 .catch(() => ({}));
             }
           }
-        } catch (error) { }
+        } catch (error) {}
       };
 
       let attemptCount = 1;
@@ -420,6 +442,7 @@ export default function RotationGameManager() {
         };
 
         const result = createRotationGameResult(finalGameState);
+
         // Add app_minimized death cause if applicable
         if (cause === "app_minimized") {
           (result as any).deathCause = "app_minimized";
@@ -456,7 +479,7 @@ export default function RotationGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -602,7 +625,6 @@ export default function RotationGameManager() {
             prev.filter((id) => id !== circleId),
           );
         }, 100);
-
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");
@@ -658,6 +680,7 @@ export default function RotationGameManager() {
             isGameEndingRef.current
           ) {
             clearInterval(levelInterval);
+
             return current;
           }
 
@@ -833,78 +856,78 @@ export default function RotationGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-              <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
-                      <span className="text-sm text-orange-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+            <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                    <span className="text-sm text-orange-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recordingRotation")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-orange-400/60" size={14} />
-                          <span className="text-xs text-orange-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-orange-400/20 rounded-full h-1">
-                          <div
-                            className="bg-orange-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                        : t("save.recordingRotation")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.rotationRecordedSuccessfully")}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-orange-400/60" size={14} />
+                        <span className="text-xs text-orange-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-orange-400/20 rounded-full h-1">
+                        <div
+                          className="bg-orange-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.rotationRecordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-orange-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      {t("save.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-orange-400 text-sm">
+                      {t("save.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <button
+                    className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    {t("save.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
@@ -936,10 +959,11 @@ export default function RotationGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
-                ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
-                }`}
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                isPlayingAgain || playAgainError.show
+                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                  : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
+              }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
             >
@@ -966,6 +990,7 @@ export default function RotationGameManager() {
       <div className="flex-1 flex items-center justify-center">
         <RotatingCircleGrid
           circles={gameState.circles}
+          instantlyDeactivatedCircles={instantlyDeactivatedCircles}
           isGameActive={gameState.gameState === GameState.PLAYING}
           lastActivationTimestamp={lastActivationTimestamp}
           radius={gameState.config.radius}
@@ -973,7 +998,6 @@ export default function RotationGameManager() {
           showCircles={showCircles}
           onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
-          instantlyDeactivatedCircles={instantlyDeactivatedCircles}
         />
       </div>
 

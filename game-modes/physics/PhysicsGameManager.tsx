@@ -105,30 +105,36 @@ export default function PhysicsGameManager() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === "visible";
-      
+
       // Если приложение стало невидимым и игра активна
-      if (!isVisible && lastVisibilityState.current && 
-          gameStateRef.current.gameState === GameState.PLAYING && 
-          !isGameEndingRef.current) {
-        
+      if (
+        !isVisible &&
+        lastVisibilityState.current &&
+        gameStateRef.current.gameState === GameState.PLAYING &&
+        !isGameEndingRef.current
+      ) {
         endGame("app_minimized");
       }
-      
+
       lastVisibilityState.current = isVisible;
     };
 
     const handleBlur = () => {
       // Дополнительная проверка при потере фокуса окна
-      if (gameStateRef.current.gameState === GameState.PLAYING && 
-          !isGameEndingRef.current) {
+      if (
+        gameStateRef.current.gameState === GameState.PLAYING &&
+        !isGameEndingRef.current
+      ) {
         endGame("app_minimized");
       }
     };
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       // Завершение игры при попытке закрыть/обновить страницу
-      if (gameStateRef.current.gameState === GameState.PLAYING && 
-          !isGameEndingRef.current) {
+      if (
+        gameStateRef.current.gameState === GameState.PLAYING &&
+        !isGameEndingRef.current
+      ) {
         endGame("app_minimized");
       }
     };
@@ -137,19 +143,23 @@ export default function PhysicsGameManager() {
     const handleTelegramEvents = () => {
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
-        
+
         // Обработка событий Telegram
         tg.onEvent("viewportChanged", (params: any) => {
-          if (params.isStateStable === false && 
-              gameStateRef.current.gameState === GameState.PLAYING) {
+          if (
+            params.isStateStable === false &&
+            gameStateRef.current.gameState === GameState.PLAYING
+          ) {
             endGame("app_minimized");
           }
         });
 
         tg.onEvent("themeChanged", () => {
           // При смене темы также может означать сворачивание
-          if (gameStateRef.current.gameState === GameState.PLAYING && 
-              document.visibilityState !== "visible") {
+          if (
+            gameStateRef.current.gameState === GameState.PLAYING &&
+            document.visibilityState !== "visible"
+          ) {
             endGame("app_minimized");
           }
         });
@@ -160,7 +170,7 @@ export default function PhysicsGameManager() {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
     window.addEventListener("beforeunload", handleBeforeUnload);
-    
+
     // Инициализация Telegram событий
     handleTelegramEvents();
 
@@ -224,6 +234,7 @@ export default function PhysicsGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
