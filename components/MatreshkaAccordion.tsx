@@ -113,7 +113,7 @@ export default function MatreshkaAccordion() {
                   Congratz! 🎊
                 </div>
                 <p className="text-white/70 text-sm">
-                  You've reached the final level!
+                  Final level!
                 </p>
                 <Button
                   className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold"
@@ -121,7 +121,7 @@ export default function MatreshkaAccordion() {
                   startContent={<Play size={20} />}
                   onPress={openVideoModal}
                 >
-                  Watch Reward Video
+                  Reward
                 </Button>
               </div>
             ) : (
@@ -140,7 +140,7 @@ export default function MatreshkaAccordion() {
     <div className="w-full max-w-2xl mx-auto">
       <div className="text-center mb-4">
         <span className="text-white/40 text-xs uppercase tracking-wider">
-          Bonus Content
+          Bonus
         </span>
       </div>
       {renderLevel(firstLevel)}
@@ -164,7 +164,7 @@ export default function MatreshkaAccordion() {
               🎉 Congratulations! 🎉
             </h2>
             <p className="text-white/70 text-sm text-center">
-              You've unlocked the secret matreshka reward!
+              You&aptos;ve unlocked the secret matreshka reward!
             </p>
           </ModalHeader>
           <ModalBody>
