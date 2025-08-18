@@ -115,7 +115,7 @@ export default function MatreshkaAccordion() {
                   startContent={<Play size={20} />}
                   onPress={openVideoModal}
                 >
-                  Reward
+                  🎁
                 </Button>
               </div>
             ) : (
@@ -155,11 +155,8 @@ export default function MatreshkaAccordion() {
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <h2 className="text-2xl font-bold text-center">
-              🎉 Congratulations! 🎉
+              🎉🎉🎉🎉🎉🎉
             </h2>
-            <p className="text-white/70 text-sm text-center">
-              You&aptos;ve unlocked the secret matreshka reward!
-            </p>
           </ModalHeader>
           <ModalBody>
             <div className="flex justify-center">
