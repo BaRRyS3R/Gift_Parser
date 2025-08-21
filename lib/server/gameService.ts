@@ -274,11 +274,19 @@ export const serverGameService = {
    * ВСПОМОГАТЕЛЬНЫЕ методы для дополнительных систем
    */
   async processAchievements(telegramId: number): Promise<AchievementResult | null> {
+    const startTime = Date.now();
+    console.log(`[DEBUG-ACH] Starting achievements check for user ${telegramId}`);
+
     try {
       // Импорт должен быть динамическим для избежания circular dependencies
       const { serverAchievementsService } = await import('./achievementsService');
 
+      console.log(`[DEBUG-ACH] Calling serverAchievementsService.checkAndAwardAchievements...`);
       const achievements = await serverAchievementsService.checkAndAwardAchievements(telegramId);
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.log(`[DEBUG-ACH] Achievements check completed in ${duration}ms, found ${achievements.length} achievements`);
 
       return {
         achievements: achievements.map((achievement: any) => ({
@@ -292,21 +300,31 @@ export const serverGameService = {
         ),
       };
     } catch (error) {
-      console.error('Error processing achievements:', error);
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.error(`[DEBUG-ACH] Achievements error after ${duration}ms:`, error);
       return null;
     }
   },
 
   async processQuests(userId: string, gameResult: GameResult): Promise<QuestResult | null> {
+    const startTime = Date.now();
+    console.log(`[DEBUG-QUEST] Starting quests check for user ${userId}, mode ${gameResult.mode}`);
+
     try {
       // Импорт должен быть динамическим для избежания circular dependencies
       const { serverDailyQuestsService } = await import('./dailyQuestsService');
 
+      console.log(`[DEBUG-QUEST] Calling serverDailyQuestsService.processGameQuestUpdates...`);
       const questResults = await serverDailyQuestsService.processGameQuestUpdates(
         userId,
         gameResult.mode,
         gameResult
       );
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.log(`[DEBUG-QUEST] Quests check completed in ${duration}ms, found ${questResults.length} quest updates`);
 
       return {
         completions: questResults.map(result => ({
@@ -320,7 +338,9 @@ export const serverGameService = {
         ),
       };
     } catch (error) {
-      console.error('Error processing quests:', error);
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.error(`[DEBUG-QUEST] Quests error after ${duration}ms:`, error);
       return null;
     }
   },
@@ -330,31 +350,42 @@ export const serverGameService = {
     gameResult: GameResult,
     modeSpecificScore: number
   ): Promise<TournamentResult | null> {
+    const startTime = Date.now();
+    console.log(`[DEBUG-TOUR] Starting tournament check for user ${telegramId}, mode ${gameResult.mode}`);
+
     try {
       // Импорт должен быть динамическим для избежания circular dependencies
       const { serverTournamentService } = await import('./tournamentService');
 
+      console.log(`[DEBUG-TOUR] Checking if tournament is active for mode ${gameResult.mode}...`);
       const isTournamentActive = await serverTournamentService.isTournamentActiveForMode(
         gameResult.mode
       );
 
       if (!isTournamentActive) {
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+        console.log(`[DEBUG-TOUR] No active tournament for mode ${gameResult.mode} (${duration}ms)`);
         return null;
       }
 
+      console.log(`[DEBUG-TOUR] Getting active tournament...`);
       const activeTournament = await serverTournamentService.getActiveTournament();
 
       if (!activeTournament || activeTournament.mode !== gameResult.mode.toLowerCase()) {
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+        console.log(`[DEBUG-TOUR] Tournament mode mismatch or not found (${duration}ms)`);
         return null;
       }
 
-      // Get previous position
+      console.log(`[DEBUG-TOUR] Getting previous position...`);
       const previousPosition = await serverTournamentService.getUserTournamentPosition(
         activeTournament.id,
         telegramId
       );
 
-      // Get user info for tournament
+      console.log(`[DEBUG-TOUR] Getting user info...`);
       const { data: user } = await supabaseServer
         .from('users')
         .select('id, first_name, last_name, username, is_premium')
@@ -362,13 +393,16 @@ export const serverGameService = {
         .single();
 
       if (!user) {
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+        console.log(`[DEBUG-TOUR] User not found for tournament (${duration}ms)`);
         return null;
       }
 
-      // Convert game result to tournament format
+      console.log(`[DEBUG-TOUR] Converting game result to tournament format...`);
       const tournamentGameResult = this.convertToTournamentFormat(gameResult);
 
-      // Update tournament leaderboard
+      console.log(`[DEBUG-TOUR] Updating tournament leaderboard...`);
       await serverTournamentService.updateTournamentLeaderboard(
         activeTournament.id,
         telegramId,
@@ -382,7 +416,7 @@ export const serverGameService = {
         }
       );
 
-      // Get new position
+      console.log(`[DEBUG-TOUR] Getting new position...`);
       const newPosition = await serverTournamentService.getUserTournamentPosition(
         activeTournament.id,
         telegramId
@@ -394,6 +428,10 @@ export const serverGameService = {
       const improved = !previousPosition ||
         (newPosition && newPosition.position < previousPosition.position);
 
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.log(`[DEBUG-TOUR] Tournament processing completed in ${duration}ms`);
+
       return {
         tournamentId: activeTournament.id,
         tournamentName: activeTournament.name,
@@ -402,7 +440,9 @@ export const serverGameService = {
         improved: Boolean(improved),
       };
     } catch (error) {
-      console.error('Error processing tournament:', error);
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.error(`[DEBUG-TOUR] Tournament error after ${duration}ms:`, error);
       return null;
     }
   },
