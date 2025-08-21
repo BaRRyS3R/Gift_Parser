@@ -20,10 +20,14 @@ import { seasons } from "./seasons";
 import { levels } from "./levels";
 import { memes } from "./memes";
 import { tournaments } from "./tournaments";
+import { quests } from "./quests";
 
 export const en = {
   // Common UI elements
   common,
+
+  // Daily Quests
+  quests,
 
   // Levels
   levels,

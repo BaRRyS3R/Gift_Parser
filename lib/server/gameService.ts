@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with tournament system integration
+// src/lib/server/gameService.ts - Updated with daily quests integration
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -9,6 +9,7 @@ import { supabaseServer } from "../supabase_server";
 
 import { serverAchievementsService } from "./achievementsService";
 import { serverTournamentService } from "./tournamentService";
+import { serverDailyQuestsService } from "./dailyQuestsService"; // NEW: Daily quests integration
 
 import { GameMode } from "@/types/game-modes/common";
 
@@ -19,7 +20,7 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Enhanced game save result with tournaments and achievements
+// Enhanced game save result with tournaments, achievements, and daily quests
 export interface GameSaveResult {
   success: boolean;
   levelChanged?: boolean;
@@ -40,6 +41,13 @@ export interface GameSaveResult {
     position?: number;
     improved: boolean;
   };
+  // NEW: Daily quest information
+  questCompletions?: Array<{
+    questId: string;
+    completed: boolean;
+    attemptsAwarded: number;
+  }>;
+  questAttemptsAwarded?: number;
   error?: string;
 }
 
@@ -188,7 +196,7 @@ function convertToTournamentGameResult(gameResult: GameResult): any {
 // Server-side game service
 export const serverGameService = {
   /**
-   * Update user game statistics with level, achievement and tournament system integration
+   * Update user game statistics with level, achievement, tournament, and quest system integration
    */
   async updateGameStats(
     telegramId: number,
@@ -357,6 +365,31 @@ export const serverGameService = {
       throw new Error("Failed to update user statistics");
     }
 
+    // NEW: Process daily quest updates after user stats are updated
+    let questCompletions: any[] = [];
+    let questAttemptsAwarded = 0;
+
+    try {
+      const questResults = await serverDailyQuestsService.processGameQuestUpdates(
+        user.id,
+        gameResult.mode,
+        gameResult,
+      );
+
+      questCompletions = questResults.map(result => ({
+        questId: result.questId,
+        completed: result.completed,
+        attemptsAwarded: result.attemptsAwarded,
+      }));
+
+      questAttemptsAwarded = questResults.reduce(
+        (total, result) => total + result.attemptsAwarded,
+        0,
+      );
+    } catch (questError) {
+      console.warn("Daily quest update failed but game saved:", questError);
+    }
+
     // Check and award achievements after stats update (with error handling)
     let newAchievements: any[] = [];
     let achievementAttemptsAwarded = 0;
@@ -450,7 +483,7 @@ export const serverGameService = {
     }
 
     const totalAttemptsAwarded =
-      levelAttemptsAwarded + achievementAttemptsAwarded;
+      levelAttemptsAwarded + achievementAttemptsAwarded + questAttemptsAwarded;
 
     // Prepare response
     const response: GameSaveResult = {
@@ -469,6 +502,16 @@ export const serverGameService = {
         name: achievement.achievement_name,
         attemptsAwarded: achievement.attempts_awarded,
       }));
+    }
+
+    // NEW: Add quest completion information
+    if (questCompletions.length > 0) {
+      response.questCompletions = questCompletions;
+      response.questAttemptsAwarded = questAttemptsAwarded;
+    }
+
+    // Update total attempts awarded to include all sources
+    if (totalAttemptsAwarded > 0) {
       response.totalAttemptsAwarded = totalAttemptsAwarded;
     }
 
