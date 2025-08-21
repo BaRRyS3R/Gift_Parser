@@ -491,7 +491,7 @@ export const serverTournamentService = {
       const result = data[0];
       
       return {
-        position: result.user_position,
+        position: Number(result.user_position), // ИСПРАВЛЕНО: Используем user_position и приводим к number
         entry: {
           tournament_id: tournamentId,
           first_name: result.first_name,
