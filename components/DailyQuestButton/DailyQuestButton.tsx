@@ -1,6 +1,6 @@
-// src/components/DailyQuestButton/DailyQuestButton.tsx
+// src/components/DailyQuestButton/DailyQuestButton.tsx - Оптимизировано
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Target, CheckCircle, Clock } from "lucide-react";
 import { useDailyQuests } from "@/hooks/modules/useDailyQuests";
 import { useT } from "@/contexts/LocalizationContext";
@@ -28,10 +28,16 @@ export default function DailyQuestButton({
     fetchDailyQuest,
   } = useDailyQuests(makeAuthenticatedRequest);
 
-  // Load quest data on mount
+  // Используем ref для предотвращения повторных вызовов
+  const hasFetchedRef = useRef(false);
+
+  // Load quest data on mount - только один раз
   useEffect(() => {
-    fetchDailyQuest();
-  }, [fetchDailyQuest]);
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchDailyQuest();
+    }
+  }, []); // ✅ ИСПРАВЛЕНО: пустой массив зависимостей
 
   // Don't render button if no quest is available
   if (!hasActiveQuest) {

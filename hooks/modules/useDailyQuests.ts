@@ -1,4 +1,4 @@
-// src/hooks/modules/useDailyQuests.ts - Fixed imports and types
+// src/hooks/modules/useDailyQuests.ts - Исправлена проблема циклических вызовов
 
 import { useState, useCallback, useRef } from "react";
 import type {
@@ -7,7 +7,7 @@ import type {
   QuestContentParams,
   QuestLocalizedContent,
 } from "@/types/daily-quests";
-import { QuestType, GameMode } from "@/types/daily-quests"; // Import as values
+import { QuestType, GameMode } from "@/types/daily-quests";
 
 // Hook state interface
 interface DailyQuestsState {
@@ -40,10 +40,12 @@ export function useDailyQuests(
 
   /**
    * Fetch current daily quest with user progress
+   * ИСПРАВЛЕНО: Убрана state.quest из зависимостей
    */
   const fetchDailyQuest = useCallback(
     async (force: boolean = false): Promise<DailyQuestWithProgress | null> => {
       if (fetchingRef.current && !force) {
+        // Возвращаем текущий quest из состояния
         return state.quest;
       }
 
@@ -66,14 +68,16 @@ export function useDailyQuests(
           throw new Error(result.error || "Failed to fetch daily quest");
         }
 
+        const questData = result.quest || null;
+
         setState((prev) => ({
           ...prev,
-          quest: result.quest || null,
+          quest: questData,
           isLoading: false,
           error: null,
         }));
 
-        return result.quest || null;
+        return questData;
       } catch (error) {
         console.error("Error fetching daily quest:", error);
         const errorMessage =
@@ -90,7 +94,7 @@ export function useDailyQuests(
         fetchingRef.current = false;
       }
     },
-    [makeAuthenticatedRequest, state.quest],
+    [makeAuthenticatedRequest], // ✅ ИСПРАВЛЕНО: убрана state.quest из зависимостей
   );
 
   /**
@@ -172,6 +176,7 @@ export function useDailyQuests(
       error: null,
       lastCompletion: null,
     });
+    fetchingRef.current = false; // Сбрасываем флаг загрузки
   }, []);
 
   /**

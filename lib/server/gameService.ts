@@ -128,9 +128,15 @@ export const serverGameService = {
    * Было: 5-7 последовательных запросов, стало: 1 + 3 параллельных
    */
   async saveGameResult(telegramId: number, gameResult: GameResult): Promise<GameSaveResult> {
+    const startTime = Date.now();
+    console.log(`[DEBUG] Starting game save for mode ${gameResult.mode}`);
+
     try {
-      // ЭТАП 1: АТОМАРНОЕ сохранение основных данных (статистика + level system)
+      // ЭТАП 1: АТОМАРНОЕ сохранение основных данных
+      const step1Start = Date.now();
       const gameData = convertToGameData(gameResult);
+
+      console.log(`[DEBUG] Calling RPC save_game_with_level_system...`);
 
       const { data: mainResult, error: mainError } = await supabaseServer.rpc(
         'save_game_with_level_system',
@@ -143,6 +149,9 @@ export const serverGameService = {
         }
       );
 
+      const step1End = Date.now();
+      console.log(`[DEBUG] RPC completed in ${step1End - step1Start}ms`);
+
       if (mainError || !mainResult || mainResult.length === 0) {
         console.error('Error in save_game_with_level_system:', mainError);
         throw new Error('Failed to save game data');
@@ -154,7 +163,12 @@ export const serverGameService = {
         throw new Error('Game save operation failed');
       }
 
+      console.log(`[DEBUG] Main save successful, level_changed: ${result.level_changed}`);
+
       // ЭТАП 2: ПАРАЛЛЕЛЬНОЕ выполнение дополнительных систем
+      const step2Start = Date.now();
+      console.log(`[DEBUG] Starting parallel additional systems...`);
+
       const [achievementsResult, questsResult, tournamentResult] = await Promise.allSettled([
         this.processAchievements(telegramId).catch(error => {
           console.warn('Achievement processing failed but game saved:', error);
@@ -170,13 +184,24 @@ export const serverGameService = {
         }),
       ]);
 
-      // ЭТАП 3: Обработка результатов дополнительных систем
+      const step2End = Date.now();
+      console.log(`[DEBUG] Parallel systems completed in ${step2End - step2Start}ms`);
+
+      // Логирование результатов каждой системы
+      console.log(`[DEBUG] Achievements: ${achievementsResult.status}`);
+      console.log(`[DEBUG] Quests: ${questsResult.status}`);
+      console.log(`[DEBUG] Tournament: ${tournamentResult.status}`);
+
+      // ЭТАП 3: Обработка результатов
+      const step3Start = Date.now();
+
       let achievementsUnlocked: any[] = [];
       let achievementAttemptsAwarded = 0;
 
       if (achievementsResult.status === 'fulfilled' && achievementsResult.value) {
         achievementsUnlocked = achievementsResult.value.achievements;
         achievementAttemptsAwarded = achievementsResult.value.attemptsAwarded;
+        console.log(`[DEBUG] Achievements unlocked: ${achievementsUnlocked.length}`);
       }
 
       let questCompletions: any[] = [];
@@ -185,24 +210,36 @@ export const serverGameService = {
       if (questsResult.status === 'fulfilled' && questsResult.value) {
         questCompletions = questsResult.value.completions;
         questAttemptsAwarded = questsResult.value.attemptsAwarded;
+        console.log(`[DEBUG] Quest completions: ${questCompletions.length}`);
       }
 
       let tournamentInfo: any = undefined;
 
       if (tournamentResult.status === 'fulfilled' && tournamentResult.value) {
         tournamentInfo = tournamentResult.value;
+        console.log(`[DEBUG] Tournament updated: ${tournamentInfo.tournamentId}`);
       }
 
-      // ЭТАП 4: Финальное обновление attempts если есть дополнительные награды
+      // ЭТАП 4: Финальное обновление attempts
       const additionalAttempts = achievementAttemptsAwarded + questAttemptsAwarded;
 
       if (additionalAttempts > 0) {
+        const step4Start = Date.now();
+        console.log(`[DEBUG] Awarding additional attempts: ${additionalAttempts}`);
         await this.awardAdditionalAttempts(telegramId, additionalAttempts);
+        const step4End = Date.now();
+        console.log(`[DEBUG] Additional attempts awarded in ${step4End - step4Start}ms`);
       }
 
+      const step3End = Date.now();
+      console.log(`[DEBUG] Results processing completed in ${step3End - step3Start}ms`);
+
+      const totalTime = Date.now() - startTime;
+      console.log(`[DEBUG] Total game save time: ${totalTime}ms`);
+
+      // Формирование ответа...
       const totalAttemptsAwarded = result.attempts_awarded + additionalAttempts;
 
-      // ЭТАП 5: Формирование ответа
       const response: GameSaveResult = {
         success: true,
         levelChanged: result.level_changed,
@@ -227,7 +264,8 @@ export const serverGameService = {
       return response;
 
     } catch (error) {
-      console.error('Error in optimized game save:', error);
+      const errorTime = Date.now() - startTime;
+      console.error(`[DEBUG] Game save failed after ${errorTime}ms:`, error);
       throw error;
     }
   },
