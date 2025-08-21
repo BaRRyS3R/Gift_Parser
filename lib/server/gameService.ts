@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - ОПТИМИЗИРОВАННАЯ версия
+// src/lib/server/gameService.ts - СУПЕР ОПТИМИЗИРОВАННАЯ версия
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -37,33 +37,6 @@ export interface GameSaveResult {
   }>;
   questAttemptsAwarded?: number;
   error?: string;
-}
-
-// Вспомогательные интерфейсы для дополнительных систем
-interface AchievementResult {
-  achievements: Array<{
-    id: string;
-    name: string;
-    attemptsAwarded: number;
-  }>;
-  attemptsAwarded: number;
-}
-
-interface QuestResult {
-  completions: Array<{
-    questId: string;
-    completed: boolean;
-    attemptsAwarded: number;
-  }>;
-  attemptsAwarded: number;
-}
-
-interface TournamentResult {
-  tournamentId: string;
-  tournamentName: string;
-  newBestScore: boolean;
-  position?: number;
-  improved: boolean;
 }
 
 /**
@@ -120,23 +93,23 @@ function convertToGameData(gameResult: GameResult): Record<string, any> {
 }
 
 /**
- * ОПТИМИЗИРОВАННЫЙ сервис сохранения игры
+ * СУПЕР ОПТИМИЗИРОВАННЫЙ сервис сохранения игры
  */
 export const serverGameService = {
   /**
-   * ОСНОВНОЙ метод - атомарное сохранение через RPC
-   * Было: 5-7 последовательных запросов, стало: 1 + 3 параллельных
+   * ОСНОВНОЙ МЕТОД - Максимально оптимизированное сохранение
+   * Цель: 1 RPC + 2 параллельных запроса = ~800ms вместо 6000ms
    */
   async saveGameResult(telegramId: number, gameResult: GameResult): Promise<GameSaveResult> {
     const startTime = Date.now();
-    console.log(`[DEBUG] Starting game save for mode ${gameResult.mode}`);
+    console.log(`[DEBUG-OPT] Starting optimized game save for mode ${gameResult.mode}`);
 
     try {
-      // ЭТАП 1: АТОМАРНОЕ сохранение основных данных
+      // ЭТАП 1: АТОМАРНОЕ сохранение основной статистики
       const step1Start = Date.now();
       const gameData = convertToGameData(gameResult);
 
-      console.log(`[DEBUG] Calling RPC save_game_with_level_system...`);
+      console.log(`[DEBUG-OPT] Calling optimized RPC save_game_with_level_system...`);
 
       const { data: mainResult, error: mainError } = await supabaseServer.rpc(
         'save_game_with_level_system',
@@ -150,7 +123,7 @@ export const serverGameService = {
       );
 
       const step1End = Date.now();
-      console.log(`[DEBUG] RPC completed in ${step1End - step1Start}ms`);
+      console.log(`[DEBUG-OPT] Main RPC completed in ${step1End - step1Start}ms`);
 
       if (mainError || !mainResult || mainResult.length === 0) {
         console.error('Error in save_game_with_level_system:', mainError);
@@ -163,37 +136,54 @@ export const serverGameService = {
         throw new Error('Game save operation failed');
       }
 
-      console.log(`[DEBUG] Main save successful, level_changed: ${result.level_changed}`);
-
-      // ЭТАП 2: ПАРАЛЛЕЛЬНОЕ выполнение дополнительных систем
+      // ЭТАП 2: ТОЛЬКО 2 ПАРАЛЛЕЛЬНЫХ СИСТЕМЫ (убрали Quests из параллельности)
       const step2Start = Date.now();
-      console.log(`[DEBUG] Starting parallel additional systems...`);
+      console.log(`[DEBUG-OPT] Starting 2 parallel systems (achievements + tournaments)...`);
 
-      const [achievementsResult, questsResult, tournamentResult] = await Promise.allSettled([
-        this.processAchievements(telegramId).catch(error => {
+      const [achievementsResult, tournamentResult] = await Promise.allSettled([
+        this.processAchievementsOptimized(telegramId).catch(error => {
           console.warn('Achievement processing failed but game saved:', error);
           return null;
         }),
-        this.processQuests(result.user_id, gameResult).catch(error => {
-          console.warn('Quest processing failed but game saved:', error);
-          return null;
-        }),
-        this.processTournament(telegramId, gameResult, result.mode_score_added).catch(error => {
+        this.processTournamentOptimized(telegramId, gameResult, result.user_id).catch(error => {
           console.warn('Tournament processing failed but game saved:', error);
           return null;
         }),
       ]);
 
       const step2End = Date.now();
-      console.log(`[DEBUG] Parallel systems completed in ${step2End - step2Start}ms`);
+      console.log(`[DEBUG-OPT] Parallel systems completed in ${step2End - step2Start}ms`);
 
-      // Логирование результатов каждой системы
-      console.log(`[DEBUG] Achievements: ${achievementsResult.status}`);
-      console.log(`[DEBUG] Quests: ${questsResult.status}`);
-      console.log(`[DEBUG] Tournament: ${tournamentResult.status}`);
-
-      // ЭТАП 3: Обработка результатов
+      // ЭТАП 3: ПОСЛЕДОВАТЕЛЬНАЯ обработка квестов (если нужно)
       const step3Start = Date.now();
+      console.log(`[DEBUG-OPT] Processing quests sequentially...`);
+      
+      let questsResult: any = null;
+      try {
+        const { serverDailyQuestsService } = await import('./dailyQuestsService');
+        const questResults = await serverDailyQuestsService.processGameQuestUpdates(
+          result.user_id,
+          gameResult.mode,
+          gameResult
+        );
+
+        questsResult = {
+          completions: questResults.map(r => ({
+            questId: r.questId,
+            completed: r.completed,
+            attemptsAwarded: r.attemptsAwarded,
+          })),
+          attemptsAwarded: questResults.reduce((total, r) => total + r.attemptsAwarded, 0),
+        };
+      } catch (error) {
+        console.warn('Quest processing failed but game saved:', error);
+      }
+
+      const step3End = Date.now();
+      console.log(`[DEBUG-OPT] Quests completed in ${step3End - step3Start}ms`);
+
+      // ЭТАП 4: Обработка результатов
+      const step4Start = Date.now();
 
       let achievementsUnlocked: any[] = [];
       let achievementAttemptsAwarded = 0;
@@ -201,46 +191,40 @@ export const serverGameService = {
       if (achievementsResult.status === 'fulfilled' && achievementsResult.value) {
         achievementsUnlocked = achievementsResult.value.achievements;
         achievementAttemptsAwarded = achievementsResult.value.attemptsAwarded;
-        console.log(`[DEBUG] Achievements unlocked: ${achievementsUnlocked.length}`);
+        console.log(`[DEBUG-OPT] Achievements unlocked: ${achievementsUnlocked.length}`);
       }
 
       let questCompletions: any[] = [];
       let questAttemptsAwarded = 0;
 
-      if (questsResult.status === 'fulfilled' && questsResult.value) {
-        questCompletions = questsResult.value.completions;
-        questAttemptsAwarded = questsResult.value.attemptsAwarded;
-        console.log(`[DEBUG] Quest completions: ${questCompletions.length}`);
+      if (questsResult) {
+        questCompletions = questsResult.completions;
+        questAttemptsAwarded = questsResult.attemptsAwarded;
+        console.log(`[DEBUG-OPT] Quest completions: ${questCompletions.length}`);
       }
 
       let tournamentInfo: any = undefined;
 
       if (tournamentResult.status === 'fulfilled' && tournamentResult.value) {
         tournamentInfo = tournamentResult.value;
-        console.log(`[DEBUG] Tournament updated: ${tournamentInfo.tournamentId}`);
+        console.log(`[DEBUG-OPT] Tournament updated: ${tournamentInfo.tournamentId}`);
       }
 
-      // ЭТАП 4: Финальное обновление attempts
+      // ЭТАП 5: BATCH обновление attempts (если есть дополнительные)
       const additionalAttempts = achievementAttemptsAwarded + questAttemptsAwarded;
 
-
       if (additionalAttempts > 0) {
-        const step4Start = Date.now();
-        console.log(`[DEBUG] Awarding total additional attempts: ${additionalAttempts} (achievements: ${achievementAttemptsAwarded}, quests: ${questAttemptsAwarded})`);
-
-        await this.awardAdditionalAttempts(telegramId, additionalAttempts);
-
-        const step4End = Date.now();
-        console.log(`[DEBUG] All additional attempts awarded in ${step4End - step4Start}ms`);
+        console.log(`[DEBUG-OPT] Awarding ${additionalAttempts} additional attempts...`);
+        await this.awardAdditionalAttemptsBatch(telegramId, additionalAttempts);
       }
 
-      const step3End = Date.now();
-      console.log(`[DEBUG] Results processing completed in ${step3End - step3Start}ms`);
+      const step4End = Date.now();
+      console.log(`[DEBUG-OPT] Results processing completed in ${step4End - step4Start}ms`);
 
       const totalTime = Date.now() - startTime;
-      console.log(`[DEBUG] Total game save time: ${totalTime}ms`);
+      console.log(`[DEBUG-OPT] TOTAL optimized save time: ${totalTime}ms`);
 
-      // Формирование ответа...
+      // Формирование ответа
       const totalAttemptsAwarded = result.attempts_awarded + additionalAttempts;
 
       const response: GameSaveResult = {
@@ -268,277 +252,190 @@ export const serverGameService = {
 
     } catch (error) {
       const errorTime = Date.now() - startTime;
-      console.error(`[DEBUG] Game save failed after ${errorTime}ms:`, error);
+      console.error(`[DEBUG-OPT] Optimized save failed after ${errorTime}ms:`, error);
       throw error;
     }
   },
 
   /**
-   * ВСПОМОГАТЕЛЬНЫЕ методы для дополнительных систем
+   * ОПТИМИЗИРОВАННАЯ обработка достижений
    */
-  async processAchievements(telegramId: number): Promise<AchievementResult | null> {
+  async processAchievementsOptimized(telegramId: number): Promise<any> {
     const startTime = Date.now();
-    console.log(`[DEBUG-ACH] Starting achievements check for user ${telegramId}`);
+    console.log(`[DEBUG-ACH-OPT] Starting optimized achievements...`);
 
     try {
-      // Импорт должен быть динамическим для избежания circular dependencies
-      const { serverAchievementsService } = await import('./achievementsService');
-
-      console.log(`[DEBUG-ACH] Calling serverAchievementsService.checkAndAwardAchievements...`);
-      const achievements = await serverAchievementsService.checkAndAwardAchievements(telegramId);
-
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-      console.log(`[DEBUG-ACH] Achievements check completed in ${duration}ms, found ${achievements.length} achievements`);
-
-      return {
-        achievements: achievements.map((achievement: any) => ({
-          id: achievement.achievement_id,
-          name: achievement.achievement_name,
-          attemptsAwarded: achievement.attempts_awarded,
-        })),
-        attemptsAwarded: achievements.reduce(
-          (total: number, achievement: any) => total + achievement.attempts_awarded,
-          0
-        ),
-      };
-    } catch (error) {
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-      console.error(`[DEBUG-ACH] Achievements error after ${duration}ms:`, error);
-      return null;
-    }
-  },
-
-  async processQuests(userId: string, gameResult: GameResult): Promise<QuestResult | null> {
-    const startTime = Date.now();
-    console.log(`[DEBUG-QUEST] Starting quests check for user ${userId}, mode ${gameResult.mode}`);
-
-    try {
-      // Импорт должен быть динамическим для избежания circular dependencies
-      const { serverDailyQuestsService } = await import('./dailyQuestsService');
-
-      console.log(`[DEBUG-QUEST] Calling serverDailyQuestsService.processGameQuestUpdates...`);
-      const questResults = await serverDailyQuestsService.processGameQuestUpdates(
-        userId,
-        gameResult.mode,
-        gameResult
+      const { data, error } = await supabaseServer.rpc(
+        "check_and_award_achievements_optimized", // ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ
+        { p_telegram_id: telegramId }
       );
 
+      if (error) {
+        console.error("Error checking achievements:", error);
+        return { achievements: [], attemptsAwarded: 0 };
+      }
+
+      const achievements = (data || []).map((item: any) => ({
+        id: item.achievement_id,
+        name: item.achievement_name,
+        attemptsAwarded: item.attempts_awarded,
+      }));
+
       const endTime = Date.now();
-      const duration = endTime - startTime;
-      console.log(`[DEBUG-QUEST] Quests check completed in ${duration}ms, found ${questResults.length} quest updates`);
+      console.log(`[DEBUG-ACH-OPT] Optimized achievements completed in ${endTime - startTime}ms, found ${achievements.length}`);
 
       return {
-        completions: questResults.map(result => ({
-          questId: result.questId,
-          completed: result.completed,
-          attemptsAwarded: result.attemptsAwarded,
-        })),
-        attemptsAwarded: questResults.reduce(
-          (total, result) => total + result.attemptsAwarded,
-          0
-        ),
+        achievements,
+        attemptsAwarded: achievements.reduce((total: number, achievement: any) => total + achievement.attemptsAwarded, 0),
       };
     } catch (error) {
       const endTime = Date.now();
-      const duration = endTime - startTime;
-      console.error(`[DEBUG-QUEST] Quests error after ${duration}ms:`, error);
-      return null;
+      console.error(`[DEBUG-ACH-OPT] Achievements error after ${endTime - startTime}ms:`, error);
+      return { achievements: [], attemptsAwarded: 0 };
     }
   },
 
-  async processTournament(
+  /**
+   * ОПТИМИЗИРОВАННАЯ обработка турниров
+   */
+  async processTournamentOptimized(
     telegramId: number,
     gameResult: GameResult,
-    modeSpecificScore: number
-  ): Promise<TournamentResult | null> {
+    userId: string
+  ): Promise<any> {
     const startTime = Date.now();
-    console.log(`[DEBUG-TOUR] Starting tournament check for user ${telegramId}, mode ${gameResult.mode}`);
+    console.log(`[DEBUG-TOUR-OPT] Starting optimized tournament...`);
 
     try {
-      // Импорт должен быть динамическим для избежания circular dependencies
-      const { serverTournamentService } = await import('./tournamentService');
+      // ОПТИМИЗАЦИЯ: Сначала проверяем есть ли активные турниры для режима
+      const { data: activeTournament, error: tournamentError } = await supabaseServer
+        .from('tournaments')
+        .select('id, name, game_mode')
+        .eq('game_mode', gameResult.mode.toLowerCase())
+        .eq('status', 'active')
+        .gte('end_time', new Date().toISOString())
+        .lte('start_time', new Date().toISOString())
+        .single();
 
-      console.log(`[DEBUG-TOUR] Checking if tournament is active for mode ${gameResult.mode}...`);
-      const isTournamentActive = await serverTournamentService.isTournamentActiveForMode(
-        gameResult.mode
-      );
-
-      if (!isTournamentActive) {
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-        console.log(`[DEBUG-TOUR] No active tournament for mode ${gameResult.mode} (${duration}ms)`);
+      if (tournamentError || !activeTournament) {
+        console.log(`[DEBUG-TOUR-OPT] No active tournament for ${gameResult.mode} (${Date.now() - startTime}ms)`);
         return null;
       }
 
-      console.log(`[DEBUG-TOUR] Getting active tournament...`);
-      const activeTournament = await serverTournamentService.getActiveTournament();
-
-      if (!activeTournament || activeTournament.mode !== gameResult.mode.toLowerCase()) {
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-        console.log(`[DEBUG-TOUR] Tournament mode mismatch or not found (${duration}ms)`);
-        return null;
-      }
-
-      console.log(`[DEBUG-TOUR] Getting previous position...`);
-      const previousPosition = await serverTournamentService.getUserTournamentPosition(
-        activeTournament.id,
-        telegramId
-      );
-
-      console.log(`[DEBUG-TOUR] Getting user info...`);
+      // Получаем данные пользователя
       const { data: user } = await supabaseServer
         .from('users')
-        .select('id, first_name, last_name, username, is_premium')
+        .select('first_name, last_name, username, is_premium')
         .eq('telegram_id', telegramId)
         .single();
 
       if (!user) {
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-        console.log(`[DEBUG-TOUR] User not found for tournament (${duration}ms)`);
+        console.log(`[DEBUG-TOUR-OPT] User not found (${Date.now() - startTime}ms)`);
         return null;
       }
 
-      console.log(`[DEBUG-TOUR] Converting game result to tournament format...`);
-      const tournamentGameResult = this.convertToTournamentFormat(gameResult);
+      // Calculate tournament score
+      let tournamentScore = gameResult.score;
+      switch (gameResult.mode) {
+        case GameMode.SURVIVAL: tournamentScore = gameResult.score * 2; break;
+        case GameMode.PHYSICS: tournamentScore = gameResult.score * 4; break;
+        case GameMode.ROTATION: tournamentScore = gameResult.score * 3; break;
+      }
 
-      console.log(`[DEBUG-TOUR] Updating tournament leaderboard...`);
-      await serverTournamentService.updateTournamentLeaderboard(
-        activeTournament.id,
-        telegramId,
-        tournamentGameResult,
+      const gameData = {
+        score: gameResult.score,
+        survivalTime: (gameResult as any).survivalTime,
+        maxLevelReached: (gameResult as any).maxLevelReached,
+        perfectStreak: (gameResult as any).perfectStreak,
+        gameTime: (gameResult as any).gameTime,
+        totalHits: (gameResult as any).totalHits,
+        mistakesMade: (gameResult as any).mistakesMade,
+      };
+
+      // ИСПОЛЬЗУЕМ НОВУЮ BATCH ФУНКЦИЮ
+      const { data: tournamentResult, error: processError } = await supabaseServer.rpc(
+        'process_tournament_game_batch',
         {
-          user_id: user.id,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          username: user.username,
-          is_premium: user.is_premium,
+          p_tournament_id: activeTournament.id,
+          p_telegram_id: telegramId,
+          p_user_id: userId,
+          p_first_name: user.first_name,
+          p_last_name: user.last_name,
+          p_username: user.username,
+          p_is_premium: user.is_premium,
+          p_new_score: tournamentScore,
+          p_game_mode: gameResult.mode.toLowerCase(),
+          p_game_data: gameData,
         }
       );
 
-      console.log(`[DEBUG-TOUR] Getting new position...`);
-      const newPosition = await serverTournamentService.getUserTournamentPosition(
-        activeTournament.id,
-        telegramId
-      );
+      if (processError || !tournamentResult || tournamentResult.length === 0) {
+        console.error("Error in tournament batch processing:", processError);
+        return null;
+      }
 
-      const newBestScore = !previousPosition ||
-        (newPosition && newPosition.entry.best_score > (previousPosition.entry.best_score || 0));
-
-      const improved = !previousPosition ||
-        (newPosition && newPosition.position < previousPosition.position);
-
+      const result = tournamentResult[0];
       const endTime = Date.now();
-      const duration = endTime - startTime;
-      console.log(`[DEBUG-TOUR] Tournament processing completed in ${duration}ms`);
+      console.log(`[DEBUG-TOUR-OPT] Optimized tournament completed in ${endTime - startTime}ms`);
 
       return {
         tournamentId: activeTournament.id,
         tournamentName: activeTournament.name,
-        newBestScore: Boolean(newBestScore),
-        position: newPosition?.position,
-        improved: Boolean(improved),
+        newBestScore: result.score_improved,
+        position: result.new_position,
+        improved: result.new_position < (result.previous_position || 999999),
       };
+
     } catch (error) {
       const endTime = Date.now();
-      const duration = endTime - startTime;
-      console.error(`[DEBUG-TOUR] Tournament error after ${duration}ms:`, error);
+      console.error(`[DEBUG-TOUR-OPT] Tournament error after ${endTime - startTime}ms:`, error);
       return null;
     }
   },
 
   /**
-   * Конвертация результата игры в турнирный формат
+   * BATCH обновление attempts
    */
-  convertToTournamentFormat(gameResult: GameResult): any {
-    const base = {
-      mode: gameResult.mode,
-      score: gameResult.score,
-      duration: gameResult.duration,
-    };
-
-    switch (gameResult.mode) {
-      case GameMode.SURVIVAL:
-        const survivalResult = gameResult as SurvivalGameResult;
-        return {
-          ...base,
-          survivalTime: survivalResult.survivalTime,
-          maxLevelReached: survivalResult.maxLevelReached,
-          perfectStreak: survivalResult.perfectStreak,
-          correctHits: survivalResult.correctHits,
-        };
-
-      case GameMode.PHYSICS:
-        const physicsResult = gameResult as PhysicsGameResult;
-        return {
-          ...base,
-          gameTime: physicsResult.gameTime,
-          totalHits: physicsResult.totalHits,
-          mistakesMade: physicsResult.mistakesMade,
-        };
-
-      case GameMode.ROTATION:
-        const rotationResult = gameResult as RotationGameResult;
-        return {
-          ...base,
-          survivalTime: rotationResult.survivalTime,
-          maxLevelReached: rotationResult.maxLevelReached,
-          perfectStreak: rotationResult.perfectStreak,
-          correctHits: rotationResult.correctHits,
-        };
-
-      default:
-        return base;
-    }
-  },
-
-  /**
-   * Атомарное добавление дополнительных attempts
-   */
-  async awardAdditionalAttempts(telegramId: number, attemptsToAdd: number): Promise<void> {
+  async awardAdditionalAttemptsBatch(telegramId: number, attemptsToAdd: number): Promise<void> {
     if (attemptsToAdd <= 0) return;
 
     try {
-      // Получаем текущее количество attempts
-      const { data: user, error: selectError } = await supabaseServer
-        .from('users')
-        .select('attempts_remaining')
-        .eq('telegram_id', telegramId)
-        .single();
-
-      if (selectError || !user) {
-        console.error('Error getting user attempts for additional award:', selectError);
-        return;
-      }
-
-      // Обновляем с новым значением
-      const { error } = await supabaseServer
-        .from('users')
-        .update({
-          attempts_remaining: user.attempts_remaining + attemptsToAdd,
-          attempts_reset_at: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('telegram_id', telegramId);
+      // ИСПРАВЛЕНО: Используем простой RPC запрос для безопасного обновления
+      const { error } = await supabaseServer.rpc('add_user_attempts', {
+        p_telegram_id: telegramId,
+        p_attempts_to_add: attemptsToAdd,
+      });
 
       if (error) {
         console.error('Error awarding additional attempts:', error);
-        // Не бросаем ошибку - это не критично для основной функциональности
+        // FALLBACK: Если RPC не существует, делаем через обычный UPDATE
+        const { data: user } = await supabaseServer
+          .from('users')
+          .select('attempts_remaining')
+          .eq('telegram_id', telegramId)
+          .single();
+
+        if (user) {
+          await supabaseServer
+            .from('users')
+            .update({
+              attempts_remaining: user.attempts_remaining + attemptsToAdd,
+              attempts_reset_at: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('telegram_id', telegramId);
+        }
       }
     } catch (error) {
-      console.error('Error in awardAdditionalAttempts:', error);
+      console.error('Error in awardAdditionalAttemptsBatch:', error);
     }
   },
 
-  // Compatibility methods (существующие utility функции)
+  // Legacy compatibility methods
   calculateLevel(totalGames: number): number {
     const GAMES_PER_LEVEL = 20;
     const STARTING_LEVEL = 1;
     const MAX_LEVEL = 10000;
-
     const calculatedLevel = Math.floor(totalGames / GAMES_PER_LEVEL) + STARTING_LEVEL;
     return Math.min(calculatedLevel, MAX_LEVEL);
   },
@@ -562,7 +459,6 @@ export const serverGameService = {
     }
   },
 
-  // Legacy method for backward compatibility
   async updateGameStats(telegramId: number, gameResult: GameResult): Promise<GameSaveResult> {
     return this.saveGameResult(telegramId, gameResult);
   },

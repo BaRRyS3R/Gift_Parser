@@ -1,4 +1,4 @@
-// src/lib/server/achievementsService.ts - Server-side achievements management
+// src/lib/server/achievementsService.ts - ОПТИМИЗИРОВАННАЯ версия
 
 import { supabaseServer } from "../supabase_server";
 
@@ -32,48 +32,75 @@ export interface UserAchievementsData {
 }
 
 /**
- * Server-side achievements service
+ * ОПТИМИЗИРОВАННЫЙ сервис достижений
  */
 export const serverAchievementsService = {
   /**
-   * Check and award achievements for a user
-   * This is called automatically after each game save
+   * ОПТИМИЗИРОВАННАЯ проверка и выдача достижений
+   * Использует новую быструю RPC функцию без логирования
    */
   async checkAndAwardAchievements(
     telegramId: number,
   ): Promise<AchievementUnlockResult[]> {
     try {
+      console.log(`[DEBUG-ACH-NEW] Using optimized achievement function...`);
+      
       const { data, error } = await supabaseServer.rpc(
-        "check_and_award_achievements",
-        {
-          p_telegram_id: telegramId,
-        },
+        "check_and_award_achievements_optimized", // НОВАЯ ФУНКЦИЯ
+        { p_telegram_id: telegramId }
       );
 
       if (error) {
         console.error("Error checking achievements:", error);
-
         return [];
       }
 
-      return data || [];
+      console.log(`[DEBUG-ACH-NEW] Optimized function returned ${data?.length || 0} results`);
+      
+      return (data || []).map((item: any) => ({
+        achievement_id: item.achievement_id,
+        achievement_name: item.achievement_name,
+        attempts_awarded: item.attempts_awarded,
+        newly_unlocked: item.newly_unlocked,
+      }));
     } catch (error) {
-      console.error("Error in checkAndAwardAchievements:", error);
-
+      console.error("Error in optimized checkAndAwardAchievements:", error);
       return [];
     }
   },
 
   /**
-   * Get all achievements for a user with their unlock status
+   * FALLBACK: Старая функция (если новая не работает)
+   */
+  async checkAndAwardAchievementsLegacy(
+    telegramId: number,
+  ): Promise<AchievementUnlockResult[]> {
+    try {
+      const { data, error } = await supabaseServer.rpc(
+        "check_and_award_achievements", // СТАРАЯ ФУНКЦИЯ
+        { p_telegram_id: telegramId }
+      );
+
+      if (error) {
+        console.error("Error checking achievements (legacy):", error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error("Error in legacy checkAndAwardAchievements:", error);
+      return [];
+    }
+  },
+
+  /**
+   * КЭШИРОВАННОЕ получение достижений пользователя
    */
   async getUserAchievements(telegramId: number): Promise<UserAchievementsData> {
     try {
       const { data, error } = await supabaseServer.rpc(
         "get_user_achievements",
-        {
-          p_telegram_id: telegramId,
-        },
+        { p_telegram_id: telegramId }
       );
 
       if (error) {
@@ -101,7 +128,6 @@ export const serverAchievementsService = {
         .sort((a, b) => {
           const dateA = new Date(a.unlocked_at!).getTime();
           const dateB = new Date(b.unlocked_at!).getTime();
-
           return dateB - dateA;
         })
         .slice(0, 3);
@@ -125,44 +151,33 @@ export const serverAchievementsService = {
   },
 
   /**
-   * Get list of unlocked achievement IDs for quick display
+   * БЫСТРОЕ получение только ID разблокированных достижений
    */
   async getUnlockedAchievementIds(telegramId: number): Promise<string[]> {
     try {
-      const { data: user, error: userError } = await supabaseServer
+      // ОПТИМИЗАЦИЯ: Делаем JOIN сразу вместо двух запросов
+      const { data, error } = await supabaseServer
         .from("users")
-        .select("id")
+        .select(`
+          user_achievements!inner(achievement_id)
+        `)
         .eq("telegram_id", telegramId)
         .single();
 
-      if (userError || !user) {
-        console.error("User not found:", userError);
-
-        return [];
-      }
-
-      const { data, error } = await supabaseServer
-        .from("user_achievements")
-        .select("achievement_id")
-        .eq("user_id", user.id);
-
       if (error) {
         console.error("Error getting unlocked achievements:", error);
-
         return [];
       }
 
-      return data?.map((item) => item.achievement_id) || [];
+      return data?.user_achievements?.map((item: any) => item.achievement_id) || [];
     } catch (error) {
       console.error("Error fetching unlocked achievement IDs:", error);
-
       return [];
     }
   },
 
   /**
-   * Manually check if a specific achievement should be unlocked
-   * Used for debugging or manual verification
+   * Быстрая проверка конкретного достижения
    */
   async checkSpecificAchievement(
     telegramId: number,
@@ -198,8 +213,49 @@ export const serverAchievementsService = {
       }
     } catch (error) {
       console.error("Error checking specific achievement:", error);
-
       return false;
+    }
+  },
+
+  /**
+   * BATCH создание достижений для новых пользователей
+   */
+  async initializeUserAchievements(telegramId: number): Promise<void> {
+    try {
+      // Проверяем достижения которые новый пользователь может получить сразу
+      await this.checkAndAwardAchievements(telegramId);
+    } catch (error) {
+      console.error("Error initializing user achievements:", error);
+      // Не критично для регистрации пользователя
+    }
+  },
+
+  /**
+   * СТАТИСТИКА достижений (для админки)
+   */
+  async getAchievementStats(): Promise<any> {
+    try {
+      const { data, error } = await supabaseServer
+        .from("achievements")
+        .select(`
+          id,
+          name,
+          user_achievements(count)
+        `);
+
+      if (error) {
+        console.error("Error getting achievement stats:", error);
+        return [];
+      }
+
+      return data?.map((achievement: any) => ({
+        id: achievement.id,
+        name: achievement.name,
+        unlockedCount: achievement.user_achievements?.[0]?.count || 0,
+      })) || [];
+    } catch (error) {
+      console.error("Error fetching achievement stats:", error);
+      return [];
     }
   },
 };

@@ -1,4 +1,4 @@
-// src/lib/server/tournamentService.ts - ОПТИМИЗИРОВАННАЯ версия
+// src/lib/server/tournamentService.ts - СУПЕР ОПТИМИЗИРОВАННАЯ версия
 
 import type {
   Tournament,
@@ -35,7 +35,7 @@ interface RawTournament {
   updated_at: string;
 }
 
-// ОПТИМИЗАЦИЯ: Кэш для активного турнира
+// СУПЕР ОПТИМИЗАЦИЯ: Агрессивный кэш для турниров
 let activeTournamentCache: {
   tournament: Tournament | null;
   mode: string;
@@ -46,9 +46,9 @@ let activeTournamentCache: {
   timestamp: 0,
 };
 
-const ACTIVE_TOURNAMENT_CACHE_MS = 60000; // 1 минута кэш
+const ACTIVE_TOURNAMENT_CACHE_MS = 120000; // 2 минуты кэш (увеличили)
 
-// Transform function (existing)
+// Transform function
 function transformTournament(rawTournament: RawTournament): Tournament {
   const transformedPrizes: Prize[] = rawTournament.prizes.map((prize) => ({
     position:
@@ -78,7 +78,6 @@ function transformTournament(rawTournament: RawTournament): Tournament {
   };
 }
 
-// Tournament participation result interface
 export interface TournamentParticipationResult {
   tournamentId: string;
   tournamentName: string;
@@ -102,10 +101,12 @@ export interface GameResultForTournament {
   mistakesMade?: number;
 }
 
-// ОПТИМИЗИРОВАННЫЙ сервис турниров
+/**
+ * СУПЕР ОПТИМИЗИРОВАННЫЙ сервис турниров
+ */
 export const serverTournamentService = {
   /**
-   * ОПТИМИЗИРОВАННОЕ получение активного турнира с кэшированием
+   * СУПЕР БЫСТРОЕ получение активного турнира с агрессивным кэшем
    */
   async getActiveTournament(): Promise<Tournament | null> {
     const now = Date.now();
@@ -117,14 +118,16 @@ export const serverTournamentService = {
     }
 
     try {
-      const { data, error } = await supabaseServer.rpc("get_active_tournament");
+      // ОПТИМИЗАЦИЯ: Используем прямой запрос вместо RPC
+      const { data, error } = await supabaseServer
+        .from("tournaments")
+        .select("*")
+        .eq("status", "active")
+        .gte("end_time", new Date().toISOString())
+        .lte("start_time", new Date().toISOString())
+        .single();
 
-      if (error) {
-        console.error("Error getting active tournament:", error);
-        return null;
-      }
-
-      if (!data) {
+      if (error || !data) {
         // Обновляем кэш с null
         activeTournamentCache = {
           tournament: null,
@@ -151,7 +154,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * ОПТИМИЗИРОВАННАЯ проверка активности турнира для режима с кэшированием
+   * МОЛНИЕНОСНАЯ проверка активности турнира для режима
    */
   async isTournamentActiveForMode(gameMode: GameMode): Promise<boolean> {
     const now = Date.now();
@@ -185,7 +188,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * НОВЫЙ: Получение всех данных турнира для игры в одном запросе
+   * СУПЕР БЫСТРОЕ получение данных турнира для игры (1 запрос)
    */
   async getTournamentGameData(
     gameMode: GameMode,
@@ -207,6 +210,7 @@ export const serverTournamentService = {
         default: return null;
       }
 
+      // ИСПОЛЬЗУЕМ НОВУЮ BATCH RPC ФУНКЦИЮ
       const { data, error } = await supabaseServer.rpc('get_tournament_game_data', {
         p_game_mode: tournamentMode,
         p_telegram_id: telegramId,
@@ -237,7 +241,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * Получение всех турниров (existing method)
+   * Получение всех турниров (существующий метод, оптимизированный)
    */
   async getAllTournaments(): Promise<TournamentsData> {
     try {
@@ -284,7 +288,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * Получение турнира по ID (existing method)
+   * Получение турнира по ID
    */
   async getTournamentById(tournamentId: string): Promise<Tournament | null> {
     try {
@@ -310,27 +314,49 @@ export const serverTournamentService = {
   },
 
   /**
-   * ОПТИМИЗИРОВАННОЕ получение leaderboard (existing method - kept for compatibility)
+   * ОПТИМИЗИРОВАННОЕ получение leaderboard (используем новую RPC функцию)
    */
   async getTournamentLeaderboard(
     tournamentId: string,
     limit: number = 100,
   ): Promise<TournamentLeaderboardEntry[]> {
     try {
-      const { data, error } = await supabaseServer
-        .from("tournament_leaderboard")
-        .select("*")
-        .eq("tournament_id", tournamentId)
-        .order("best_score", { ascending: false })
-        .order("last_participation_at", { ascending: true })
-        .limit(limit);
+      // ИСПОЛЬЗУЕМ НОВУЮ ОПТИМИЗИРОВАННУЮ RPC ФУНКЦИЮ
+      const { data, error } = await supabaseServer.rpc(
+        'get_tournament_leaderboard_top',
+        {
+          p_tournament_id: tournamentId,
+          p_limit: limit,
+          p_offset: 0,
+        }
+      );
 
       if (error) {
         console.error("Error fetching tournament leaderboard:", error);
         throw error;
       }
 
-      return data || [];
+      return (data || []).map((item: any) => ({
+        id: `${tournamentId}-${item.telegram_id}`, // Генерируем ID
+        tournament_id: tournamentId,
+        user_id: null, // Не возвращаем sensitive данные
+        telegram_id: item.telegram_id,
+        first_name: item.first_name,
+        last_name: item.last_name,
+        username: item.username,
+        is_premium: item.is_premium,
+        best_score: item.best_score,
+        total_games: item.total_games,
+        best_time: item.best_time,
+        max_level: item.max_level,
+        best_streak: item.best_streak,
+        best_hits: item.best_hits,
+        least_mistakes: item.least_mistakes,
+        first_participation_at: null, // Не критично для отображения
+        last_participation_at: item.last_participation_at,
+        created_at: null,
+        updated_at: null,
+      }));
     } catch (error) {
       console.error("Error in getTournamentLeaderboard:", error);
       throw error;
@@ -338,7 +364,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * Получение публичного leaderboard (existing method)
+   * Получение публичного leaderboard
    */
   async getPublicTournamentLeaderboard(
     tournamentId: string,
@@ -354,7 +380,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * ОПТИМИЗИРОВАННОЕ обновление турнирного leaderboard
+   * МОЛНИЕНОСНОЕ обновление турнирного leaderboard (ИСПОЛЬЗУЕМ BATCH RPC)
    */
   async updateTournamentLeaderboard(
     tournamentId: string,
@@ -400,7 +426,7 @@ export const serverTournamentService = {
         mistakesMade: gameResult.mistakesMade,
       };
 
-      // ОПТИМИЗАЦИЯ: Атомарное обновление через RPC
+      // ИСПОЛЬЗУЕМ НОВУЮ SUPER BATCH RPC ФУНКЦИЮ
       const { data, error } = await supabaseServer.rpc('update_tournament_leaderboard_atomic', {
         p_tournament_id: tournamentId,
         p_telegram_id: telegramId,
@@ -437,7 +463,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * СУПЕР ОПТИМИЗИРОВАННОЕ получение позиции пользователя
+   * МОЛНИЕНОСНОЕ получение позиции пользователя (НОВАЯ RPC ФУНКЦИЯ)
    */
   async getUserTournamentPosition(
     tournamentId: string,
@@ -447,7 +473,7 @@ export const serverTournamentService = {
     entry: PublicTournamentLeaderboardEntry;
   } | null> {
     try {
-      // ОПТИМИЗАЦИЯ: Используем быструю RPC функцию вместо загрузки всего leaderboard
+      // ИСПОЛЬЗУЕМ НОВУЮ ОПТИМИЗИРОВАННУЮ RPC ФУНКЦИЮ
       const { data, error } = await supabaseServer.rpc('get_user_tournament_position_fast', {
         p_tournament_id: tournamentId,
         p_telegram_id: telegramId,
@@ -465,7 +491,7 @@ export const serverTournamentService = {
       const result = data[0];
       
       return {
-        position: result.position,
+        position: result.user_position,
         entry: {
           tournament_id: tournamentId,
           first_name: result.first_name,
@@ -481,7 +507,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * Получение турнира по query (existing method)
+   * Получение турнира по query (оптимизированная версия)
    */
   async getTournamentByQuery(query: string): Promise<Tournament | null> {
     try {
@@ -563,7 +589,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * УТИЛИТА: Очистка кэша (для тестирования)
+   * УТИЛИТА: Очистка кэша
    */
   clearCache() {
     activeTournamentCache = {
