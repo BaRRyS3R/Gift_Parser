@@ -223,12 +223,15 @@ export const serverGameService = {
       // ЭТАП 4: Финальное обновление attempts
       const additionalAttempts = achievementAttemptsAwarded + questAttemptsAwarded;
 
+
       if (additionalAttempts > 0) {
         const step4Start = Date.now();
-        console.log(`[DEBUG] Awarding additional attempts: ${additionalAttempts}`);
+        console.log(`[DEBUG] Awarding total additional attempts: ${additionalAttempts} (achievements: ${achievementAttemptsAwarded}, quests: ${questAttemptsAwarded})`);
+
         await this.awardAdditionalAttempts(telegramId, additionalAttempts);
+
         const step4End = Date.now();
-        console.log(`[DEBUG] Additional attempts awarded in ${step4End - step4Start}ms`);
+        console.log(`[DEBUG] All additional attempts awarded in ${step4End - step4Start}ms`);
       }
 
       const step3End = Date.now();
