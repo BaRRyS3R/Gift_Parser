@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - СУПЕР ОПТИМИЗИРОВАННАЯ версия
+// src/lib/server/gameService.ts - Updated with daily quests integration
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -6,23 +6,34 @@ import type { PhysicsGameResult } from "@/types/game-modes/physics";
 import type { RotationGameResult } from "@/types/game-modes/rotation";
 
 import { supabaseServer } from "../supabase_server";
+
+import { serverAchievementsService } from "./achievementsService";
+import { serverTournamentService } from "./tournamentService";
+import { serverDailyQuestsService } from "./dailyQuestsService"; // NEW: Daily quests integration
+
 import { GameMode } from "@/types/game-modes/common";
 
 // Game result union type
-type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult;
+type GameResult =
+  | ReactionGameResult
+  | SurvivalGameResult
+  | PhysicsGameResult
+  | RotationGameResult;
 
-// Enhanced game save result
+// Enhanced game save result with tournaments, achievements, and daily quests
 export interface GameSaveResult {
   success: boolean;
   levelChanged?: boolean;
   newLevel?: number;
   attemptsAwarded?: number;
+  // Achievement rewards
   achievementsUnlocked?: Array<{
     id: string;
     name: string;
     attemptsAwarded: number;
   }>;
   totalAttemptsAwarded?: number;
+  // Tournament information
   tournamentInfo?: {
     tournamentId: string;
     tournamentName: string;
@@ -30,6 +41,7 @@ export interface GameSaveResult {
     position?: number;
     improved: boolean;
   };
+  // NEW: Daily quest information
   questCompletions?: Array<{
     questId: string;
     completed: boolean;
@@ -39,10 +51,104 @@ export interface GameSaveResult {
   error?: string;
 }
 
+// Level system constants
+const LEVEL_CONFIG = {
+  GAMES_PER_LEVEL: 20,
+  ATTEMPTS_PER_LEVEL: 10,
+  MAX_LEVEL: 10000,
+  STARTING_LEVEL: 1,
+} as const;
+
 /**
- * Convert GameResult to JSONB format for RPC
+ * Calculate user level based on total games played
  */
-function convertToGameData(gameResult: GameResult): Record<string, any> {
+function calculateLevel(totalGames: number): number {
+  const calculatedLevel =
+    Math.floor(totalGames / LEVEL_CONFIG.GAMES_PER_LEVEL) +
+    LEVEL_CONFIG.STARTING_LEVEL;
+
+  return Math.min(calculatedLevel, LEVEL_CONFIG.MAX_LEVEL);
+}
+
+/**
+ * Calculate reaction time score based on timing
+ */
+function calculateReactionScore(reactionTime: number, missed: boolean): number {
+  if (missed) return 0;
+
+  if (reactionTime < 50) return 50;
+  if (reactionTime <= 150) return 40;
+  if (reactionTime <= 250) return 30;
+  if (reactionTime <= 400) return 20;
+
+  return 10;
+}
+
+/**
+ * Get score multiplier for total_score calculation
+ */
+function getScoreMultiplier(mode: GameMode): number {
+  switch (mode) {
+    case GameMode.REACTION:
+      return 1; // No multiplier for reaction mode (already calculated)
+    case GameMode.SURVIVAL:
+      return 2;
+    case GameMode.PHYSICS:
+      return 4;
+    case GameMode.ROTATION:
+      return 3;
+    default:
+      return 1;
+  }
+}
+
+/**
+ * Calculate total score contribution based on game mode
+ */
+function calculateTotalScoreContribution(gameResult: GameResult): number {
+  let baseScore = gameResult.score;
+
+  // For reaction mode, recalculate score based on reaction time
+  if (gameResult.mode === GameMode.REACTION) {
+    const reactionResult = gameResult as ReactionGameResult;
+
+    baseScore = calculateReactionScore(
+      reactionResult.reactionTime,
+      reactionResult.missed,
+    );
+  }
+
+  const multiplier = getScoreMultiplier(gameResult.mode);
+
+  return baseScore * multiplier;
+}
+
+/**
+ * Calculate mode-specific best score with multiplier
+ */
+function calculateModeSpecificScore(gameResult: GameResult): number {
+  let baseScore = gameResult.score;
+
+  // For reaction mode, use calculated score
+  if (gameResult.mode === GameMode.REACTION) {
+    const reactionResult = gameResult as ReactionGameResult;
+
+    return calculateReactionScore(
+      reactionResult.reactionTime,
+      reactionResult.missed,
+    );
+  }
+
+  // For other modes, apply multiplier to mode-specific best score
+  const multiplier = getScoreMultiplier(gameResult.mode);
+
+  return baseScore * multiplier;
+}
+
+/**
+ * Convert GameResult to tournament format
+ */
+function convertToTournamentGameResult(gameResult: GameResult): any {
   const base = {
     mode: gameResult.mode,
     score: gameResult.score,
@@ -50,16 +156,9 @@ function convertToGameData(gameResult: GameResult): Record<string, any> {
   };
 
   switch (gameResult.mode) {
-    case GameMode.REACTION:
-      const reactionResult = gameResult as ReactionGameResult;
-      return {
-        ...base,
-        reactionTime: reactionResult.reactionTime,
-        missed: reactionResult.missed,
-      };
-
     case GameMode.SURVIVAL:
       const survivalResult = gameResult as SurvivalGameResult;
+
       return {
         ...base,
         survivalTime: survivalResult.survivalTime,
@@ -70,6 +169,7 @@ function convertToGameData(gameResult: GameResult): Record<string, any> {
 
     case GameMode.PHYSICS:
       const physicsResult = gameResult as PhysicsGameResult;
+
       return {
         ...base,
         gameTime: physicsResult.gameTime,
@@ -79,6 +179,7 @@ function convertToGameData(gameResult: GameResult): Record<string, any> {
 
     case GameMode.ROTATION:
       const rotationResult = gameResult as RotationGameResult;
+
       return {
         ...base,
         survivalTime: rotationResult.survivalTime,
@@ -92,374 +193,348 @@ function convertToGameData(gameResult: GameResult): Record<string, any> {
   }
 }
 
-/**
- * СУПЕР ОПТИМИЗИРОВАННЫЙ сервис сохранения игры
- */
+// Server-side game service
 export const serverGameService = {
   /**
-   * ОСНОВНОЙ МЕТОД - Максимально оптимизированное сохранение
-   * Цель: 1 RPC + 2 параллельных запроса = ~800ms вместо 6000ms
+   * Update user game statistics with level, achievement, tournament, and quest system integration
    */
-  async saveGameResult(telegramId: number, gameResult: GameResult): Promise<GameSaveResult> {
-    const startTime = Date.now();
-    console.log(`[DEBUG-OPT] Starting optimized game save for mode ${gameResult.mode}`);
-
-    try {
-      // ЭТАП 1: АТОМАРНОЕ сохранение основной статистики
-      const step1Start = Date.now();
-      const gameData = convertToGameData(gameResult);
-
-      console.log(`[DEBUG-OPT] Calling optimized RPC save_game_with_level_system...`);
-
-      const { data: mainResult, error: mainError } = await supabaseServer.rpc(
-        'save_game_with_level_system',
-        {
-          p_telegram_id: telegramId,
-          p_game_mode: gameResult.mode.toLowerCase(),
-          p_score: gameResult.score,
-          p_duration: gameResult.duration,
-          p_game_data: gameData,
-        }
-      );
-
-      const step1End = Date.now();
-      console.log(`[DEBUG-OPT] Main RPC completed in ${step1End - step1Start}ms`);
-
-      if (mainError || !mainResult || mainResult.length === 0) {
-        console.error('Error in save_game_with_level_system:', mainError);
-        throw new Error('Failed to save game data');
-      }
-
-      const result = mainResult[0];
-
-      if (!result.success) {
-        throw new Error('Game save operation failed');
-      }
-
-      // ЭТАП 2: ТОЛЬКО 2 ПАРАЛЛЕЛЬНЫХ СИСТЕМЫ (убрали Quests из параллельности)
-      const step2Start = Date.now();
-      console.log(`[DEBUG-OPT] Starting 2 parallel systems (achievements + tournaments)...`);
-
-      const [achievementsResult, tournamentResult] = await Promise.allSettled([
-        this.processAchievementsOptimized(telegramId).catch(error => {
-          console.warn('Achievement processing failed but game saved:', error);
-          return null;
-        }),
-        this.processTournamentOptimized(telegramId, gameResult, result.user_id).catch(error => {
-          console.warn('Tournament processing failed but game saved:', error);
-          return null;
-        }),
-      ]);
-
-      const step2End = Date.now();
-      console.log(`[DEBUG-OPT] Parallel systems completed in ${step2End - step2Start}ms`);
-
-      // ЭТАП 3: ПОСЛЕДОВАТЕЛЬНАЯ обработка квестов (если нужно)
-      const step3Start = Date.now();
-      console.log(`[DEBUG-OPT] Processing quests sequentially...`);
-      
-      let questsResult: any = null;
-      try {
-        const { serverDailyQuestsService } = await import('./dailyQuestsService');
-        const questResults = await serverDailyQuestsService.processGameQuestUpdates(
-          result.user_id,
-          gameResult.mode,
-          gameResult
-        );
-
-        questsResult = {
-          completions: questResults.map(r => ({
-            questId: r.questId,
-            completed: r.completed,
-            attemptsAwarded: r.attemptsAwarded,
-          })),
-          attemptsAwarded: questResults.reduce((total, r) => total + r.attemptsAwarded, 0),
-        };
-      } catch (error) {
-        console.warn('Quest processing failed but game saved:', error);
-      }
-
-      const step3End = Date.now();
-      console.log(`[DEBUG-OPT] Quests completed in ${step3End - step3Start}ms`);
-
-      // ЭТАП 4: Обработка результатов
-      const step4Start = Date.now();
-
-      let achievementsUnlocked: any[] = [];
-      let achievementAttemptsAwarded = 0;
-
-      if (achievementsResult.status === 'fulfilled' && achievementsResult.value) {
-        achievementsUnlocked = achievementsResult.value.achievements;
-        achievementAttemptsAwarded = achievementsResult.value.attemptsAwarded;
-        console.log(`[DEBUG-OPT] Achievements unlocked: ${achievementsUnlocked.length}`);
-      }
-
-      let questCompletions: any[] = [];
-      let questAttemptsAwarded = 0;
-
-      if (questsResult) {
-        questCompletions = questsResult.completions;
-        questAttemptsAwarded = questsResult.attemptsAwarded;
-        console.log(`[DEBUG-OPT] Quest completions: ${questCompletions.length}`);
-      }
-
-      let tournamentInfo: any = undefined;
-
-      if (tournamentResult.status === 'fulfilled' && tournamentResult.value) {
-        tournamentInfo = tournamentResult.value;
-        console.log(`[DEBUG-OPT] Tournament updated: ${tournamentInfo.tournamentId}`);
-      }
-
-      // ЭТАП 5: BATCH обновление attempts (если есть дополнительные)
-      const additionalAttempts = achievementAttemptsAwarded + questAttemptsAwarded;
-
-      if (additionalAttempts > 0) {
-        console.log(`[DEBUG-OPT] Awarding ${additionalAttempts} additional attempts...`);
-        await this.awardAdditionalAttemptsBatch(telegramId, additionalAttempts);
-      }
-
-      const step4End = Date.now();
-      console.log(`[DEBUG-OPT] Results processing completed in ${step4End - step4Start}ms`);
-
-      const totalTime = Date.now() - startTime;
-      console.log(`[DEBUG-OPT] TOTAL optimized save time: ${totalTime}ms`);
-
-      // Формирование ответа
-      const totalAttemptsAwarded = result.attempts_awarded + additionalAttempts;
-
-      const response: GameSaveResult = {
-        success: true,
-        levelChanged: result.level_changed,
-        newLevel: result.level_changed ? result.new_level : undefined,
-        attemptsAwarded: result.attempts_awarded > 0 ? result.attempts_awarded : undefined,
-        tournamentInfo,
-      };
-
-      if (achievementsUnlocked.length > 0) {
-        response.achievementsUnlocked = achievementsUnlocked;
-      }
-
-      if (questCompletions.length > 0) {
-        response.questCompletions = questCompletions;
-        response.questAttemptsAwarded = questAttemptsAwarded;
-      }
-
-      if (totalAttemptsAwarded > 0) {
-        response.totalAttemptsAwarded = totalAttemptsAwarded;
-      }
-
-      return response;
-
-    } catch (error) {
-      const errorTime = Date.now() - startTime;
-      console.error(`[DEBUG-OPT] Optimized save failed after ${errorTime}ms:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * ОПТИМИЗИРОВАННАЯ обработка достижений
-   */
-  async processAchievementsOptimized(telegramId: number): Promise<any> {
-    const startTime = Date.now();
-    console.log(`[DEBUG-ACH-OPT] Starting optimized achievements...`);
-
-    try {
-      const { data, error } = await supabaseServer.rpc(
-        "check_and_award_achievements_optimized", // ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ
-        { p_telegram_id: telegramId }
-      );
-
-      if (error) {
-        console.error("Error checking achievements:", error);
-        return { achievements: [], attemptsAwarded: 0 };
-      }
-
-      const achievements = (data || []).map((item: any) => ({
-        id: item.achievement_id,
-        name: item.achievement_name,
-        attemptsAwarded: item.attempts_awarded,
-      }));
-
-      const endTime = Date.now();
-      console.log(`[DEBUG-ACH-OPT] Optimized achievements completed in ${endTime - startTime}ms, found ${achievements.length}`);
-
-      return {
-        achievements,
-        attemptsAwarded: achievements.reduce((total: number, achievement: any) => total + achievement.attemptsAwarded, 0),
-      };
-    } catch (error) {
-      const endTime = Date.now();
-      console.error(`[DEBUG-ACH-OPT] Achievements error after ${endTime - startTime}ms:`, error);
-      return { achievements: [], attemptsAwarded: 0 };
-    }
-  },
-
-  /**
-   * ОПТИМИЗИРОВАННАЯ обработка турниров
-   */
-  async processTournamentOptimized(
+  async updateGameStats(
     telegramId: number,
     gameResult: GameResult,
-    userId: string
-  ): Promise<any> {
-    const startTime = Date.now();
-    console.log(`[DEBUG-TOUR-OPT] Starting optimized tournament...`);
+  ): Promise<GameSaveResult> {
+    // Get user data
+    const { data: user, error: userError } = await supabaseServer
+      .from("users")
+      .select("*")
+      .eq("telegram_id", telegramId)
+      .single();
 
-    try {
-      // ОПТИМИЗАЦИЯ: Сначала проверяем есть ли активные турниры для режима
-      const { data: activeTournament, error: tournamentError } = await supabaseServer
-        .from('tournaments')
-        .select('id, name, game_mode')
-        .eq('game_mode', gameResult.mode.toLowerCase())
-        .eq('status', 'active')
-        .gte('end_time', new Date().toISOString())
-        .lte('start_time', new Date().toISOString())
-        .single();
+    if (userError || !user) {
+      throw new Error("User not found");
+    }
 
-      if (tournamentError || !activeTournament) {
-        console.log(`[DEBUG-TOUR-OPT] No active tournament for ${gameResult.mode} (${Date.now() - startTime}ms)`);
-        return null;
-      }
+    const previousTotalGames = user.total_games;
+    const previousLevel = user.current_level;
 
-      // Получаем данные пользователя
-      const { data: user } = await supabaseServer
-        .from('users')
-        .select('first_name, last_name, username, is_premium')
-        .eq('telegram_id', telegramId)
-        .single();
+    // All modes count towards total_games
+    const newTotalGames = previousTotalGames + 1;
 
-      if (!user) {
-        console.log(`[DEBUG-TOUR-OPT] User not found (${Date.now() - startTime}ms)`);
-        return null;
-      }
+    // Calculate new level based on total games
+    const newLevel = calculateLevel(newTotalGames);
+    const levelChanged = newLevel > previousLevel;
 
-      // Calculate tournament score
-      let tournamentScore = gameResult.score;
-      switch (gameResult.mode) {
-        case GameMode.SURVIVAL: tournamentScore = gameResult.score * 2; break;
-        case GameMode.PHYSICS: tournamentScore = gameResult.score * 4; break;
-        case GameMode.ROTATION: tournamentScore = gameResult.score * 3; break;
-      }
+    // Calculate score contributions
+    const totalScoreContribution = calculateTotalScoreContribution(gameResult);
+    const modeSpecificScore = calculateModeSpecificScore(gameResult);
 
-      const gameData = {
-        score: gameResult.score,
-        survivalTime: (gameResult as any).survivalTime,
-        maxLevelReached: (gameResult as any).maxLevelReached,
-        perfectStreak: (gameResult as any).perfectStreak,
-        gameTime: (gameResult as any).gameTime,
-        totalHits: (gameResult as any).totalHits,
-        mistakesMade: (gameResult as any).mistakesMade,
-      };
+    const updates: any = {
+      total_games: newTotalGames,
+      total_score: user.total_score + totalScoreContribution,
+      best_score: Math.max(user.best_score, totalScoreContribution),
+      current_level: newLevel,
+      last_played_at: new Date().toISOString(),
+    };
 
-      // ИСПОЛЬЗУЕМ НОВУЮ BATCH ФУНКЦИЮ
-      const { data: tournamentResult, error: processError } = await supabaseServer.rpc(
-        'process_tournament_game_batch',
-        {
-          p_tournament_id: activeTournament.id,
-          p_telegram_id: telegramId,
-          p_user_id: userId,
-          p_first_name: user.first_name,
-          p_last_name: user.last_name,
-          p_username: user.username,
-          p_is_premium: user.is_premium,
-          p_new_score: tournamentScore,
-          p_game_mode: gameResult.mode.toLowerCase(),
-          p_game_data: gameData,
-        }
+    // Award attempts for level increase
+    let levelAttemptsAwarded = 0;
+
+    if (levelChanged) {
+      const levelsGained = newLevel - previousLevel;
+
+      levelAttemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
+      updates.attempts_reset_at = null;
+      updates.attempts_remaining =
+        user.attempts_remaining + levelAttemptsAwarded;
+    }
+
+    // Mode-specific statistics updates
+    if (gameResult.mode === GameMode.REACTION) {
+      const reactionResult = gameResult as ReactionGameResult;
+
+      // Calculate actual score for reaction mode
+      const calculatedScore = calculateReactionScore(
+        reactionResult.reactionTime,
+        reactionResult.missed,
       );
 
-      if (processError || !tournamentResult || tournamentResult.length === 0) {
-        console.error("Error in tournament batch processing:", processError);
-        return null;
+      updates.reaction_games = user.reaction_games + 1;
+      updates.reaction_best_score = Math.max(
+        user.reaction_best_score || 0,
+        calculatedScore,
+      );
+
+      if (!reactionResult.missed && reactionResult.reactionTime > 0) {
+        updates.reaction_best_time =
+          user.reaction_best_time > 0
+            ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
+            : reactionResult.reactionTime;
+
+        const totalReactionGames = user.reaction_games;
+        const currentAverage = user.reaction_average_time || 0;
+        const newAverage =
+          totalReactionGames > 0
+            ? (currentAverage * totalReactionGames +
+                reactionResult.reactionTime) /
+              (totalReactionGames + 1)
+            : reactionResult.reactionTime;
+
+        updates.reaction_average_time = Math.round(newAverage);
       }
+    } else if (gameResult.mode === GameMode.SURVIVAL) {
+      const survivalResult = gameResult as SurvivalGameResult;
 
-      const result = tournamentResult[0];
-      const endTime = Date.now();
-      console.log(`[DEBUG-TOUR-OPT] Optimized tournament completed in ${endTime - startTime}ms`);
+      updates.survival_games = user.survival_games + 1;
+      updates.survival_best_score = Math.max(
+        user.survival_best_score || 0,
+        survivalResult.score * 2,
+      );
+      updates.survival_best_time = Math.max(
+        user.survival_best_time || 0,
+        survivalResult.survivalTime,
+      );
+      updates.survival_max_level = Math.max(
+        user.survival_max_level || 0,
+        survivalResult.maxLevelReached,
+      );
+      updates.survival_best_streak = Math.max(
+        user.survival_best_streak || 0,
+        survivalResult.perfectStreak,
+      );
+    } else if (gameResult.mode === GameMode.PHYSICS) {
+      const physicsResult = gameResult as PhysicsGameResult;
 
-      return {
-        tournamentId: activeTournament.id,
-        tournamentName: activeTournament.name,
-        newBestScore: result.score_improved,
-        position: result.new_position,
-        improved: result.new_position < (result.previous_position || 999999),
-      };
+      updates.physics_games = user.physics_games + 1;
+      updates.physics_best_score = Math.max(
+        user.physics_best_score || 0,
+        physicsResult.score * 4,
+      );
+      updates.physics_best_time = Math.max(
+        user.physics_best_time || 0,
+        Math.round(physicsResult.gameTime),
+      );
+      updates.physics_total_hits =
+        (user.physics_total_hits || 0) + physicsResult.totalHits;
+      updates.physics_best_hits = Math.max(
+        user.physics_best_hits || 0,
+        physicsResult.totalHits,
+      );
 
-    } catch (error) {
-      const endTime = Date.now();
-      console.error(`[DEBUG-TOUR-OPT] Tournament error after ${endTime - startTime}ms:`, error);
-      return null;
+      if (
+        user.physics_least_mistakes === undefined ||
+        user.physics_least_mistakes === null
+      ) {
+        updates.physics_least_mistakes = physicsResult.mistakesMade;
+      } else {
+        updates.physics_least_mistakes = Math.min(
+          user.physics_least_mistakes,
+          physicsResult.mistakesMade,
+        );
+      }
+    } else if (gameResult.mode === GameMode.ROTATION) {
+      const rotationResult = gameResult as RotationGameResult;
+
+      updates.rotation_games = user.rotation_games + 1;
+      updates.rotation_best_score = Math.max(
+        user.rotation_best_score || 0,
+        rotationResult.score * 3,
+      );
+      updates.rotation_best_time = Math.max(
+        user.rotation_best_time || 0,
+        rotationResult.survivalTime,
+      );
+      updates.rotation_max_level = Math.max(
+        user.rotation_max_level || 0,
+        rotationResult.maxLevelReached,
+      );
+      updates.rotation_best_streak = Math.max(
+        user.rotation_best_streak || 0,
+        rotationResult.perfectStreak,
+      );
+      updates.rotation_total_hits =
+        (user.rotation_total_hits || 0) + rotationResult.correctHits;
     }
+
+    // Update user stats in database
+    const { error: updateError } = await supabaseServer
+      .from("users")
+      .update(updates)
+      .eq("telegram_id", telegramId);
+
+    if (updateError) {
+      console.error("Error updating user stats:", updateError);
+      throw new Error("Failed to update user statistics");
+    }
+
+    // NEW: Process daily quest updates after user stats are updated
+    let questCompletions: any[] = [];
+    let questAttemptsAwarded = 0;
+
+    try {
+      const questResults = await serverDailyQuestsService.processGameQuestUpdates(
+        user.id,
+        gameResult.mode,
+        gameResult,
+      );
+
+      questCompletions = questResults.map(result => ({
+        questId: result.questId,
+        completed: result.completed,
+        attemptsAwarded: result.attemptsAwarded,
+      }));
+
+      questAttemptsAwarded = questResults.reduce(
+        (total, result) => total + result.attemptsAwarded,
+        0,
+      );
+    } catch (questError) {
+      console.warn("Daily quest update failed but game saved:", questError);
+    }
+
+    // Check and award achievements after stats update (with error handling)
+    let newAchievements: any[] = [];
+    let achievementAttemptsAwarded = 0;
+
+    try {
+      newAchievements =
+        await serverAchievementsService.checkAndAwardAchievements(telegramId);
+
+      achievementAttemptsAwarded = newAchievements.reduce(
+        (total: number, achievement: any) =>
+          total + achievement.attempts_awarded,
+        0,
+      );
+    } catch (achievementError) {
+      console.warn(
+        "Achievement check failed but game saved:",
+        achievementError,
+      );
+    }
+
+    // Check for active tournament and update tournament leaderboard
+    let tournamentInfo: any = undefined;
+
+    try {
+      const isTournamentActive =
+        await serverTournamentService.isTournamentActiveForMode(
+          gameResult.mode,
+        );
+
+      if (isTournamentActive) {
+        const activeTournament =
+          await serverTournamentService.getActiveTournament();
+
+        if (
+          activeTournament &&
+          activeTournament.mode === gameResult.mode.toLowerCase()
+        ) {
+          // Get previous tournament entry to check for improvements
+          const previousPosition =
+            await serverTournamentService.getUserTournamentPosition(
+              activeTournament.id,
+              telegramId,
+            );
+
+          // Update tournament leaderboard
+          await serverTournamentService.updateTournamentLeaderboard(
+            activeTournament.id,
+            telegramId,
+            convertToTournamentGameResult(gameResult),
+            {
+              user_id: user.id,
+              first_name: user.first_name,
+              last_name: user.last_name,
+              username: user.username,
+              is_premium: user.is_premium,
+            },
+          );
+
+          // Get new position after update
+          const newPosition =
+            await serverTournamentService.getUserTournamentPosition(
+              activeTournament.id,
+              telegramId,
+            );
+
+          // Check if this is a new best score in tournament
+          const tournamentScore = modeSpecificScore;
+          const newBestScore =
+            !previousPosition ||
+            (newPosition &&
+              newPosition.entry.best_score >
+                (previousPosition.entry.best_score || 0));
+
+          tournamentInfo = {
+            tournamentId: activeTournament.id,
+            tournamentName: activeTournament.name,
+            newBestScore,
+            position: newPosition?.position,
+            improved:
+              !previousPosition ||
+              (newPosition && newPosition.position < previousPosition.position),
+            previousPosition: previousPosition?.position,
+            scoreImprovement: newBestScore
+              ? modeSpecificScore - (previousPosition?.entry.best_score || 0)
+              : undefined,
+          };
+        }
+      }
+    } catch (tournamentError) {
+      console.warn("Tournament update failed but game saved:", tournamentError);
+    }
+
+    const totalAttemptsAwarded =
+      levelAttemptsAwarded + achievementAttemptsAwarded + questAttemptsAwarded;
+
+    // Prepare response
+    const response: GameSaveResult = {
+      success: true,
+      levelChanged,
+      newLevel: levelChanged ? newLevel : undefined,
+      attemptsAwarded:
+        levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
+      tournamentInfo,
+    };
+
+    // Add achievement information if any were unlocked
+    if (newAchievements.length > 0) {
+      response.achievementsUnlocked = newAchievements.map((achievement) => ({
+        id: achievement.achievement_id,
+        name: achievement.achievement_name,
+        attemptsAwarded: achievement.attempts_awarded,
+      }));
+    }
+
+    // NEW: Add quest completion information
+    if (questCompletions.length > 0) {
+      response.questCompletions = questCompletions;
+      response.questAttemptsAwarded = questAttemptsAwarded;
+    }
+
+    // Update total attempts awarded to include all sources
+    if (totalAttemptsAwarded > 0) {
+      response.totalAttemptsAwarded = totalAttemptsAwarded;
+    }
+
+    return response;
   },
 
   /**
-   * BATCH обновление attempts
+   * Save regular game result (non-tournament)
    */
-  async awardAdditionalAttemptsBatch(telegramId: number, attemptsToAdd: number): Promise<void> {
-    if (attemptsToAdd <= 0) return;
-
-    try {
-      // ИСПРАВЛЕНО: Используем простой RPC запрос для безопасного обновления
-      const { error } = await supabaseServer.rpc('add_user_attempts', {
-        p_telegram_id: telegramId,
-        p_attempts_to_add: attemptsToAdd,
-      });
-
-      if (error) {
-        console.error('Error awarding additional attempts:', error);
-        // FALLBACK: Если RPC не существует, делаем через обычный UPDATE
-        const { data: user } = await supabaseServer
-          .from('users')
-          .select('attempts_remaining')
-          .eq('telegram_id', telegramId)
-          .single();
-
-        if (user) {
-          await supabaseServer
-            .from('users')
-            .update({
-              attempts_remaining: user.attempts_remaining + attemptsToAdd,
-              attempts_reset_at: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('telegram_id', telegramId);
-        }
-      }
-    } catch (error) {
-      console.error('Error in awardAdditionalAttemptsBatch:', error);
-    }
+  async saveGameResult(
+    telegramId: number,
+    gameResult: GameResult,
+  ): Promise<GameSaveResult> {
+    return await this.updateGameStats(telegramId, gameResult);
   },
 
-  // Legacy compatibility methods
-  calculateLevel(totalGames: number): number {
-    const GAMES_PER_LEVEL = 20;
-    const STARTING_LEVEL = 1;
-    const MAX_LEVEL = 10000;
-    const calculatedLevel = Math.floor(totalGames / GAMES_PER_LEVEL) + STARTING_LEVEL;
-    return Math.min(calculatedLevel, MAX_LEVEL);
-  },
+  // Export utility functions for use in game logic
+  calculateReactionScore,
+  getScoreMultiplier,
+  calculateTotalScoreContribution,
+  calculateModeSpecificScore,
+  calculateLevel,
 
-  calculateReactionScore(reactionTime: number, missed: boolean): number {
-    if (missed) return 0;
-    if (reactionTime < 50) return 50;
-    if (reactionTime <= 150) return 40;
-    if (reactionTime <= 250) return 30;
-    if (reactionTime <= 400) return 20;
-    return 10;
-  },
-
-  getScoreMultiplier(mode: GameMode): number {
-    switch (mode) {
-      case GameMode.REACTION: return 1;
-      case GameMode.SURVIVAL: return 2;
-      case GameMode.PHYSICS: return 4;
-      case GameMode.ROTATION: return 3;
-      default: return 1;
-    }
-  },
-
-  async updateGameStats(telegramId: number, gameResult: GameResult): Promise<GameSaveResult> {
-    return this.saveGameResult(telegramId, gameResult);
-  },
+  // Export level system constants
+  LEVEL_CONFIG,
 };
