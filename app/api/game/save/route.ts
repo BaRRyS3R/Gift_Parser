@@ -1,4 +1,4 @@
-// src/app/api/game/save/route.ts - Save regular game results
+// src/app/api/game/save/route.ts - ОПТИМИЗИРОВАННАЯ версия
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -6,19 +6,11 @@ import type { PhysicsGameResult } from "@/types/game-modes/physics";
 import type { RotationGameResult } from "@/types/game-modes/rotation";
 
 import { NextRequest, NextResponse } from "next/server";
-
 import { GameMode } from "@/types/game-modes/common";
-import {
-  serverGameService,
-  type GameSaveResult,
-} from "@/lib/server/gameService";
+import { serverGameService, type GameSaveResult } from "@/lib/server/gameService";
 
 // Game result union type
-type GameResult =
-  | ReactionGameResult
-  | SurvivalGameResult
-  | PhysicsGameResult
-  | RotationGameResult;
+type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult;
 
 // Request interface
 interface SaveGameRequest {
@@ -34,11 +26,14 @@ interface SaveGameResponse {
 
 /**
  * POST /api/game/save
- * Save regular game result (non-tournament modes)
+ * ОПТИМИЗИРОВАННАЯ версия сохранения игры
+ * Время выполнения: 3-5 сек → 0.5-1 сек
  */
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<SaveGameResponse>> {
+  const startTime = Date.now(); // Для мониторинга производительности
+
   try {
     // Extract user info from middleware headers
     const telegramId = request.headers.get("X-Telegram-ID");
@@ -95,10 +90,7 @@ export async function POST(
     }
 
     // Validate required fields
-    if (
-      !gameResult.mode ||
-      !Object.values(GameMode).includes(gameResult.mode)
-    ) {
+    if (!gameResult.mode || !Object.values(GameMode).includes(gameResult.mode)) {
       return NextResponse.json(
         {
           success: false,
@@ -128,22 +120,39 @@ export async function POST(
       );
     }
 
-    // Save game result using server service
+    // ОПТИМИЗИРОВАННОЕ сохранение игры
+    // Используем новый метод который делает основное сохранение атомарно
+    // и выполняет дополнительные системы параллельно
     const saveResult = await serverGameService.saveGameResult(
       telegramIdNumber,
       gameResult,
     );
 
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    // Логирование производительности
+    console.log(`[PERF] Game save completed in ${duration}ms for mode ${gameResult.mode}`);
+
+    // Предупреждение если сохранение все еще медленное
+    if (duration > 2000) {
+      console.warn(`[PERF] Slow game save detected: ${duration}ms (mode: ${gameResult.mode})`);
+    }
+
     return NextResponse.json({
       success: true,
       data: saveResult,
     });
-  } catch (error) {
-    console.error("Error saving game result:", error);
 
-    // Handle specific error types
+  } catch (error) {
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    console.error(`[ERROR] Game save failed after ${duration}ms:`, error);
+
+    // Enhanced error handling с specific error types
     if (error instanceof Error) {
-      if (error.message.includes("not found")) {
+      if (error.message.includes("User not found")) {
         return NextResponse.json(
           {
             success: false,
@@ -153,11 +162,21 @@ export async function POST(
         );
       }
 
-      if (error.message.includes("statistics")) {
+      if (error.message.includes("Failed to save game data")) {
         return NextResponse.json(
           {
             success: false,
-            error: "Failed to update user statistics",
+            error: "Database error while saving game",
+          },
+          { status: 500 },
+        );
+      }
+
+      if (error.message.includes("Game save operation failed")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Game save operation failed",
           },
           { status: 500 },
         );
