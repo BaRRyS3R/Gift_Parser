@@ -302,8 +302,8 @@ export function parseTelegramInitData(initData: string): ParseResult {
     // 🚨 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Правильная проверка auth_date
     const authDate = parseInt(urlParams.get("auth_date") || "0");
     
-    // Используем универсальную функцию проверки (более мягкие ограничения для клиента)
-    const authValidation = validateAuthDate(authDate, 24 * 60 * 60); // 24 часа для клиента
+    // Используем универсальную функцию проверки (мягкие ограничения для клиента)
+    const authValidation = validateAuthDate(authDate, 48 * 60 * 60); // 48 часов для клиента (увеличили для высокой нагрузки)
     
     if (!authValidation.isValid) {
       console.error(`[CLIENT] Auth date validation failed: ${authValidation.error}`);

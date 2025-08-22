@@ -1,4 +1,4 @@
-// src/middleware.ts - ИСПРАВЛЕННАЯ ВЕРСИЯ с защитой от будущих auth_date
+// src/middleware.ts - УПРОЩЕННАЯ ВЕРСИЯ с фокусом на качественные проверки
 
 import type { NextRequest } from "next/server";
 
@@ -16,48 +16,7 @@ export const config = {
   matcher: "/api/:path*",
 };
 
-// 🚨 НОВАЯ ФУНКЦИЯ: Rate limiting для защиты от атак
-const authAttempts = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
-
-function checkRateLimit(ip: string): { allowed: boolean, resetTime?: number } {
-  const now = Date.now();
-  const key = ip;
-  const current = authAttempts.get(key);
-  
-  if (!current) {
-    authAttempts.set(key, { count: 1, lastAttempt: now });
-    return { allowed: true };
-  }
-  
-  // Проверка блокировки
-  if (current.blockedUntil && now < current.blockedUntil) {
-    return { allowed: false, resetTime: current.blockedUntil };
-  }
-  
-  // Сброс каждые 15 минут
-  if (now - current.lastAttempt > 15 * 60 * 1000) {
-    authAttempts.set(key, { count: 1, lastAttempt: now });
-    return { allowed: true };
-  }
-  
-  current.count++;
-  current.lastAttempt = now;
-  
-  // Прогрессивная блокировка
-  if (current.count > 20) {
-    // Блокировка на 1 час
-    current.blockedUntil = now + 60 * 60 * 1000;
-    console.error(`[MIDDLEWARE] IP ${ip} blocked for 1 hour after ${current.count} attempts`);
-    return { allowed: false, resetTime: current.blockedUntil };
-  } else if (current.count > 10) {
-    // Предупреждение
-    console.warn(`[MIDDLEWARE] IP ${ip} approaching limit: ${current.count} attempts`);
-  }
-  
-  return { allowed: true };
-}
-
-// 🚨 НОВАЯ ФУНКЦИЯ: Валидация auth_date в middleware
+// 🚨 НОВАЯ ФУНКЦИЯ: Только качественная валидация auth_date (без rate limiting)
 function validateAuthDateInMiddleware(initData: string): {
   isValid: boolean;
   error?: string;
@@ -90,8 +49,8 @@ function validateAuthDateInMiddleware(initData: string): {
       };
     }
     
-    // Проверка старых данных (строже чем клиент)
-    if (currentTime - authDate > 1800) { // 30 минут максимум
+    // Проверка старых данных (более мягкая - 2 часа вместо 30 минут)
+    if (currentTime - authDate > 7200) { // 2 часа максимум
       console.warn(`[MIDDLEWARE SECURITY] Old auth_date detected: ${authDate}, age: ${currentTime - authDate} seconds`);
       return {
         isValid: false,
@@ -115,7 +74,7 @@ function validateAuthDateInMiddleware(initData: string): {
   }
 }
 
-// 🚨 НОВАЯ ФУНКЦИЯ: Логирование подозрительной активности
+// 🚨 УПРОЩЕННАЯ ФУНКЦИЯ: Только логирование без блокировок
 function logSecurityEvent(type: string, data: any, request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || 
             request.headers.get("x-real-ip") || 
@@ -126,20 +85,18 @@ function logSecurityEvent(type: string, data: any, request: NextRequest) {
     timestamp: new Date().toISOString(),
     type,
     ip,
-    userAgent: userAgent.substring(0, 200), // Ограничиваем длину
+    userAgent: userAgent.substring(0, 200),
     url: request.url,
     method: request.method,
     data
   };
   
-  console.error(`[SECURITY ALERT] ${type}:`, JSON.stringify(logEntry, null, 2));
-  
-  // TODO: Можно добавить отправку в внешний сервис мониторинга
-  // await sendToSecurityMonitoring(logEntry);
+  // Только логирование для аналитики, БЕЗ алертов и блокировок
+  console.log(`[SECURITY LOG] ${type}:`, JSON.stringify(logEntry, null, 2));
 }
 
 /**
- * Главная middleware функция с усиленной защитой
+ * Упрощенная middleware функция с фокусом на качество, а не количество
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -156,34 +113,13 @@ export async function middleware(request: NextRequest) {
     return handleCorsPreflightRequest(request);
   }
 
-  // 2. 🚨 ЭКСТРЕННАЯ ЗАЩИТА для auth endpoints
+  // 2. 🎯 КАЧЕСТВЕННЫЕ ПРОВЕРКИ для auth endpoints (БЕЗ rate limiting)
   if (pathname.startsWith('/api/auth/')) {
     console.log(`[Middleware] Applying auth endpoint protection for ${pathname}`);
     
-    // Rate limiting
-    const rateLimitCheck = checkRateLimit(ip);
-    if (!rateLimitCheck.allowed) {
-      console.error(`[Middleware] Rate limit exceeded for IP ${ip}`);
-      
-      logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
-        ip, 
-        attempts: authAttempts.get(ip)?.count,
-        resetTime: rateLimitCheck.resetTime 
-      }, request);
-      
-      const response = NextResponse.json({
-        success: false,
-        error: "Too many requests",
-        code: "RATE_LIMIT_EXCEEDED",
-        retryAfter: rateLimitCheck.resetTime ? Math.ceil((rateLimitCheck.resetTime - Date.now()) / 1000) : 900
-      }, { status: 429 });
-      
-      return applyCorsHeaders(request, response);
-    }
-    
-    // Проверка размера запроса
+    // Проверка размера запроса (защита от DDoS)
     const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength) > 10000) { // 10KB максимум для auth запросов
+    if (contentLength && parseInt(contentLength) > 50000) { // Увеличили с 10KB до 50KB
       console.error(`[Middleware] Request too large: ${contentLength} bytes`);
       
       logSecurityEvent('REQUEST_TOO_LARGE', { 
@@ -214,12 +150,12 @@ export async function middleware(request: NextRequest) {
           if (!authValidation.isValid) {
             console.error(`[Middleware] Auth validation failed: ${authValidation.error}`);
             
-            // Логируем различные типы атак
+            // Логируем для аналитики
             let alertType = 'AUTH_VALIDATION_FAILED';
             if (authValidation.error?.includes('future')) {
               alertType = 'FUTURE_AUTH_DATE_ATTACK';
             } else if (authValidation.error?.includes('old')) {
-              alertType = 'OLD_AUTH_DATE_ATTACK';
+              alertType = 'OLD_AUTH_DATE_DETECTED'; // Изменили с ATTACK на DETECTED
             }
             
             logSecurityEvent(alertType, {
@@ -228,22 +164,29 @@ export async function middleware(request: NextRequest) {
               error: authValidation.error
             }, request);
             
-            const response = NextResponse.json({
-              success: false,
-              error: "Invalid authentication data",
-              code: "AUTH_VALIDATION_FAILED",
-              blocked: true
-            }, { status: 400 });
+            // Блокируем только КРИТИЧЕСКИЕ нарушения (будущие даты)
+            if (alertType === 'FUTURE_AUTH_DATE_ATTACK') {
+              const response = NextResponse.json({
+                success: false,
+                error: "Invalid authentication data",
+                code: "FUTURE_AUTH_DATE_DETECTED"
+              }, { status: 400 });
+              
+              return applyCorsHeaders(request, response);
+            }
             
-            return applyCorsHeaders(request, response);
+            // Для старых данных - только логируем, НЕ блокируем
+            if (alertType === 'OLD_AUTH_DATE_DETECTED') {
+              console.warn(`[Middleware] Old auth data detected but allowing through: ${authValidation.timeDiff}s old`);
+              // Продолжаем выполнение, не блокируем
+            }
           } else {
             console.log(`[Middleware] Auth validation passed, timeDiff: ${authValidation.timeDiff}s`);
           }
           
-          // Дополнительные проверки initData
+          // Проверка наличия обязательных полей
           const urlParams = new URLSearchParams(jsonBody.initData);
           
-          // Проверка наличия обязательных полей
           const requiredFields = ['auth_date', 'hash'];
           for (const field of requiredFields) {
             if (!urlParams.get(field)) {
@@ -282,11 +225,11 @@ export async function middleware(request: NextRequest) {
                 return applyCorsHeaders(request, response);
               }
               
-              // Проверка на разумные значения
-              if (user.id <= 0 || user.id > 9999999999) {
-                console.error(`[Middleware] Suspicious user ID: ${user.id}`);
+              // Проверка на явно подозрительные значения (только критические случаи)
+              if (user.id <= 0 || user.id > 99999999999) { // Расширили диапазон
+                console.error(`[Middleware] Highly suspicious user ID: ${user.id}`);
                 
-                logSecurityEvent('SUSPICIOUS_USER_ID', { userId: user.id }, request);
+                logSecurityEvent('EXTREMELY_SUSPICIOUS_USER_ID', { userId: user.id }, request);
                 
                 const response = NextResponse.json({
                   success: false,
@@ -300,7 +243,7 @@ export async function middleware(request: NextRequest) {
             } catch (error) {
               console.error("[Middleware] Failed to parse user data:", error);
               
-              logSecurityEvent('USER_DATA_PARSE_ERROR', { error: "User data parse error" }, request);
+              logSecurityEvent('USER_DATA_PARSE_ERROR', { error: "USER DATA PARSE ERROR" }, request);
               
               const response = NextResponse.json({
                 success: false,
@@ -316,9 +259,9 @@ export async function middleware(request: NextRequest) {
     } catch (error) {
       console.error(`[Middleware] Error processing auth request:`, error);
       
-      // Не блокируем на ошибках парсинга JSON, но логируем
+      // Логируем ошибку, но НЕ блокируем запрос
       logSecurityEvent('AUTH_REQUEST_PARSE_ERROR', { 
-        error: "Auth request parse error"
+        error: "AUTH REQUEST PARSE ERROR"
       }, request);
     }
   }
@@ -412,9 +355,9 @@ export async function middleware(request: NextRequest) {
       errorCode = "MALFORMED_TOKEN";
     }
 
-    // Логируем подозрительные попытки доступа с неправильными токенами
+    // Логируем, но не как атаку (может быть просто устаревший токен)
     if (errorCode === "MALFORMED_TOKEN") {
-      logSecurityEvent('MALFORMED_TOKEN_ATTACK', { 
+      logSecurityEvent('MALFORMED_TOKEN_DETECTED', { 
         errorMessage,
         authHeader: request.headers.get("Authorization")?.substring(0, 50) 
       }, request);
@@ -429,22 +372,3 @@ export async function middleware(request: NextRequest) {
     return applyCorsHeaders(request, response);
   }
 }
-
-// 🚨 ФУНКЦИЯ ОЧИСТКИ: Периодическая очистка rate limit кеша
-setInterval(() => {
-  const now = Date.now();
-  const oldEntries: string[] = [];
-  
-  authAttempts.forEach((value, key) => {
-    // Удаляем записи старше 24 часов
-    if (now - value.lastAttempt > 24 * 60 * 60 * 1000) {
-      oldEntries.push(key);
-    }
-  });
-  
-  oldEntries.forEach(key => authAttempts.delete(key));
-  
-  if (oldEntries.length > 0) {
-    console.log(`[Middleware] Cleaned ${oldEntries.length} old rate limit entries`);
-  }
-}, 60 * 60 * 1000); // Каждый час

@@ -69,32 +69,25 @@ function logSecurityEvent(type: string, data: any, request: NextRequest) {
   console.error(`[REGISTER SECURITY] ${type}:`, JSON.stringify(logEntry, null, 2));
 }
 
-// 🚨 НОВАЯ ФУНКЦИЯ: Проверка подозрительного поведения при регистрации
+// 🚨 НОВАЯ ФУНКЦИЯ: Мягкая проверка подозрительного поведения (только логирование)
 function detectSuspiciousRegistration(telegramUser: TelegramUser, request: NextRequest): {
   isSuspicious: boolean;
   reasons: string[];
 } {
   const reasons: string[] = [];
   
-  // Проверка на подозрительные имена
-  if (telegramUser.first_name.length < 2) {
-    reasons.push("name_too_short");
+  // Проверка на очень короткие имена
+  if (telegramUser.first_name.length < 1) {
+    reasons.push("empty_name");
   }
   
-  if (/^[a-zA-Z0-9_]+$/.test(telegramUser.first_name) && telegramUser.first_name.length > 20) {
-    reasons.push("suspicious_name_pattern");
+  // Проверка на явно поддельные паттерны
+  if (/^(test|fake|bot|spam)/i.test(telegramUser.first_name)) {
+    reasons.push("suspicious_name_keywords");
   }
   
-  // Проверка на очень новые аккаунты (по ID)
-  // Telegram user IDs растут со временем, очень большие ID = очень новые аккаунты
-  if (telegramUser.id > 8000000000) { // Примерная граница для очень новых аккаунтов
-    reasons.push("very_new_account");
-  }
-  
-  // Проверка отсутствия username у не-премиум пользователей (подозрительно)
-  if (!telegramUser.username && !telegramUser.is_premium) {
-    reasons.push("no_username_non_premium");
-  }
+  // УБРАЛИ: Проверку на новые аккаунты (может блокировать легитимных новых пользователей)
+  // УБРАЛИ: Проверку на отсутствие username (многие легитимные пользователи не имеют username)
   
   return {
     isSuspicious: reasons.length > 0,
@@ -148,8 +141,8 @@ export async function POST(
 
     // 🚨 ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ БЕЗОПАСНОСТИ
     
-    // Проверка размера initData
-    if (initData.length > 5000) {
+    // Проверка размера initData (увеличили лимит для высокой нагрузки)
+    if (initData.length > 10000) { // 10KB максимум (увеличили с 5KB)
       console.error(`[REGISTER] InitData too large: ${initData.length} characters`);
       logSecurityEvent('INIT_DATA_TOO_LARGE', { 
         length: initData.length 

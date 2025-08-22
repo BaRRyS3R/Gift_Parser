@@ -125,8 +125,8 @@ export async function POST(
 
     // 🚨 ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ БЕЗОПАСНОСТИ
     
-    // Проверка размера initData
-    if (initData.length > 5000) { // 5KB максимум
+    // Проверка размера initData (увеличили лимит для высокой нагрузки)
+    if (initData.length > 10000) { // 10KB максимум (увеличили с 5KB)
       console.error(`[LOGIN] InitData too large: ${initData.length} characters`);
       logSecurityEvent('INIT_DATA_TOO_LARGE', { 
         length: initData.length 

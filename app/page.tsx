@@ -92,8 +92,8 @@ export default function IntroPage(): JSX.Element {
       };
     }
 
-    // Проверка 2: Размер данных
-    if (initData.length > 5000) {
+    // Проверка 2: Размер данных (увеличили лимит)
+    if (initData.length > 15000) { // 15KB вместо 5KB
       console.error(`[CLIENT SECURITY] InitData too large: ${initData.length} characters`);
       return {
         passed: false,
@@ -112,19 +112,21 @@ export default function IntroPage(): JSX.Element {
       };
     }
 
-    // Проверка 4: Возраст данных (предупреждения)
+    // Проверка 4: Возраст данных (смягченные предупреждения)
     if (quickCheck.authDate) {
       const currentTime = Math.floor(Date.now() / 1000);
       const age = currentTime - quickCheck.authDate;
       
-      if (age > 1800) { // Старше 30 минут
+      if (age > 3600) { // Старше 1 часа - только предупреждение
         warnings.push(`Authentication data is ${Math.round(age / 60)} minutes old`);
       }
       
-      if (age > 3600) { // Старше 1 часа
+      if (age > 7200) { // Старше 2 часов - предупреждение
         console.warn(`[CLIENT SECURITY] Old auth data: ${age} seconds`);
         warnings.push("Authentication data may be expired");
       }
+      
+      // УБРАЛИ: Блокировку по возрасту данных (может блокировать при высокой нагрузке)
     }
 
     console.log(`[CLIENT SECURITY] Security checks passed. Warnings: ${warnings.length}`);
@@ -182,9 +184,9 @@ export default function IntroPage(): JSX.Element {
     const user = parseResult.user;
     const userWarnings: string[] = [];
     
-    // Проверка разумности данных пользователя
-    if (user.id <= 0 || user.id > 9999999999) {
-      console.error(`[CLIENT] Suspicious user ID: ${user.id}`);
+    // Проверка разумности данных пользователя (только критические случаи)
+    if (user.id <= 0 || user.id > 999999999999) { // Расширили диапазон до 12 цифр
+      console.error(`[CLIENT] Extremely suspicious user ID: ${user.id}`);
       setPageState(prev => ({
         ...prev,
         securityBlocked: true,
@@ -193,10 +195,8 @@ export default function IntroPage(): JSX.Element {
       return { user: null, initData, securityWarnings: [] };
     }
     
-    if (user.first_name.length < 1 || user.first_name.length > 64) {
-      console.error(`[CLIENT] Suspicious first name length: ${user.first_name.length}`);
-      userWarnings.push("Unusual name format detected");
-    }
+    // УБРАЛИ: Проверку длины имени (может быть разной в разных культурах)
+    // Оставляем только базовую проверку на наличие имени
 
     console.log(`[CLIENT] Successfully extracted user data: ${user.id} (${user.first_name})`);
     return { user, initData, securityWarnings: userWarnings };
