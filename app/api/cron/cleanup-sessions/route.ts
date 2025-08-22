@@ -154,7 +154,7 @@ export async function POST(
 }
 
 /**
- * Очистка истекших сессий с МАКСИМАЛЬНОЙ диагностикой
+ * ФИЗИЧЕСКОЕ УДАЛЕНИЕ всех истёкших сессий (любого статуса)
  */
 async function cleanupExpiredSessions(): Promise<number> {
   console.log("[CRON_CLEANUP] Starting cleanupExpiredSessions function");
@@ -171,16 +171,14 @@ async function cleanupExpiredSessions(): Promise<number> {
       currentTime: currentTime.toISOString(),
       graceTime: graceTime.toISOString(),
       gracePeriodMinutes: CRON_CONFIG.GRACE_PERIOD_MINUTES,
-      currentTimeStamp: currentTime.getTime(),
-      graceTimeStamp: graceTime.getTime(),
     });
 
     // 🔍 ДИАГНОСТИКА: Проверяем ВСЕ сессии в базе
-    console.log("[CRON_CLEANUP] === ПОЛНАЯ ДИАГНОСТИКА ВСЕХ СЕССИЙ ===");
+    console.log("[CRON_CLEANUP] === ДИАГНОСТИКА ВСЕХ СЕССИЙ ===");
     
     const { data: allSessions, error: allSessionsError } = await supabaseServer
       .from("game_sessions")
-      .select("session_id, status, expires_at, created_at, updated_at")
+      .select("session_id, status, expires_at, created_at")
       .order("expires_at", { ascending: true });
 
     if (allSessionsError) {
@@ -191,122 +189,95 @@ async function cleanupExpiredSessions(): Promise<number> {
       allSessions?.forEach((session, index) => {
         const expiresAt = new Date(session.expires_at);
         const isExpired = expiresAt < graceTime;
-        const isActive = session.status === "active";
         
         console.log(`[CRON_CLEANUP] Session ${index + 1}:`, {
           session_id: session.session_id.substring(0, 8) + "...",
           status: session.status,
           expires_at: session.expires_at,
-          expires_timestamp: expiresAt.getTime(),
           is_expired: isExpired,
-          is_active: isActive,
-          should_clean: isActive && isExpired,
+          will_delete: isExpired,
           time_diff_minutes: Math.round((graceTime.getTime() - expiresAt.getTime()) / (1000 * 60)),
         });
       });
     }
 
-    // 🔍 ДИАГНОСТИКА: Проверяем активные сессии
-    console.log("[CRON_CLEANUP] === ДИАГНОСТИКА АКТИВНЫХ СЕССИЙ ===");
+    // 🔍 ДИАГНОСТИКА: Показываем что будет удалено
+    console.log("[CRON_CLEANUP] === ПОИСК ВСЕХ ИСТЁКШИХ СЕССИЙ ДЛЯ УДАЛЕНИЯ ===");
     
-    const { data: activeSessions, error: activeError } = await supabaseServer
+    const { data: expiredSessions, error: expiredError } = await supabaseServer
       .from("game_sessions")
-      .select("session_id, expires_at, created_at")
-      .eq("status", "active");
-
-    if (activeError) {
-      console.error("[CRON_CLEANUP] Error getting active sessions:", activeError);
-    } else {
-      console.log("[CRON_CLEANUP] Active sessions found:", activeSessions?.length || 0);
-      
-      activeSessions?.forEach((session, index) => {
-        const expiresAt = new Date(session.expires_at);
-        const isExpired = expiresAt < graceTime;
-        
-        console.log(`[CRON_CLEANUP] Active session ${index + 1}:`, {
-          session_id: session.session_id.substring(0, 8) + "...",
-          expires_at: session.expires_at,
-          is_expired_with_grace: isExpired,
-          minutes_past_grace: Math.round((graceTime.getTime() - expiresAt.getTime()) / (1000 * 60)),
-        });
-      });
-    }
-
-    // 🔍 ДИАГНОСТИКА: Проверяем истекшие активные сессии
-    console.log("[CRON_CLEANUP] === ДИАГНОСТИКА ИСТЕКШИХ АКТИВНЫХ СЕССИЙ ===");
-    
-    const { data: expiredActiveSessions, error: expiredActiveError } = await supabaseServer
-      .from("game_sessions")
-      .select("session_id, expires_at, created_at")
-      .eq("status", "active")
+      .select("session_id, status, expires_at, created_at")
       .lt("expires_at", graceTime.toISOString());
 
-    if (expiredActiveError) {
-      console.error("[CRON_CLEANUP] Error getting expired active sessions:", expiredActiveError);
-    } else {
-      console.log("[CRON_CLEANUP] Expired active sessions found:", expiredActiveSessions?.length || 0);
-      
-      expiredActiveSessions?.forEach((session, index) => {
-        console.log(`[CRON_CLEANUP] Will clean session ${index + 1}:`, {
-          session_id: session.session_id.substring(0, 8) + "...",
-          expires_at: session.expires_at,
-          created_at: session.created_at,
-        });
+    if (expiredError) {
+      console.error("[CRON_CLEANUP] Error getting expired sessions:", expiredError);
+      throw new Error(`Failed to get expired sessions: ${expiredError.message}`);
+    }
+
+    console.log("[CRON_CLEANUP] Sessions to DELETE (all expired):", expiredSessions?.length || 0);
+    
+    expiredSessions?.forEach((session, index) => {
+      console.log(`[CRON_CLEANUP] Will DELETE session ${index + 1}:`, {
+        session_id: session.session_id.substring(0, 8) + "...",
+        status: session.status,
+        expires_at: session.expires_at,
+        created_at: session.created_at,
       });
-    }
+    });
 
-    // Подсчитываем количество сессий для очистки
-    const { count: sessionsToClean, error: countError } = await supabaseServer
-      .from("game_sessions")
-      .select("session_id", { count: "exact" })
-      .eq("status", "active")
-      .lt("expires_at", graceTime.toISOString());
-
-    if (countError) {
-      console.error("[CRON_CLEANUP] Error counting sessions:", countError);
-      throw new Error(`Failed to count sessions: ${countError.message}`);
-    }
-
-    console.log("[CRON_CLEANUP] Sessions count for cleanup:", sessionsToClean || 0);
-
-    if ((sessionsToClean || 0) === 0) {
-      console.log("[CRON_CLEANUP] === NO SESSIONS TO CLEAN - ANALYSIS COMPLETE ===");
+    if ((expiredSessions?.length || 0) === 0) {
+      console.log("[CRON_CLEANUP] === NO SESSIONS TO DELETE - ALL GOOD ===");
       return 0;
     }
 
-    // Выполняем обновление статуса истекших сессий
-    console.log("[CRON_CLEANUP] Starting update operation...");
+    // 🗑️ ФИЗИЧЕСКОЕ УДАЛЕНИЕ - полностью удаляем из базы
+    console.log("[CRON_CLEANUP] Starting PHYSICAL DELETION from database...");
     
-    const updateResult = await supabaseServer
+    const deleteResult = await supabaseServer
       .from("game_sessions")
-      .update({
-        status: "expired",
-        updated_at: currentTime.toISOString(),
-      })
-      .eq("status", "active")
+      .delete()
       .lt("expires_at", graceTime.toISOString());
 
-    console.log("[CRON_CLEANUP] Update operation completed:", {
-      count: updateResult.count,
-      error: updateResult.error,
-      status: updateResult.status,
-      statusText: updateResult.statusText,
+    console.log("[CRON_CLEANUP] Physical deletion completed:", {
+      count: deleteResult.count,
+      error: deleteResult.error,
+      status: deleteResult.status,
+      statusText: deleteResult.statusText,
     });
 
-    if (updateResult.error) {
-      console.error("[CRON_CLEANUP] Database update error:", {
-        message: updateResult.error.message,
-        details: updateResult.error.details,
-        hint: updateResult.error.hint,
-        code: updateResult.error.code,
+    if (deleteResult.error) {
+      console.error("[CRON_CLEANUP] Physical deletion error:", {
+        message: deleteResult.error.message,
+        details: deleteResult.error.details,
+        hint: deleteResult.error.hint,
+        code: deleteResult.error.code,
       });
-      throw new Error(`Failed to update expired sessions: ${updateResult.error.message}`);
+      throw new Error(`Failed to delete expired sessions: ${deleteResult.error.message}`);
     }
 
-    const cleanedCount = updateResult.count || 0;
-    console.log("[CRON_CLEANUP] Successfully cleaned sessions:", cleanedCount);
+    const deletedCount = deleteResult.count || 0;
+    console.log("[CRON_CLEANUP] Successfully DELETED sessions from database:", deletedCount);
 
-    return cleanedCount;
+    // 🔍 ВЕРИФИКАЦИЯ: Проверяем что осталось в базе
+    console.log("[CRON_CLEANUP] === ВЕРИФИКАЦИЯ ПОСЛЕ УДАЛЕНИЯ ===");
+    
+    const { data: remainingSessions, error: remainingError } = await supabaseServer
+      .from("game_sessions")
+      .select("session_id, status, expires_at", { count: "exact" });
+
+    if (!remainingError) {
+      console.log("[CRON_CLEANUP] Sessions remaining in database:", remainingSessions?.length || 0);
+      
+      remainingSessions?.forEach((session, index) => {
+        console.log(`[CRON_CLEANUP] Remaining session ${index + 1}:`, {
+          session_id: session.session_id.substring(0, 8) + "...",
+          status: session.status,
+          expires_at: session.expires_at,
+        });
+      });
+    }
+
+    return deletedCount;
   } catch (error) {
     console.error("[CRON_CLEANUP] Exception in cleanupExpiredSessions:", {
       message: error instanceof Error ? error.message : "Unknown error",
