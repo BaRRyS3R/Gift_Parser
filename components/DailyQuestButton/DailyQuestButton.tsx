@@ -1,4 +1,4 @@
-// src/components/DailyQuestButton/DailyQuestButton.tsx - Future Tech Design
+// src/components/DailyQuestButton/DailyQuestButton.tsx - Future Tech Design (без свечения)
 
 import React, { useEffect, useRef } from "react";
 import { Target, CheckCircle, Zap, Star } from "lucide-react";
@@ -55,7 +55,7 @@ export default function DailyQuestButton({
         borderGradient: "from-emerald-300 via-green-400 to-emerald-500",
         glowColor: "emerald-400",
         textColor: "text-emerald-200",
-        shadowColor: "shadow-emerald-500/50",
+        shadowColor: "shadow-emerald-500/20",
       };
     }
 
@@ -67,7 +67,7 @@ export default function DailyQuestButton({
       borderGradient: "from-cyan-300 via-blue-400 to-purple-500",
       glowColor: "cyan-400",
       textColor: "text-cyan-200",
-      shadowColor: "shadow-cyan-500/50",
+      shadowColor: "shadow-cyan-500/20",
     };
   };
 
@@ -75,13 +75,10 @@ export default function DailyQuestButton({
 
   return (
     <div className="relative group">
-      {/* Outer glow ring */}
-      <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm" />
-      
       {/* Main button container */}
       <button
         aria-label={t("quests.button.aria")}
-        className={`relative w-auto px-6 py-3 h-14 bg-gradient-to-br ${buttonContent.bgGradient} backdrop-blur-lg border border-transparent text-white rounded-xl transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden ${buttonContent.shadowColor} shadow-lg hover:shadow-xl group`}
+        className={`relative w-auto px-6 py-3 h-14 bg-gradient-to-br ${buttonContent.bgGradient} backdrop-blur-lg border border-transparent text-white rounded-xl transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden ${buttonContent.shadowColor} group`}
         disabled={isTransitioning}
         onClick={onClick}
         style={{
@@ -117,14 +114,6 @@ export default function DailyQuestButton({
           }}
         />
 
-        {/* Pulsing core light */}
-        <div 
-          className={`absolute inset-0 rounded-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500 bg-gradient-radial from-${buttonContent.glowColor}/30 to-transparent`}
-          style={{
-            animation: 'pulse 2s ease-in-out infinite',
-          }}
-        />
-
         {/* Main content container */}
         <div className="relative z-10 flex items-center space-x-4">
           {/* Icon cluster */}
@@ -132,10 +121,6 @@ export default function DailyQuestButton({
             {/* Primary icon */}
             <div className="relative">
               {buttonContent.icon}
-              {/* Icon glow */}
-              <div className={`absolute inset-0 blur-sm opacity-50 group-hover:opacity-100 transition-opacity duration-500 text-${buttonContent.glowColor}`}>
-                {buttonContent.icon}
-              </div>
             </div>
             
             {/* Secondary icon for decoration */}
@@ -170,14 +155,7 @@ export default function DailyQuestButton({
                     className={`absolute top-0 left-0 h-full bg-gradient-to-r from-${buttonContent.glowColor} to-blue-400 transition-all duration-700 ease-out rounded-full`}
                     style={{ 
                       width: `${progressPercentage}%`,
-                      boxShadow: `0 0 8px rgba(6, 182, 212, 0.5)`,
                     }}
-                  />
-                  
-                  {/* Progress glow */}
-                  <div
-                    className={`absolute top-0 left-0 h-full bg-gradient-to-r from-${buttonContent.glowColor}/60 to-blue-400/60 transition-all duration-700 ease-out rounded-full blur-sm`}
-                    style={{ width: `${progressPercentage}%` }}
                   />
                 </div>
                 
@@ -229,12 +207,6 @@ export default function DailyQuestButton({
           }}
         />
       </button>
-
-      {/* Enhanced external glow */}
-      <div
-        className={`absolute -inset-2 rounded-xl blur-lg opacity-0 group-hover:opacity-30 transition-opacity duration-700 bg-gradient-to-br ${buttonContent.bgGradient}`}
-        style={{ zIndex: -1 }}
-      />
     </div>
   );
 }

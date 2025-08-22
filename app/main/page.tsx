@@ -429,26 +429,6 @@ function MainPageContent() {
         />
       </div>
 
-      {/* Daily Quest Button - Below Season Button */}
-      <div
-        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
-            : "opacity-100 translate-y-0"
-        }`}
-        style={{ top: "110px" }}
-      >
-        <DailyQuestButton
-          isTransitioning={isTransitioning}
-          makeAuthenticatedRequest={makeAuthenticatedRequest}
-          onClick={handleOpenDailyQuest}
-        />
-      </div>
-
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
         {/* Title Section */}
@@ -546,6 +526,26 @@ function MainPageContent() {
         makeAuthenticatedRequest={makeAuthenticatedRequest}
         onClose={handleCloseDailyQuestModal}
       />
+
+      {/* Daily Quest Button - Bottom position */}
+      <div
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
+        style={{ bottom: "200px" }}
+      >
+        <DailyQuestButton
+          isTransitioning={isTransitioning}
+          makeAuthenticatedRequest={makeAuthenticatedRequest}
+          onClick={handleOpenDailyQuest}
+        />
+      </div>
 
       {/* Enhanced Attempts Display with Level Integration */}
       <div
