@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Updated game page with integrated PC detection
+// src/app/game/page.tsx - Enhanced with bordered game mode cards
 
 "use client";
 
@@ -18,7 +18,7 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
-import { usePCDetection } from "@/hooks/usePCDetection"; // NEW: PC Detection
+import { usePCDetection } from "@/hooks/usePCDetection";
 import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
@@ -31,7 +31,7 @@ interface GameMode {
   descriptionKey: string;
   icon: React.ComponentType<any>;
   route: string;
-  difficulty: "🤡" | "👋😈" | "👉👌" | "🌀";
+  difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
   durationKey: string;
   imageUrl: string;
   color: {
@@ -39,6 +39,10 @@ interface GameMode {
     secondary: string;
     accent: string;
     buttonColor: "primary" | "danger" | "secondary" | "warning";
+    // NEW: Border colors for enhanced styling
+    border: string;
+    borderHover: string;
+    glow: string;
   };
   featuresKeys: string[];
   basicRules: string[];
@@ -59,6 +63,9 @@ const GAME_MODES: GameMode[] = [
       secondary: "text-white/90",
       accent: "text-white/80",
       buttonColor: "primary",
+      border: "border-blue-400/30",
+      borderHover: "border-blue-400/60",
+      glow: "shadow-blue-400/20",
     },
     featuresKeys: [
       "game.modes.reaction.features.0",
@@ -78,7 +85,7 @@ const GAME_MODES: GameMode[] = [
     descriptionKey: "game.modes.survival.description",
     icon: Crosshair,
     route: "/game/survival",
-    difficulty: "👋😈",
+    difficulty: "💋😈",
     durationKey: "game.modes.survival.duration",
     imageUrl: "https://notfren.com/circusle/survival.jpg",
     color: {
@@ -86,6 +93,9 @@ const GAME_MODES: GameMode[] = [
       secondary: "text-red-200",
       accent: "text-red-300",
       buttonColor: "danger",
+      border: "border-red-400/30",
+      borderHover: "border-red-400/60",
+      glow: "shadow-red-400/20",
     },
     featuresKeys: [
       "game.modes.survival.features.0",
@@ -113,6 +123,9 @@ const GAME_MODES: GameMode[] = [
       secondary: "text-purple-200",
       accent: "text-purple-300",
       buttonColor: "secondary",
+      border: "border-purple-400/30",
+      borderHover: "border-purple-400/60",
+      glow: "shadow-purple-400/20",
     },
     featuresKeys: [
       "game.modes.physics.features.0",
@@ -140,6 +153,9 @@ const GAME_MODES: GameMode[] = [
       secondary: "text-orange-200",
       accent: "text-orange-300",
       buttonColor: "warning",
+      border: "border-orange-400/30",
+      borderHover: "border-orange-400/60",
+      glow: "shadow-orange-400/20",
     },
     featuresKeys: [
       "game.modes.rotation.features.0",
@@ -170,12 +186,12 @@ function GamePageContent() {
   } = useAttempts(makeAuthenticatedRequest);
   const t = useT();
 
-  // NEW: PC Detection with game-specific configuration (more aggressive)
+  // PC Detection with game-specific configuration
   const pcDetection = usePCDetection(makeAuthenticatedRequest, {
     enabled: true,
-    sensitivityThreshold: 1, // Very sensitive for game page (single mouse event triggers)
-    detectionTimeWindow: 2000, // 2 seconds window
-    excludePointerEvents: true, // Exclude pointer events to avoid false positives
+    sensitivityThreshold: 1,
+    detectionTimeWindow: 2000,
+    excludePointerEvents: true,
   });
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
@@ -290,37 +306,6 @@ function GamePageContent() {
     }
   }, [router]);
 
-  /* -------------------------------------------------
-   * Development PC Detection Test (only in development)
-   * -------------------------------------------------*/
-  useEffect(() => {
-    // Only enable in development mode
-    if (process.env.NODE_ENV === 'development') {
-      const handleKeyPress = (event: KeyboardEvent) => {
-        if (event.key === 'F11' || (event.ctrlKey && event.shiftKey && event.key === 'T')) {
-          console.log("🧪 Development: Testing PC detection on game page");
-          pcDetection.triggerManualDetection();
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyPress);
-      return () => window.removeEventListener('keydown', handleKeyPress);
-    }
-  }, [pcDetection]);
-
-  /* -------------------------------------------------
-   * Console logging for PC detection status (development only)
-   * -------------------------------------------------*/
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("🎮 Game Page PC Detection Status:", {
-        active: pcDetection.isDetectionActive,
-        deviceInfo: pcDetection.deviceInfo,
-        sensitivityLevel: "HIGH",
-      });
-    }
-  }, [pcDetection.isDetectionActive, pcDetection.deviceInfo]);
-
   return (
     <div
       className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
@@ -329,20 +314,10 @@ function GamePageContent() {
           : "opacity-100 transition-opacity duration-1000 ease-out"
       }`}
     >
-      {/* Development PC Detection Info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-2 left-2 z-50 bg-black/80 text-white text-xs p-2 rounded border border-red-600">
-          <div>🎮 Game PC Detection: {pcDetection.isDetectionActive ? '🟢 ACTIVE' : '🔴 Inactive'}</div>
-          <div>Sensitivity: 🔥 HIGH (1 event = block)</div>
-          <div>Device: {pcDetection.deviceInfo.isMobile ? '📱 Mobile' : '🖥️ Desktop'}</div>
-          <div>Touch: {pcDetection.deviceInfo.hasTouch ? '✅ Yes' : '❌ No'}</div>
-          <div className="text-xs opacity-60 mt-1">F11 = Test Detection</div>
-        </div>
-      )}
 
       {/* Easter Egg Modal with authentication */}
       <WinxEasterEggModal
-        chance={EASTER_EGG_CHANCE * 100} // Convert to percentage
+        chance={EASTER_EGG_CHANCE * 100}
         isOpen={showEasterEgg}
         makeAuthenticatedRequest={makeAuthenticatedRequest}
         onClose={handleCloseEasterEgg}
@@ -405,10 +380,10 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* Horizontal scrolling cards */}
+      {/* Enhanced horizontal scrolling cards with borders and hover effects */}
       <div className="mb-8 animate-fade-in">
         <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex space-x-4 px-4" style={{ width: "max-content" }}>
+          <div className="flex space-x-6 px-4" style={{ width: "max-content" }}>
             {GAME_MODES.map((mode) => {
               const Icon = mode.icon;
               const isCurrentModeLoading = loadingModeId === mode.id;
@@ -416,21 +391,30 @@ function GamePageContent() {
               const isDisabled = !canPlay;
 
               return (
-                <div key={mode.id} className="relative">
+                <div key={mode.id} className="relative group">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 ${
-                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                    className={`w-[280px] h-[400px] border-2 transition-all duration-300 backdrop-blur-md ${
+                      mode.color.border
+                    } ${
+                      isDisabled || isAnyModeLoading 
+                        ? "opacity-50" 
+                        : `hover:${mode.color.borderHover} hover:shadow-lg hover:${mode.color.glow} hover:scale-[1.02] hover:-translate-y-1`
                     }`}
+                    style={{
+                      background: "rgba(0, 0, 0, 0.3)",
+                    }}
                   >
-                    <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
+                    <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/30 backdrop-blur-sm rounded-xl mx-4 border border-white/10">
                       <div className="flex items-center space-x-3 mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                        <div 
+                          className={`w-10 h-10 rounded-lg bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm border ${mode.color.border} flex items-center justify-center transition-all duration-300 group-hover:scale-110`}
+                        >
                           <Icon className={mode.color.primary} size={20} />
                         </div>
                         <div>
                           <h4
-                            className={`font-bold text-xl ${mode.color.primary}`}
+                            className={`font-bold text-xl ${mode.color.primary} transition-all duration-300 group-hover:drop-shadow-lg`}
                           >
                             {t(mode.nameKey as any)}
                           </h4>
@@ -456,14 +440,14 @@ function GamePageContent() {
                     <Image
                       removeWrapper
                       alt={`${mode.id}_game_card`}
-                      className="z-0 w-full h-full object-cover"
+                      className="z-0 w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                       fallbackSrc="/game-placeholder.jpg"
                       src={mode.imageUrl}
                     />
 
-                    <CardFooter className="absolute bg-black/40 backdrop-blur-sm bottom-0 border-t-1 border-white/20 z-10 justify-between">
+                    <CardFooter className="absolute bg-black/50 backdrop-blur-md bottom-0 border-t-1 border-white/20 z-10 justify-between">
                       <Button
-                        className="text-tiny min-w-[80px]"
+                        className="text-tiny min-w-[80px] transition-all duration-300"
                         color={mode.color.buttonColor}
                         isDisabled={isAnyModeLoading || isDisabled}
                         isLoading={isCurrentModeLoading}
@@ -489,16 +473,27 @@ function GamePageContent() {
                               : t("common.play")}
                       </Button>
                     </CardFooter>
+
+                    {/* Enhanced glow effect overlay */}
+                    <div 
+                      className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none bg-gradient-to-br ${
+                        mode.id === 'reaction' ? 'from-blue-400/20 to-blue-600/20' :
+                        mode.id === 'survival' ? 'from-red-400/20 to-red-600/20' :
+                        mode.id === 'physics' ? 'from-purple-400/20 to-purple-600/20' :
+                        'from-orange-400/20 to-orange-600/20'
+                      }`}
+                    />
                   </Card>
 
-                  {/* Locked state overlay */}
+                  {/* Enhanced locked state overlay */}
                   {isDisabled && !isAnyModeLoading && (
-                    <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
-                      <div className="text-center space-y-2">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex items-center justify-center z-30 border-2 border-gray-600/50">
+                      <div className="text-center space-y-3">
                         <Shield className="text-white/60 mx-auto" size={32} />
                         <p className="text-white/80 text-sm font-bold">
                           {t("game.general.noAttemptsLeft")}
                         </p>
+                        <div className="w-12 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent mx-auto" />
                       </div>
                     </div>
                   )}

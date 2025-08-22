@@ -288,36 +288,6 @@ function MainPageContent() {
   };
 
   /* -------------------------------------------------
-   * Development PC Detection Test (only in development)
-   * -------------------------------------------------*/
-  useEffect(() => {
-    // Only enable in development mode
-    if (process.env.NODE_ENV === 'development') {
-      const handleKeyPress = (event: KeyboardEvent) => {
-        if (event.key === 'F12' || (event.ctrlKey && event.shiftKey && event.key === 'I')) {
-          console.log("🧪 Development: Testing PC detection");
-          pcDetection.triggerManualDetection();
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyPress);
-      return () => window.removeEventListener('keydown', handleKeyPress);
-    }
-  }, [pcDetection]);
-
-  /* -------------------------------------------------
-   * Console logging for PC detection status (development only)
-   * -------------------------------------------------*/
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("🔍 PC Detection Status:", {
-        active: pcDetection.isDetectionActive,
-        deviceInfo: pcDetection.deviceInfo,
-      });
-    }
-  }, [pcDetection.isDetectionActive, pcDetection.deviceInfo]);
-
-  /* -------------------------------------------------
    * Render
    * -------------------------------------------------*/
   return (
@@ -351,16 +321,6 @@ function MainPageContent() {
               type="video/mp4"
             />
           </video>
-        </div>
-      )}
-
-      {/* Development PC Detection Info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-2 right-2 z-50 bg-black/80 text-white text-xs p-2 rounded border border-gray-600">
-          <div>PC Detection: {pcDetection.isDetectionActive ? '🟢 Active' : '🔴 Inactive'}</div>
-          <div>Device: {pcDetection.deviceInfo.isMobile ? '📱 Mobile' : '🖥️ Desktop'}</div>
-          <div>Touch: {pcDetection.deviceInfo.hasTouch ? '✅ Yes' : '❌ No'}</div>
-          <div className="text-xs opacity-60 mt-1">F12 = Test Detection</div>
         </div>
       )}
 

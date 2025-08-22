@@ -127,7 +127,7 @@ export default function SurvivalGameManager() {
       sessionTimerRef.current = setInterval(() => {
         const now = Date.now();
         const timeRemaining = sessionStatus.expiresAt!.getTime() - now;
-        
+
         setSessionStatus(prev => ({
           ...prev,
           timeRemaining,
@@ -235,7 +235,7 @@ export default function SurvivalGameManager() {
         };
       }
 
-      return () => {};
+      return () => { };
     };
 
     // Event listeners
@@ -293,7 +293,7 @@ export default function SurvivalGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -427,12 +427,12 @@ export default function SurvivalGameManager() {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            
+
             // Handle session-specific errors differently
             if (errorData.sessionError) {
               throw new Error(`SESSION_ERROR: ${errorData.sessionError}`);
             }
-            
+
             throw new Error(errorData.error || "Failed to save game result");
           }
 
@@ -480,13 +480,13 @@ export default function SurvivalGameManager() {
         await attemptSave();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : t("errors.saveGameResult");
-        
+
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
           isSuccess: false,
           error: errorMessage.includes("SESSION_ERROR:") ? null : errorMessage,
-          sessionError: errorMessage.includes("SESSION_ERROR:") ? 
+          sessionError: errorMessage.includes("SESSION_ERROR:") ?
             errorMessage.replace("SESSION_ERROR: ", "") : null,
         }));
       }
@@ -580,7 +580,7 @@ export default function SurvivalGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -744,7 +744,7 @@ export default function SurvivalGameManager() {
     try {
       // NEW: Consume attempt with session creation
       const attemptsResult = await consumeAttemptWithSession(GameMode.SURVIVAL);
-      
+
       if (!attemptsResult || !attemptsResult.canPlay) {
         setPlayAgainError({
           show: true,
@@ -1014,99 +1014,99 @@ export default function SurvivalGameManager() {
             saveStatus.error ||
             saveStatus.sessionError ||
             saveStatus.isSuccess) && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                    <span className="text-sm text-red-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                      <span className="text-sm text-red-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recording")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-red-400/60" size={14} />
-                        <span className="text-xs text-red-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-red-400/20 rounded-full h-1">
-                        <div
-                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recording")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {/* Session error display */}
-              {saveStatus.sessionError && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <ShieldAlert className="text-orange-400" size={16} />
-                    <span className="text-sm text-orange-400">
-                      Session Security Error
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-red-400/60" size={14} />
+                          <span className="text-xs text-red-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-red-400/20 rounded-full h-1">
+                          <div
+                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-orange-400/60 text-xs mb-3">
-                    {saveStatus.sessionError}
-                  </div>
-                  <div className="text-white/60 text-xs">
-                    Game may not be saved due to session validation failure
-                  </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.recordedSuccessfully")}
-                    </span>
+                {/* Session error display */}
+                {saveStatus.sessionError && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <ShieldAlert className="text-orange-400" size={16} />
+                      <span className="text-sm text-orange-400">
+                        Session Security Error
+                      </span>
+                    </div>
+                    <div className="text-orange-400/60 text-xs mb-3">
+                      {saveStatus.sessionError}
+                    </div>
+                    <div className="text-white/60 text-xs">
+                      Game may not be saved due to session validation failure
+                    </div>
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.recordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      {t("save.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("save.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => gameResult && handleSaveGameResult(gameResult)}
+                    >
+                      {t("save.retrySave")}
+                    </button>
                   </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("save.recordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => gameResult && handleSaveGameResult(gameResult)}
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
@@ -1117,9 +1117,8 @@ export default function SurvivalGameManager() {
                   ) : (
                     <AlertTriangle className="text-red-400" size={16} />
                   )}
-                  <span className={`text-sm font-bold ${
-                    playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
-                  }`}>
+                  <span className={`text-sm font-bold ${playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
+                    }`}>
                     {t("game.modes.survival.playAgain.cannotPlay")}
                   </span>
                 </div>
@@ -1144,12 +1143,11 @@ export default function SurvivalGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                isPlayingAgain || playAgainError.show
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-              }`}
-              disabled={isPlayingAgain || playAgainError.show}
+                }`}
+              disabled={isPlayingAgain || playAgainError.show || saveStatus.isLoading}
               onClick={handlePlayAgain}
             >
               {isPlayingAgain ? (
@@ -1188,25 +1186,22 @@ export default function SurvivalGameManager() {
           {/* NEW: Session status indicator */}
           {sessionStatus.isValid && sessionStatus.timeRemaining !== null && (
             <div className="fixed top-20 left-4 z-10 pointer-events-none">
-              <div className={`bg-black/50 backdrop-blur-sm px-3 py-1 rounded-lg border ${
-                sessionStatus.timeRemaining <= 30000 
-                  ? "border-orange-400/50" 
+              <div className={`bg-black/50 backdrop-blur-sm px-3 py-1 rounded-lg border ${sessionStatus.timeRemaining <= 30000
+                  ? "border-orange-400/50"
                   : "border-blue-400/30"
-              }`}>
+                }`}>
                 <div className="flex items-center space-x-2">
-                  <Shield 
-                    className={`${
-                      sessionStatus.timeRemaining <= 30000 
-                        ? "text-orange-400" 
+                  <Shield
+                    className={`${sessionStatus.timeRemaining <= 30000
+                        ? "text-orange-400"
                         : "text-blue-400"
-                    }`} 
-                    size={12} 
+                      }`}
+                    size={12}
                   />
-                  <span className={`text-xs font-mono ${
-                    sessionStatus.timeRemaining <= 30000 
-                      ? "text-orange-400" 
+                  <span className={`text-xs font-mono ${sessionStatus.timeRemaining <= 30000
+                      ? "text-orange-400"
                       : "text-blue-400"
-                  }`}>
+                    }`}>
                     {Math.ceil(sessionStatus.timeRemaining / 1000)}s
                   </span>
                 </div>
