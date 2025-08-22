@@ -1,4 +1,4 @@
-// src/lib/supabase_server.ts - Updated with level 1 initialization for new users
+// src/lib/supabase_server.ts - Updated with game session service integration
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -16,6 +16,7 @@ import {
   serverSeasonService,
   type CompleteSeasonData,
 } from "./server/seasonService";
+import { serverGameSessionService } from "./server/gameSessionService"; // NEW: Game session service
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -95,7 +96,7 @@ export interface ServerTelegramUser {
   is_premium?: boolean;
 }
 
-// Server-side user service (existing implementation with level system integration)
+// Enhanced server-side user service with session integration
 export const serverUserService = {
   async findByTelegramId(telegramId: number): Promise<ServerUser | null> {
     const { data, error } = await supabaseServer
@@ -231,7 +232,7 @@ export const serverUserService = {
       referred_by: referredBy,
       referral_bonus: 5,
       referral_count: 0,
-      current_level: 1, // UPDATED: Ensure new users start at level 1
+      current_level: 1,
     };
 
     const { data, error } = await supabaseServer
@@ -321,11 +322,41 @@ export const serverUserService = {
   ): Promise<CompleteSeasonData | null> {
     return serverSeasonService.getCompleteSeasonData(userId, telegramId);
   },
+
+  // NEW: Game session management methods
+  async createGameSession(
+    userId: string,
+    telegramId: number,
+    gameMode: any
+  ) {
+    return serverGameSessionService.createSession(userId, telegramId, gameMode);
+  },
+
+  async validateGameSession(sessionId: string, telegramId: number) {
+    return serverGameSessionService.validateAndFinishSession(sessionId, telegramId);
+  },
+
+  async getActiveGameSessions(telegramId: number) {
+    return serverGameSessionService.getActiveSessions(telegramId);
+  },
+
+  async expireGameSession(sessionId: string, telegramId: number) {
+    return serverGameSessionService.expireSession(sessionId, telegramId);
+  },
+
+  async cleanupExpiredGameSessions() {
+    return serverGameSessionService.cleanupExpiredSessions();
+  },
+
+  async getGameSessionStats() {
+    return serverGameSessionService.getSessionStats();
+  },
 };
 
-// Export specialized services
+// Export specialized services (including the new game session service)
 export { serverAttemptsService };
 export { serverGameService };
 export { serverLeaderboardService };
 export { serverUserProfileService };
 export { serverSeasonService };
+export { serverGameSessionService }; // NEW: Export game session service

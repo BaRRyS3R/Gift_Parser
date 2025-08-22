@@ -1,9 +1,9 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Complete version with visibility protection
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with session management
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Crosshair, AlertTriangle, RotateCcw, EyeOff } from "lucide-react";
+import { Crosshair, AlertTriangle, RotateCcw, EyeOff, Shield, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -34,6 +34,7 @@ interface SaveStatus {
   attempt: number;
   maxAttempts: number;
   error: string | null;
+  sessionError: string | null; // NEW: Session-specific errors
   isSuccess: boolean;
   showRetryDetails: boolean;
 }
@@ -42,6 +43,14 @@ interface PlayAgainError {
   show: boolean;
   message: string;
   redirecting: boolean;
+  isSessionError: boolean; // NEW: Flag for session-related errors
+}
+
+interface SessionStatus {
+  sessionId: string | null;
+  expiresAt: Date | null;
+  isValid: boolean;
+  timeRemaining: number | null; // milliseconds until expiry
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -49,6 +58,7 @@ const initialSaveStatus: SaveStatus = {
   attempt: 0,
   maxAttempts: 3,
   error: null,
+  sessionError: null,
   isSuccess: false,
   showRetryDetails: false,
 };
@@ -57,13 +67,21 @@ const initialPlayAgainError: PlayAgainError = {
   show: false,
   message: "",
   redirecting: false,
+  isSessionError: false,
+};
+
+const initialSessionStatus: SessionStatus = {
+  sessionId: null,
+  expiresAt: null,
+  isValid: false,
+  timeRemaining: null,
 };
 
 const LEVEL_UPDATE_INTERVAL = 200;
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
-  const { consumeAttempt, fetchAttemptsStatus } = useAttempts(
+  const { consumeAttemptWithSession, fetchAttemptsStatus } = useAttempts(
     makeAuthenticatedRequest,
   );
   const router = useRouter();
@@ -81,6 +99,10 @@ export default function SurvivalGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
+  // NEW: Session management state
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
+  const [sessionWarningShown, setSessionWarningShown] = useState(false);
+
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
@@ -92,12 +114,47 @@ export default function SurvivalGameManager() {
   const gameStateRef = useRef<SurvivalGameState>(gameState);
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
   const lastVisibilityState = useRef<boolean>(true);
+  const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Система обнаружения сворачивания приложения
+  // NEW: Local session timer (no server calls)
+  useEffect(() => {
+    if (sessionStatus.sessionId && sessionStatus.isValid && sessionStatus.expiresAt) {
+      // Start local session timer
+      sessionTimerRef.current = setInterval(() => {
+        const now = Date.now();
+        const timeRemaining = sessionStatus.expiresAt!.getTime() - now;
+        
+        setSessionStatus(prev => ({
+          ...prev,
+          timeRemaining,
+          isValid: timeRemaining > 0,
+        }));
+
+        // Show warning when 30 seconds remain
+        if (timeRemaining <= 30000 && timeRemaining > 0 && !sessionWarningShown) {
+          setSessionWarningShown(true);
+          console.warn("Game session expires in 30 seconds");
+        }
+
+        // End game when session expires
+        if (timeRemaining <= 0 && gameStateRef.current.gameState === GameState.PLAYING) {
+          endGame("session_expired");
+        }
+      }, 1000); // Local check every second
+
+      return () => {
+        if (sessionTimerRef.current) {
+          clearInterval(sessionTimerRef.current);
+        }
+      };
+    }
+  }, [sessionStatus.sessionId, sessionStatus.isValid, sessionStatus.expiresAt, sessionWarningShown]);
+
+  // App visibility monitoring (existing code with session context)
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === "visible";
@@ -144,7 +201,7 @@ export default function SurvivalGameManager() {
       }
     };
 
-    // Специфичная обработка для Telegram Web App
+    // Telegram-specific handlers
     const setupTelegramHandlers = () => {
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
@@ -181,7 +238,7 @@ export default function SurvivalGameManager() {
       return () => {};
     };
 
-    // Подписка на события
+    // Event listeners
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -189,7 +246,7 @@ export default function SurvivalGameManager() {
 
     const cleanupTelegram = setupTelegramHandlers();
 
-    // Дополнительная проверка для мобильных устройств
+    // Mobile-specific handlers
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       const handleOrientationChange = () => {
         setTimeout(() => {
@@ -206,17 +263,11 @@ export default function SurvivalGameManager() {
       window.addEventListener("orientationchange", handleOrientationChange);
 
       return () => {
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange,
-        );
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
         window.removeEventListener("blur", handleWindowBlur);
         window.removeEventListener("beforeunload", handleBeforeUnload);
         window.removeEventListener("pagehide", handlePageHide);
-        window.removeEventListener(
-          "orientationchange",
-          handleOrientationChange,
-        );
+        window.removeEventListener("orientationchange", handleOrientationChange);
         cleanupTelegram();
       };
     }
@@ -230,6 +281,7 @@ export default function SurvivalGameManager() {
     };
   }, []);
 
+  // Telegram back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -246,6 +298,7 @@ export default function SurvivalGameManager() {
     }
   }, [router]);
 
+  // Auto-start game on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       startGame();
@@ -254,6 +307,7 @@ export default function SurvivalGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Play again error auto-redirect
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -273,7 +327,6 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -283,20 +336,30 @@ export default function SurvivalGameManager() {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
         const isNewBest = newScore > previousBest;
-
         setIsNewBestScore(isNewBest);
       }
     },
     [user],
   );
 
+  // Enhanced save game result with session validation
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
+      if (!sessionStatus.sessionId) {
+        setSaveStatus((prev) => ({
+          ...prev,
+          sessionError: "No valid session found",
+          isLoading: false,
+        }));
+        return;
+      }
+
       setSaveStatus((prev) => ({
         ...prev,
         isLoading: true,
         attempt: 1,
         error: null,
+        sessionError: null,
         isSuccess: false,
         showRetryDetails: false,
       }));
@@ -356,16 +419,29 @@ export default function SurvivalGameManager() {
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ gameResult: result }),
+            body: JSON.stringify({
+              gameResult: result,
+              sessionId: sessionStatus.sessionId, // NEW: Include session ID
+            }),
           });
 
           if (!response.ok) {
-            throw new Error("Failed to save game result");
+            const errorData = await response.json().catch(() => ({}));
+            
+            // Handle session-specific errors differently
+            if (errorData.sessionError) {
+              throw new Error(`SESSION_ERROR: ${errorData.sessionError}`);
+            }
+            
+            throw new Error(errorData.error || "Failed to save game result");
           }
 
           const responseData = await response.json();
 
           if (!responseData.success) {
+            if (responseData.sessionError) {
+              throw new Error(`SESSION_ERROR: ${responseData.sessionError}`);
+            }
             throw new Error(responseData.error || "Failed to save game result");
           }
 
@@ -374,13 +450,25 @@ export default function SurvivalGameManager() {
             isLoading: false,
             isSuccess: true,
             error: null,
+            sessionError: null,
           }));
         } catch (error) {
+          // Handle session errors specially (don't retry)
+          if (error instanceof Error && error.message.includes("SESSION_ERROR:")) {
+            const sessionError = error.message.replace("SESSION_ERROR: ", "");
+            setSaveStatus((prev) => ({
+              ...prev,
+              isLoading: false,
+              sessionError,
+              error: null,
+            }));
+            return; // Don't retry session errors
+          }
+
           attemptCount++;
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -391,20 +479,23 @@ export default function SurvivalGameManager() {
       try {
         await attemptSave();
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : t("errors.saveGameResult");
+        
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
           isSuccess: false,
-          error:
-            error instanceof Error ? error.message : t("errors.saveGameResult"),
+          error: errorMessage.includes("SESSION_ERROR:") ? null : errorMessage,
+          sessionError: errorMessage.includes("SESSION_ERROR:") ? 
+            errorMessage.replace("SESSION_ERROR: ", "") : null,
         }));
       }
     },
-    [makeAuthenticatedRequest, t, user],
+    [makeAuthenticatedRequest, t, user, sessionStatus.sessionId],
   );
 
   const endGame = useCallback(
-    (cause: "miss" | "wrong_click" | "decoy_hit" | "app_minimized") => {
+    (cause: "miss" | "wrong_click" | "decoy_hit" | "app_minimized" | "session_expired") => {
       if (isGameEndingRef.current) {
         return;
       }
@@ -435,7 +526,10 @@ export default function SurvivalGameManager() {
             updatedStats.decoyHits = finalState.stats.decoyHits + 1;
             break;
           case "app_minimized":
-            // Не увеличиваем счетчики ошибок при сворачивании
+            // Don't increment error counters for app minimization
+            break;
+          case "session_expired":
+            // Don't increment error counters for session expiry
             break;
         }
 
@@ -449,9 +543,9 @@ export default function SurvivalGameManager() {
 
         const result = createSurvivalGameResult(finalGameState);
 
-        // Добавляем причину app_minimized если это было сворачивание
-        if (cause === "app_minimized") {
-          (result as any).deathCause = "app_minimized";
+        // Add the death cause for session expiry
+        if (cause === "app_minimized" || cause === "session_expired") {
+          (result as any).deathCause = cause;
         }
 
         checkForNewBestScore(result.score);
@@ -643,73 +737,115 @@ export default function SurvivalGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback(async () => {
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
-    const newGameState = initializeSurvivalGameState();
-
-    shadowSecurityRef.current = new ShadowSecurityManager(
-      GameMode.SURVIVAL,
-      newGameState.gameStartTime,
-      {
-        enabled: true,
-        sensitivityThreshold: 1.0,
-        suspiciousMovementThreshold: 70.0,
-        maxCheckInterval: 3000,
-        minCheckInterval: 3000,
-        requirePermissionCheck: false,
-      },
-    );
-
-    setGameState(newGameState);
-    setGameResult(null);
-    setSaveStatus(initialSaveStatus);
-    setPlayAgainError(initialPlayAgainError);
-    setActivatedCircles([]);
-    setLastActivationTimestamp(0);
-    setIsNewBestScore(false);
-    setInstantlyDeactivatedCircles([]);
-    setIsPlayingAgain(false);
-
-    setTimeout(() => {
-      setShowCircles(true);
-    }, 100);
-
-    setTimeout(() => {
-      setGameState((prev) => {
-        const updatedState = { ...prev, gameState: GameState.PLAYING };
-
-        return updatedState;
-      });
-
-      const levelInterval = setInterval(() => {
-        setGameState((current) => {
-          if (
-            !current.isActive ||
-            current.gameState !== GameState.PLAYING ||
-            current.isGameEnding ||
-            isGameEndingRef.current
-          ) {
-            clearInterval(levelInterval);
-
-            return current;
-          }
-
-          return updateSurvivalLevel(current, Date.now());
+    try {
+      // NEW: Consume attempt with session creation
+      const attemptsResult = await consumeAttemptWithSession(GameMode.SURVIVAL);
+      
+      if (!attemptsResult || !attemptsResult.canPlay) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.survival.playAgain.noAttempts"),
+          redirecting: false,
+          isSessionError: false,
         });
-      }, LEVEL_UPDATE_INTERVAL);
+        return;
+      }
+
+      // Set up session status
+      if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
+        setSessionStatus({
+          sessionId: attemptsResult.sessionId,
+          expiresAt: attemptsResult.sessionExpiresAt,
+          isValid: true,
+          timeRemaining: attemptsResult.sessionExpiresAt.getTime() - Date.now(),
+        });
+      } else {
+        console.error("No session data received from consume attempt");
+        setPlayAgainError({
+          show: true,
+          message: "Failed to create game session",
+          redirecting: false,
+          isSessionError: true,
+        });
+        return;
+      }
+
+      const newGameState = initializeSurvivalGameState();
+
+      shadowSecurityRef.current = new ShadowSecurityManager(
+        GameMode.SURVIVAL,
+        newGameState.gameStartTime,
+        {
+          enabled: true,
+          sensitivityThreshold: 1.0,
+          suspiciousMovementThreshold: 70.0,
+          maxCheckInterval: 3000,
+          minCheckInterval: 3000,
+          requirePermissionCheck: false,
+        },
+      );
+
+      setGameState(newGameState);
+      setGameResult(null);
+      setSaveStatus(initialSaveStatus);
+      setPlayAgainError(initialPlayAgainError);
+      setActivatedCircles([]);
+      setLastActivationTimestamp(0);
+      setIsNewBestScore(false);
+      setInstantlyDeactivatedCircles([]);
+      setIsPlayingAgain(false);
+      setSessionWarningShown(false);
 
       setTimeout(() => {
-        scheduleNextActivation();
-      }, 1000);
+        setShowCircles(true);
+      }, 100);
 
-      setGameState((prev) => ({
-        ...prev,
-        levelUpdateInterval: levelInterval,
-      }));
-    }, 800);
-  }, [scheduleNextActivation]);
+      setTimeout(() => {
+        setGameState((prev) => {
+          const updatedState = { ...prev, gameState: GameState.PLAYING };
+          return updatedState;
+        });
+
+        const levelInterval = setInterval(() => {
+          setGameState((current) => {
+            if (
+              !current.isActive ||
+              current.gameState !== GameState.PLAYING ||
+              current.isGameEnding ||
+              isGameEndingRef.current
+            ) {
+              clearInterval(levelInterval);
+              return current;
+            }
+
+            return updateSurvivalLevel(current, Date.now());
+          });
+        }, LEVEL_UPDATE_INTERVAL);
+
+        setTimeout(() => {
+          scheduleNextActivation();
+        }, 1000);
+
+        setGameState((prev) => ({
+          ...prev,
+          levelUpdateInterval: levelInterval,
+        }));
+      }, 800);
+
+    } catch (error) {
+      console.error("Failed to start game:", error);
+      setPlayAgainError({
+        show: true,
+        message: t("game.modes.survival.playAgain.error"),
+        redirecting: false,
+        isSessionError: false,
+      });
+    }
+  }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
@@ -724,46 +860,23 @@ export default function SurvivalGameManager() {
           show: true,
           message: t("game.modes.survival.playAgain.noAttempts"),
           redirecting: false,
+          isSessionError: false,
         });
         setIsPlayingAgain(false);
-
         return;
       }
 
-      const consumeResult = await consumeAttempt();
-
-      if (!consumeResult) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.survival.playAgain.failedToConsume"),
-          redirecting: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
-      if (consumeResult.attemptsRemaining < 0) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.survival.playAgain.failedToConsume"),
-          redirecting: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
-      startGame();
+      await startGame();
     } catch (error) {
       setPlayAgainError({
         show: true,
         message: t("game.modes.survival.playAgain.error"),
         redirecting: false,
+        isSessionError: false,
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
+  }, [isPlayingAgain, fetchAttemptsStatus, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -771,6 +884,11 @@ export default function SurvivalGameManager() {
 
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanup();
+      }
+
+      // NEW: Cleanup session timer
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current);
       }
     };
   }, []);
@@ -785,6 +903,8 @@ export default function SurvivalGameManager() {
         return <AlertTriangle className="text-red-400" size={20} />;
       case "app_minimized":
         return <EyeOff className="text-gray-400" size={20} />;
+      case "session_expired":
+        return <ShieldAlert className="text-orange-400" size={20} />;
       default:
         return <Crosshair className="text-red-400" size={20} />;
     }
@@ -797,6 +917,7 @@ export default function SurvivalGameManager() {
       decoy_hit: "game.modes.survival.deathCauses.decoyHit",
       timeout: "game.modes.survival.deathCauses.default",
       app_minimized: "game.modes.physics.deathCauses.appMinimized",
+      session_expired: "game.modes.survival.deathCauses.sessionExpired",
     };
 
     const key =
@@ -828,6 +949,18 @@ export default function SurvivalGameManager() {
                   <span className="text-lg">🏆</span>
                   <span className="text-sm text-green-300 font-bold">
                     {t("game.modes.newBestScore")}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* NEW: Session security indicator */}
+            {sessionStatus.sessionId && (
+              <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-3">
+                <div className="flex items-center justify-center space-x-2">
+                  <Shield className="text-blue-400" size={16} />
+                  <span className="text-xs text-blue-300">
+                    Session Secured
                   </span>
                 </div>
               </div>
@@ -876,8 +1009,10 @@ export default function SurvivalGameManager() {
             </div>
           </div>
 
+          {/* Enhanced save status with session error handling */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
+            saveStatus.sessionError ||
             saveStatus.isSuccess) && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               {saveStatus.isLoading && (
@@ -915,6 +1050,24 @@ export default function SurvivalGameManager() {
                 </div>
               )}
 
+              {/* Session error display */}
+              {saveStatus.sessionError && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-orange-400" size={16} />
+                    <span className="text-sm text-orange-400">
+                      Session Security Error
+                    </span>
+                  </div>
+                  <div className="text-orange-400/60 text-xs mb-3">
+                    {saveStatus.sessionError}
+                  </div>
+                  <div className="text-white/60 text-xs">
+                    Game may not be saved due to session validation failure
+                  </div>
+                </div>
+              )}
+
               {saveStatus.isSuccess && !saveStatus.isLoading && (
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
@@ -946,7 +1099,7 @@ export default function SurvivalGameManager() {
                   </div>
                   <button
                     className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
+                    onClick={() => gameResult && handleSaveGameResult(gameResult)}
                   >
                     {t("save.retrySave")}
                   </button>
@@ -959,8 +1112,14 @@ export default function SurvivalGameManager() {
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">
                 <div className="flex items-center justify-center space-x-2 mb-2">
-                  <AlertTriangle className="text-red-400" size={16} />
-                  <span className="text-red-400 text-sm font-bold">
+                  {playAgainError.isSessionError ? (
+                    <ShieldAlert className="text-orange-400" size={16} />
+                  ) : (
+                    <AlertTriangle className="text-red-400" size={16} />
+                  )}
+                  <span className={`text-sm font-bold ${
+                    playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
+                  }`}>
                     {t("game.modes.survival.playAgain.cannotPlay")}
                   </span>
                 </div>
@@ -1014,15 +1173,47 @@ export default function SurvivalGameManager() {
   return (
     <div className="min-h-screen bg-black flex flex-col text-white relative">
       {gameState.gameState === GameState.PLAYING && (
-        <div className="fixed top-0 left-0 right-0 z-10 pointer-events-none">
-          <div className="flex justify-center pt-8">
-            <div className="bg-black/50 backdrop-blur-sm px-4 py-2 rounded-lg">
-              <span className="text-2xl font-bold text-white font-mono">
-                {formatSurvivalTime(gameState.stats.survivalTime)}
-              </span>
+        <>
+          {/* Game timer */}
+          <div className="fixed top-0 left-0 right-0 z-10 pointer-events-none">
+            <div className="flex justify-center pt-8">
+              <div className="bg-black/50 backdrop-blur-sm px-4 py-2 rounded-lg">
+                <span className="text-2xl font-bold text-white font-mono">
+                  {formatSurvivalTime(gameState.stats.survivalTime)}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* NEW: Session status indicator */}
+          {sessionStatus.isValid && sessionStatus.timeRemaining !== null && (
+            <div className="fixed top-20 left-4 z-10 pointer-events-none">
+              <div className={`bg-black/50 backdrop-blur-sm px-3 py-1 rounded-lg border ${
+                sessionStatus.timeRemaining <= 30000 
+                  ? "border-orange-400/50" 
+                  : "border-blue-400/30"
+              }`}>
+                <div className="flex items-center space-x-2">
+                  <Shield 
+                    className={`${
+                      sessionStatus.timeRemaining <= 30000 
+                        ? "text-orange-400" 
+                        : "text-blue-400"
+                    }`} 
+                    size={12} 
+                  />
+                  <span className={`text-xs font-mono ${
+                    sessionStatus.timeRemaining <= 30000 
+                      ? "text-orange-400" 
+                      : "text-blue-400"
+                  }`}>
+                    {Math.ceil(sessionStatus.timeRemaining / 1000)}s
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <div className="flex-1 flex items-center justify-center">

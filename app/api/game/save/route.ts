@@ -1,4 +1,4 @@
-// src/app/api/game/save/route.ts - Save regular game results
+// src/app/api/game/save/route.ts - Updated with session validation
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -12,6 +12,7 @@ import {
   serverGameService,
   type GameSaveResult,
 } from "@/lib/server/gameService";
+import { serverGameSessionService } from "@/lib/server/gameSessionService";
 
 // Game result union type
 type GameResult =
@@ -20,21 +21,23 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Request interface
+// Enhanced request interface with session ID
 interface SaveGameRequest {
   gameResult: GameResult;
+  sessionId: string; // NEW: Required session ID
 }
 
-// Response interface
+// Enhanced response interface
 interface SaveGameResponse {
   success: boolean;
   data?: GameSaveResult;
   error?: string;
+  sessionError?: string; // NEW: Specific session validation errors
 }
 
 /**
  * POST /api/game/save
- * Save regular game result (non-tournament modes)
+ * Enhanced version with session validation
  */
 export async function POST(
   request: NextRequest,
@@ -81,7 +84,19 @@ export async function POST(
       );
     }
 
-    const { gameResult } = body;
+    const { gameResult, sessionId } = body;
+
+    // Validate session ID is provided
+    if (!sessionId || typeof sessionId !== "string") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Session ID is required",
+          sessionError: "Missing or invalid session ID",
+        },
+        { status: 400 },
+      );
+    }
 
     // Validate game result
     if (!gameResult || typeof gameResult !== "object") {
@@ -128,20 +143,54 @@ export async function POST(
       );
     }
 
-    // Save game result using server service
+    // CRITICAL: Validate and finish the game session
+    console.log(`[GameSave] Validating session ${sessionId} for user ${telegramIdNumber}`);
+    
+    const sessionValidation = await serverGameSessionService.validateAndFinishSession(
+      sessionId,
+      telegramIdNumber
+    );
+
+    if (!sessionValidation.success) {
+      console.warn(`[GameSave] Session validation failed:`, {
+        sessionId,
+        telegramId: telegramIdNumber,
+        error: sessionValidation.error,
+        wasValid: sessionValidation.was_valid
+      });
+
+      // Return specific session error
+      const statusCode = sessionValidation.was_valid ? 410 : 400; // 410 = Gone (expired), 400 = Bad Request (invalid)
+      
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Session validation failed",
+          sessionError: sessionValidation.error || "Invalid session",
+        },
+        { status: statusCode },
+      );
+    }
+
+    console.log(`[GameSave] Session ${sessionId} validated successfully`);
+
+    // Session is valid, proceed with saving game result
     const saveResult = await serverGameService.saveGameResult(
       telegramIdNumber,
       gameResult,
     );
 
+    console.log(`[GameSave] Game result saved successfully for session ${sessionId}`);
+
     return NextResponse.json({
       success: true,
       data: saveResult,
     });
+
   } catch (error) {
     console.error("Error saving game result:", error);
 
-    // Handle specific error types
+    // Enhanced error handling with session context
     if (error instanceof Error) {
       if (error.message.includes("not found")) {
         return NextResponse.json(
@@ -150,6 +199,17 @@ export async function POST(
             error: "User not found",
           },
           { status: 404 },
+        );
+      }
+
+      if (error.message.includes("session")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Session validation error",
+            sessionError: error.message,
+          },
+          { status: 400 },
         );
       }
 
@@ -172,4 +232,18 @@ export async function POST(
       { status: 500 },
     );
   }
+}
+
+/**
+ * OPTIONS for CORS preflight
+ */
+export async function OPTIONS(): Promise<NextResponse> {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Telegram-ID, X-User-ID',
+    },
+  });
 }
