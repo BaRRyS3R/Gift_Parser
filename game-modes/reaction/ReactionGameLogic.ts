@@ -12,7 +12,7 @@ import { Circle, GameState, GameMode } from "@/types/game-modes/common";
 export const REACTION_CONFIG: ReactionGameConfig = {
   id: "reaction",
   name: "REACTION SPEED",
-  minDelayMs: 3000,
+  minDelayMs: 2000,
   maxDelayMs: 5000,
   circleActiveTimeMs: 10000, // 10 seconds to click after appearance
   gridSize: 1, // Single circle mode for focused reaction testing

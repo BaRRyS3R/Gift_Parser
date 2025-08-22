@@ -39,21 +39,21 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   {
     level: 2,
     simultaneousCircles: 2,
-    redCircles: 0,
-    activationTimeMin: 1600,
-    activationTimeMax: 2600,
+    redCircles: 1,
+    activationTimeMin: 1500,
+    activationTimeMax: 2500,
     circleActiveTime: 2800,
-    rotationSpeed: 0.02,
+    rotationSpeed: 0.03,
     description: "STEADY ROTATION",
   },
   {
     level: 3,
     simultaneousCircles: 2,
-    redCircles: 1,
+    redCircles: 2,
     activationTimeMin: 1400,
     activationTimeMax: 2400,
     circleActiveTime: 2600,
-    rotationSpeed: 0.025,
+    rotationSpeed: 0.035,
     description: "PICKING UP SPEED",
   },
   {
@@ -63,7 +63,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
     activationTimeMin: 1200,
     activationTimeMax: 2200,
     circleActiveTime: 2400,
-    rotationSpeed: 0.03,
+    rotationSpeed: 0.045,
     description: "FASTER SPIN",
   },
   {
@@ -73,7 +73,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
     activationTimeMin: 1100,
     activationTimeMax: 2000,
     circleActiveTime: 2200,
-    rotationSpeed: 0.035,
+    rotationSpeed: 0.055,
     description: "RAPID ROTATION",
   },
   {
@@ -83,7 +83,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
     activationTimeMin: 1000,
     activationTimeMax: 1800,
     circleActiveTime: 2000,
-    rotationSpeed: 0.04,
+    rotationSpeed: 0.065,
     description: "MULTI TARGETS",
   },
   {
@@ -93,7 +93,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
     activationTimeMin: 900,
     activationTimeMax: 1600,
     circleActiveTime: 1800,
-    rotationSpeed: 0.045,
+    rotationSpeed: 0.075,
     description: "DANGER ZONE",
   },
   {
@@ -103,7 +103,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
     activationTimeMin: 800,
     activationTimeMax: 1400,
     circleActiveTime: 1600,
-    rotationSpeed: 0.05,
+    rotationSpeed: 0.085,
     description: "HIGH VELOCITY",
   },
   {
@@ -113,7 +113,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
     activationTimeMin: 700,
     activationTimeMax: 1200,
     circleActiveTime: 1400,
-    rotationSpeed: 0.055,
+    rotationSpeed: 0.095,
     description: "EXTREME SPIN",
   },
   {
@@ -123,7 +123,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
     activationTimeMin: 600,
     activationTimeMax: 1000,
     circleActiveTime: 1200,
-    rotationSpeed: 0.06,
+    rotationSpeed: 0.1,
     description: "MAXIMUM ROTATION",
   },
 ];

@@ -27,16 +27,16 @@ export const SURVIVAL_CONFIG: SurvivalGameConfig = {
 export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   {
     level: 1,
-    simultaneousCircles: 1,
+    simultaneousCircles: 2,
     redCircles: 0,
-    activationTimeMin: 1200,
+    activationTimeMin: 900,
     activationTimeMax: 2000,
     circleActiveTime: 2500,
     description: "WARMING UP",
   },
   {
     level: 2,
-    simultaneousCircles: 2,
+    simultaneousCircles: 3,
     redCircles: 0,
     activationTimeMin: 1100,
     activationTimeMax: 1900,
@@ -45,7 +45,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   },
   {
     level: 3,
-    simultaneousCircles: 3,
+    simultaneousCircles: 4,
     redCircles: 1,
     activationTimeMin: 1000,
     activationTimeMax: 1700,
@@ -54,8 +54,8 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   },
   {
     level: 4,
-    simultaneousCircles: 4,
-    redCircles: 1,
+    simultaneousCircles: 6,
+    redCircles: 2,
     activationTimeMin: 900,
     activationTimeMax: 1600,
     circleActiveTime: 1900,
@@ -63,8 +63,8 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   },
   {
     level: 5,
-    simultaneousCircles: 5,
-    redCircles: 1,
+    simultaneousCircles: 6,
+    redCircles: 3,
     activationTimeMin: 850,
     activationTimeMax: 1500,
     circleActiveTime: 1800,
@@ -73,7 +73,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   {
     level: 6,
     simultaneousCircles: 6,
-    redCircles: 2,
+    redCircles: 3,
     activationTimeMin: 800,
     activationTimeMax: 1400,
     circleActiveTime: 1700,
