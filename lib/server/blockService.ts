@@ -30,8 +30,8 @@ export const TRUST_THRESHOLDS = {
 
 // Updated block durations in hours with PC detection
 export const BLOCK_DURATIONS = {
-  FAILED_CAPTCHA: 2, // 2 hours
-  FAILED_BIOMETRIC: 48, // 2 days
+  FAILED_CAPTCHA: 48, // 2 hours
+  FAILED_BIOMETRIC: 720, // 2 days
   FAILED_GYROSCOPE: 720, // 1 month (30 days)
   DEVICE_UNSUPPORTED_BIOMETRIC: 48, // 2 days
   DEVICE_UNSUPPORTED_GYROSCOPE: 720, // 1 month (30 days)
@@ -39,17 +39,17 @@ export const BLOCK_DURATIONS = {
   GYROSCOPE_UNAVAILABLE: 720, // 1 month - gyroscope not available on device
   BIOMETRIC_PERMISSION_DENIED: 48, // 2 days - permission denied for biometric
   GYROSCOPE_PERMISSION_DENIED: 720, // 1 month - permission denied for gyroscope
-  MANUAL_BLOCK: 24, // 1 day (default)
-  SUSPICIOUS_ACTIVITY: 168, // 1 week
-  ABANDONED_VERIFICATION: 2, // 2 hours for abandoned attempts
-  PC_DETECTED: 48, // NEW: 2 days for PC/Desktop detection
+  MANUAL_BLOCK: 9999, // 1 day (default)
+  SUSPICIOUS_ACTIVITY: 9999, // 1 week
+  ABANDONED_VERIFICATION: 48, // 2 hours for abandoned attempts
+  PC_DETECTED: 9999, // NEW: 2 days for PC/Desktop detection
 } as const;
 
 // Verification attempt timeout durations in milliseconds
 export const VERIFICATION_TIMEOUTS = {
   CAPTCHA: 15000, // 15 seconds for captcha
-  BIOMETRIC: 5 * 60 * 1000, // 5 minutes for biometric permission setup
-  GYROSCOPE: 5 * 60 * 1000, // 5 minutes for gyroscope permission setup
+  BIOMETRIC: 1 * 60 * 1000, // 5 minutes for biometric permission setup
+  GYROSCOPE: 1 * 60 * 1000, // 5 minutes for gyroscope permission setup
 } as const;
 
 // Restored trust score after successful verification
