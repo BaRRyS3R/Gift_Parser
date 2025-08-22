@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Enhanced with session management
+// src/game-modes/physics/PhysicsGameManager.tsx - Fixed session management
 
 "use client";
 
@@ -47,7 +47,7 @@ interface SaveStatus {
   attempt: number;
   maxAttempts: number;
   error: string | null;
-  sessionError: string | null; // NEW: Session-specific errors
+  sessionError: string | null;
   isSuccess: boolean;
   showRetryDetails: boolean;
 }
@@ -56,14 +56,14 @@ interface PlayAgainError {
   show: boolean;
   message: string;
   redirecting: boolean;
-  isSessionError: boolean; // NEW: Flag for session-related errors
+  isSessionError: boolean;
 }
 
 interface SessionStatus {
   sessionId: string | null;
   expiresAt: Date | null;
   isValid: boolean;
-  timeRemaining: number | null; // milliseconds until expiry
+  timeRemaining: number | null;
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -110,8 +110,10 @@ export default function PhysicsGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  // NEW: Session management state
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
+
+  // CRITICAL FIX: Store session ID in a ref to avoid race conditions
+  const currentSessionRef = useRef<string | null>(null);
 
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<PhysicsGameState>(gameState);
@@ -124,7 +126,7 @@ export default function PhysicsGameManager() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // NEW: Local session timer (no visual display)
+  // Session timer for expiry tracking
   useEffect(() => {
     if (sessionStatus.sessionId && sessionStatus.isValid && sessionStatus.expiresAt) {
       sessionTimerRef.current = setInterval(() => {
@@ -278,10 +280,14 @@ export default function PhysicsGameManager() {
     }
   }, []);
 
-  // Enhanced save game result with session validation
+  // FIXED: Enhanced save game result with proper session management
   const handleSaveGameResult = useCallback(
     async (result: PhysicsGameResult) => {
-      if (!sessionStatus.sessionId) {
+      // CRITICAL FIX: Use ref instead of state to avoid race condition
+      const sessionId = currentSessionRef.current;
+      
+      if (!sessionId) {
+        console.error("No session ID available for game save");
         setSaveStatus((prev) => ({
           ...prev,
           sessionError: "No valid session found",
@@ -289,6 +295,8 @@ export default function PhysicsGameManager() {
         }));
         return;
       }
+
+      console.log("Saving game with session ID:", sessionId);
 
       setSaveStatus((prev) => ({
         ...prev,
@@ -350,7 +358,8 @@ export default function PhysicsGameManager() {
             await processSuspiciousActivity();
           }
 
-          await saveGameResult(result, sessionStatus.sessionId!);
+          // FIXED: Use the sessionId from ref, not state
+          await saveGameResult(result, sessionId);
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -395,7 +404,7 @@ export default function PhysicsGameManager() {
         }));
       }
     },
-    [saveGameResult, t, makeAuthenticatedRequest, user, sessionStatus.sessionId],
+    [saveGameResult, t, makeAuthenticatedRequest, user], // Removed sessionStatus dependency
   );
 
   const updatePhysicsEngine = useCallback(() => {
@@ -609,7 +618,6 @@ export default function PhysicsGameManager() {
     isGameEndingRef.current = false;
 
     try {
-      // NEW: Consume attempt with session creation
       const attemptsResult = await consumeAttemptWithSession(GameMode.PHYSICS);
       
       if (!attemptsResult || !attemptsResult.canPlay) {
@@ -622,8 +630,14 @@ export default function PhysicsGameManager() {
         return;
       }
 
-      // Set up session status
+      // CRITICAL FIX: Store session ID in ref immediately after getting it
       if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
+        console.log("Session created:", attemptsResult.sessionId);
+        
+        // Store in ref for immediate access
+        currentSessionRef.current = attemptsResult.sessionId;
+        
+        // Also set state for UI purposes
         setSessionStatus({
           sessionId: attemptsResult.sessionId,
           expiresAt: attemptsResult.sessionExpiresAt,
@@ -734,6 +748,9 @@ export default function PhysicsGameManager() {
       if (sessionTimerRef.current) {
         clearInterval(sessionTimerRef.current);
       }
+
+      // ADDED: Cleanup session ref
+      currentSessionRef.current = null;
     };
   }, []);
 
