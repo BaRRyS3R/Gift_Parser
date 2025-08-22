@@ -316,6 +316,7 @@ export const nebula = {
       manual_block: "Account manually blocked by administrator",
       suspicious_activity: "Suspicious activity detected on account",
       abandoned_verification: "Verification was abandoned or left incomplete",
+      pc_detected: "PC Detected. Only mobile supports.",
       default: "Security verification required",
     },
 
