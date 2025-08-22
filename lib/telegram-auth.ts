@@ -1,4 +1,4 @@
-// src/lib/telegram-auth.ts - Telegram WebApp data validation with client/server separation
+// src/lib/telegram-auth.ts - ИСПРАВЛЕННАЯ ВЕРСИЯ с защитой от будущих дат
 
 import type { TelegramUser } from "./supabase";
 
@@ -38,6 +38,42 @@ export interface ParseResult {
   error?: string;
 }
 
+// 🚨 НОВАЯ ФУНКЦИЯ: Универсальная проверка auth_date
+function validateAuthDate(authDate: number, maxAgeSeconds: number = 3600): {
+  isValid: boolean;
+  error?: string;
+} {
+  const currentTime = Math.floor(Date.now() / 1000);
+  
+  // Проверка на валидность timestamp
+  if (!authDate || authDate <= 0) {
+    return {
+      isValid: false,
+      error: "Missing or invalid auth_date"
+    };
+  }
+  
+  // 🚨 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверка будущих дат
+  if (authDate > currentTime + 60) { // Максимум 1 минута на расхождение часов
+    console.error(`[SECURITY] Future auth_date detected: ${authDate} vs ${currentTime} (diff: ${authDate - currentTime}s)`);
+    return {
+      isValid: false,
+      error: "Auth date is in the future - possible security attack"
+    };
+  }
+  
+  // Проверка старых данных
+  if (currentTime - authDate > maxAgeSeconds) {
+    console.warn(`[SECURITY] Old auth_date detected: ${authDate}, age: ${currentTime - authDate} seconds`);
+    return {
+      isValid: false,
+      error: `Auth data is too old (max age: ${maxAgeSeconds} seconds)`
+    };
+  }
+  
+  return { isValid: true };
+}
+
 // Server-side only: Get bot token
 const getTelegramBotToken = (): string => {
   if (typeof window !== "undefined") {
@@ -57,7 +93,7 @@ const getTelegramBotToken = (): string => {
 
 /**
  * SERVER-SIDE ONLY: Validates Telegram WebApp initData using official algorithm
- * Based on: https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app
+ * 🚨 УСИЛЕННАЯ ВЕРСИЯ с дополнительными проверками безопасности
  */
 export function validateTelegramWebAppData(initData: string): ValidationResult {
   // Ensure this function is only called on server side
@@ -66,6 +102,8 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
   }
 
   try {
+    console.log(`[AUTH] Starting server-side validation of initData`);
+    
     const botToken = getTelegramBotToken();
 
     // Parse the initData string
@@ -73,9 +111,22 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
     const hash = urlParams.get("hash");
 
     if (!hash) {
+      console.error("[AUTH] Missing hash parameter");
       return {
         isValid: false,
         error: "Missing hash parameter",
+      };
+    }
+
+    // 🚨 РАННЕЕ ИЗВЛЕЧЕНИЕ И ПРОВЕРКА AUTH_DATE
+    const authDate = parseInt(urlParams.get("auth_date") || "0");
+    const authValidation = validateAuthDate(authDate, 3600); // 1 час для сервера
+    
+    if (!authValidation.isValid) {
+      console.error(`[AUTH] Auth date validation failed: ${authValidation.error}`);
+      return {
+        isValid: false,
+        error: authValidation.error,
       };
     }
 
@@ -87,6 +138,8 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => `${key}=${value}`)
       .join("\n");
+
+    console.log(`[AUTH] Data check string created: ${dataCheckString.substring(0, 100)}...`);
 
     // Create secret key using bot token
     const secretKeyBuffer = crypto
@@ -105,28 +158,20 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
 
     // Verify hash
     if (hash !== expectedHash) {
+      console.error(`[AUTH] Hash verification failed. Expected: ${expectedHash}, Received: ${hash}`);
       return {
         isValid: false,
         error: "Invalid hash signature",
       };
     }
 
-    // Check auth_date (should not be older than 24 hours)
-    const authDate = parseInt(urlParams.get("auth_date") || "0");
-    const currentTime = Math.floor(Date.now() / 1000);
-    const maxAge = 24 * 60 * 60; // 24 hours
-
-    if (currentTime - authDate > maxAge) {
-      return {
-        isValid: false,
-        error: "Auth data is too old",
-      };
-    }
+    console.log(`[AUTH] Hash verification successful`);
 
     // Parse user data
     const userParam = urlParams.get("user");
 
     if (!userParam) {
+      console.error("[AUTH] Missing user data");
       return {
         isValid: false,
         error: "Missing user data",
@@ -138,6 +183,7 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
     try {
       user = JSON.parse(userParam);
     } catch (error) {
+      console.error("[AUTH] Invalid user data format:", error);
       return {
         isValid: false,
         error: "Invalid user data format",
@@ -146,9 +192,30 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
 
     // Validate required user fields
     if (!user.id || !user.first_name) {
+      console.error("[AUTH] Missing required user fields");
       return {
         isValid: false,
         error: "Missing required user fields",
+      };
+    }
+
+    // 🚨 ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ БЕЗОПАСНОСТИ
+    
+    // Проверка на разумные значения user ID
+    if (user.id <= 0 || user.id > 9999999999) { // Telegram user IDs are typically 9-10 digits
+      console.error(`[AUTH] Suspicious user ID: ${user.id}`);
+      return {
+        isValid: false,
+        error: "Invalid user ID",
+      };
+    }
+
+    // Проверка длины имени
+    if (user.first_name.length > 64 || (user.last_name && user.last_name.length > 64)) {
+      console.error("[AUTH] Suspicious name length");
+      return {
+        isValid: false,
+        error: "Invalid user data",
       };
     }
 
@@ -172,6 +239,8 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
       );
     }
 
+    console.log(`[AUTH] Server validation successful for user ${user.id} (${user.first_name})`);
+
     return {
       isValid: true,
       user,
@@ -189,15 +258,18 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
 
 /**
  * CLIENT-SIDE: Parse Telegram WebApp initData without cryptographic validation
- * This function safely runs in the browser and only parses the data structure
+ * 🚨 ИСПРАВЛЕННАЯ ВЕРСИЯ с правильной проверкой auth_date
  */
 export function parseTelegramInitData(initData: string): ParseResult {
   try {
+    console.log(`[CLIENT] Starting client-side parsing of initData`);
+
     // Handle development mock data
     if (
       process.env.NODE_ENV === "development" &&
       initData === "mock_init_data_for_development"
     ) {
+      console.warn("[CLIENT] Using mock data for development");
       return {
         success: true,
         user: {
@@ -220,19 +292,24 @@ export function parseTelegramInitData(initData: string): ParseResult {
     const hash = urlParams.get("hash");
 
     if (!hash) {
+      console.error("[CLIENT] Missing hash parameter");
       return {
         success: false,
         error: "Missing hash parameter",
       };
     }
 
-    // Parse auth_date
+    // 🚨 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Правильная проверка auth_date
     const authDate = parseInt(urlParams.get("auth_date") || "0");
-
-    if (!authDate) {
+    
+    // Используем универсальную функцию проверки (более мягкие ограничения для клиента)
+    const authValidation = validateAuthDate(authDate, 24 * 60 * 60); // 24 часа для клиента
+    
+    if (!authValidation.isValid) {
+      console.error(`[CLIENT] Auth date validation failed: ${authValidation.error}`);
       return {
         success: false,
-        error: "Missing or invalid auth_date",
+        error: authValidation.error,
       };
     }
 
@@ -240,6 +317,7 @@ export function parseTelegramInitData(initData: string): ParseResult {
     const userParam = urlParams.get("user");
 
     if (!userParam) {
+      console.error("[CLIENT] Missing user data");
       return {
         success: false,
         error: "Missing user data",
@@ -251,6 +329,7 @@ export function parseTelegramInitData(initData: string): ParseResult {
     try {
       user = JSON.parse(userParam);
     } catch (error) {
+      console.error("[CLIENT] Invalid user data format:", error);
       return {
         success: false,
         error: "Invalid user data format",
@@ -259,20 +338,19 @@ export function parseTelegramInitData(initData: string): ParseResult {
 
     // Validate required user fields
     if (!user.id || !user.first_name) {
+      console.error("[CLIENT] Missing required user fields");
       return {
         success: false,
         error: "Missing required user fields",
       };
     }
 
-    // Basic time validation (not older than 48 hours for client-side)
-    const currentTime = Math.floor(Date.now() / 1000);
-    const maxAge = 48 * 60 * 60; // 48 hours (more lenient for client-side)
-
-    if (currentTime - authDate > maxAge) {
+    // 🚨 БАЗОВЫЕ ПРОВЕРКИ БЕЗОПАСНОСТИ НА КЛИЕНТЕ
+    if (user.id <= 0) {
+      console.error(`[CLIENT] Invalid user ID: ${user.id}`);
       return {
         success: false,
-        error: "Auth data appears to be too old",
+        error: "Invalid user data",
       };
     }
 
@@ -296,6 +374,8 @@ export function parseTelegramInitData(initData: string): ParseResult {
       );
     }
 
+    console.log(`[CLIENT] Client parsing successful for user ${user.id} (${user.first_name})`);
+
     return {
       success: true,
       user,
@@ -313,6 +393,7 @@ export function parseTelegramInitData(initData: string): ParseResult {
 
 /**
  * Validates Telegram WebApp data with additional security checks (SERVER-SIDE ONLY)
+ * 🚨 УЛУЧШЕННАЯ ВЕРСИЯ с дополнительными проверками
  */
 export function validateTelegramWebAppDataStrict(
   initData: string,
@@ -320,6 +401,8 @@ export function validateTelegramWebAppDataStrict(
   if (typeof window !== "undefined") {
     throw new Error("Strict validation must be performed on server side");
   }
+
+  console.log("[AUTH] Starting strict validation");
 
   const basicValidation = validateTelegramWebAppData(initData);
 
@@ -331,31 +414,25 @@ export function validateTelegramWebAppDataStrict(
 
   // Additional validation checks
   if (!user || !parsedData) {
+    console.error("[AUTH] Missing validated data after basic validation");
     return {
       isValid: false,
       error: "Missing validated data",
     };
   }
 
-  // Check if user ID is valid (positive integer)
-  if (user.id <= 0) {
-    return {
-      isValid: false,
-      error: "Invalid user ID",
-    };
-  }
-
-  // Check auth_date is not in the future
-  const authDate = parsedData.auth_date;
+  // 🚨 ДОПОЛНИТЕЛЬНЫЕ СТРОГИЕ ПРОВЕРКИ
+  
+  // Проверка разумности временной метки (не слишком старая даже для валидного диапазона)
   const currentTime = Math.floor(Date.now() / 1000);
-
-  if (authDate > currentTime + 60) {
-    // Allow 1 minute clock skew
-    return {
-      isValid: false,
-      error: "Auth date is in the future",
-    };
+  const authAge = currentTime - parsedData.auth_date;
+  
+  if (authAge > 1800) { // Более 30 минут - подозрительно для строгой проверки
+    console.warn(`[AUTH] Auth data is quite old: ${authAge} seconds`);
+    // Не блокируем, но логируем для мониторинга
   }
+
+  console.log(`[AUTH] Strict validation passed for user ${user.id}`);
 
   return basicValidation;
 }
@@ -394,6 +471,7 @@ export function createInitDataHash(initData: string): string {
 
 /**
  * Main validation function that chooses appropriate method based on environment
+ * 🚨 УЛУЧШЕННАЯ ВЕРСИЯ с принудительными проверками
  */
 export function validateTelegramData(initData: string): ValidationResult {
   // This function should only be called on server side
@@ -403,9 +481,15 @@ export function validateTelegramData(initData: string): ValidationResult {
     );
   }
 
+  console.log("[AUTH] Main validation entry point");
+
+  // 🚨 ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА В DEVELOPMENT
   if (process.env.NODE_ENV === "development") {
-    // Allow mock data in development
+    console.warn("[AUTH] Development mode detected");
+    
+    // Разрешить только специальный mock
     if (initData === "mock_init_data_for_development") {
+      console.log("[AUTH] Using development mock data");
       return {
         isValid: true,
         user: {
@@ -422,6 +506,9 @@ export function validateTelegramData(initData: string): ValidationResult {
         },
       };
     }
+    
+    // 🚨 ВАЖНО: Даже в development выполняем ПОЛНУЮ валидацию настоящих данных
+    console.log("[AUTH] Real data in development - performing full validation");
   }
 
   return validateTelegramWebAppDataStrict(initData);
@@ -429,6 +516,7 @@ export function validateTelegramData(initData: string): ValidationResult {
 
 /**
  * CLIENT-SIDE: Get initData from Telegram WebApp (SAFE FOR BROWSER)
+ * 🚨 УЛУЧШЕННАЯ ВЕРСИЯ с дополнительными проверками
  */
 export function getTelegramInitData(): string {
   if (typeof window === "undefined") {
@@ -437,15 +525,41 @@ export function getTelegramInitData(): string {
 
   // Production: use real Telegram data
   if (window.Telegram?.WebApp?.initData) {
+    console.log("[CLIENT] Retrieved initData from Telegram WebApp");
     return window.Telegram.WebApp.initData;
   }
 
   // Development fallback
   if (process.env.NODE_ENV === "development") {
     console.warn("Using mock initData for development");
-
     return "mock_init_data_for_development";
   }
 
+  console.error("[CLIENT] No Telegram initData available");
   return "";
+}
+
+// 🚨 НОВАЯ ФУНКЦИЯ: Быстрая проверка auth_date без полной валидации
+export function quickAuthDateCheck(initData: string): {
+  isValid: boolean;
+  error?: string;
+  authDate?: number;
+} {
+  try {
+    const urlParams = new URLSearchParams(initData);
+    const authDate = parseInt(urlParams.get("auth_date") || "0");
+    
+    const validation = validateAuthDate(authDate, 3600); // 1 час
+    
+    return {
+      isValid: validation.isValid,
+      error: validation.error,
+      authDate: authDate
+    };
+  } catch (error) {
+    return {
+      isValid: false,
+      error: "Failed to parse initData"
+    };
+  }
 }

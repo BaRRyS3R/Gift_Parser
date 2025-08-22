@@ -1,4 +1,4 @@
-// src/app/api/auth/login/route.ts - Updated with Nebula Security Integration
+// src/app/api/auth/login/route.ts - ИСПРАВЛЕННАЯ ВЕРСИЯ с усиленной безопасностью
 
 import type { TelegramUser } from "@/lib/supabase";
 
@@ -6,7 +6,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { serverUserService } from "@/lib/supabase_server";
 import { serverBlockService } from "@/lib/server/blockService";
-import { validateTelegramData, createInitDataHash } from "@/lib/telegram-auth";
+import { 
+  validateTelegramData, 
+  createInitDataHash,
+  quickAuthDateCheck 
+} from "@/lib/telegram-auth";
 import { createJWT, createRefreshToken } from "@/lib/jwt";
 
 // Request body interface
@@ -56,59 +60,144 @@ interface LoginResponse {
   error?: string;
 }
 
+// 🚨 НОВАЯ ФУНКЦИЯ: Логирование событий безопасности
+function logSecurityEvent(type: string, data: any, request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") || 
+            request.headers.get("x-real-ip") || 
+            "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    type,
+    ip,
+    userAgent: userAgent.substring(0, 200),
+    endpoint: "/api/auth/login",
+    data
+  };
+  
+  console.error(`[LOGIN SECURITY] ${type}:`, JSON.stringify(logEntry, null, 2));
+}
+
 /**
  * POST /api/auth/login
  * Authenticates existing user with Telegram WebApp data validation and Nebula security checks
+ * 🚨 УСИЛЕННАЯ ВЕРСИЯ с многоуровневой защитой
  */
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<LoginResponse>> {
+  const startTime = Date.now();
+  
   try {
+    console.log("[LOGIN] Starting login process");
+    
     // Parse request body
     const body: LoginRequest = await request.json();
     const { initData } = body;
 
     if (!initData) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Missing initData parameter",
-        },
-        { status: 400 },
-      );
+      console.error("[LOGIN] Missing initData parameter");
+      logSecurityEvent('MISSING_INIT_DATA', {}, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "Missing initData parameter",
+      }, { status: 400 });
     }
 
-    // Validate Telegram WebApp data
+    // 🚨 БЫСТРАЯ ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА AUTH_DATE
+    const quickCheck = quickAuthDateCheck(initData);
+    if (!quickCheck.isValid) {
+      console.error(`[LOGIN] Quick auth_date check failed: ${quickCheck.error}`);
+      logSecurityEvent('QUICK_AUTH_DATE_CHECK_FAILED', {
+        error: quickCheck.error,
+        authDate: quickCheck.authDate
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "Invalid authentication data",
+      }, { status: 400 });
+    }
+
+    console.log(`[LOGIN] Quick check passed, auth_date: ${quickCheck.authDate}`);
+
+    // 🚨 ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ БЕЗОПАСНОСТИ
+    
+    // Проверка размера initData
+    if (initData.length > 5000) { // 5KB максимум
+      console.error(`[LOGIN] InitData too large: ${initData.length} characters`);
+      logSecurityEvent('INIT_DATA_TOO_LARGE', { 
+        length: initData.length 
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "Invalid request format",
+      }, { status: 400 });
+    }
+
+    // Проверка на подозрительные символы в initData
+    if (!/^[a-zA-Z0-9=&%\-_{}:"',\s\/.\\]+$/.test(initData)) {
+      console.error("[LOGIN] Suspicious characters in initData");
+      logSecurityEvent('SUSPICIOUS_CHARACTERS', {
+        sample: initData.substring(0, 100)
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "Invalid request format",
+      }, { status: 400 });
+    }
+
+    // Validate Telegram WebApp data with full cryptographic verification
+    console.log("[LOGIN] Starting full Telegram data validation");
     const validation = validateTelegramData(initData);
 
     if (!validation.isValid || !validation.user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: validation.error || "Invalid Telegram data",
-        },
-        { status: 400 },
-      );
+      console.error(`[LOGIN] Telegram validation failed: ${validation.error}`);
+      logSecurityEvent('TELEGRAM_VALIDATION_FAILED', {
+        error: validation.error,
+        hasUser: !!validation.user
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: validation.error || "Invalid Telegram data",
+      }, { status: 400 });
     }
 
     const telegramUser: TelegramUser = validation.user;
+    console.log(`[LOGIN] Validation successful for user ${telegramUser.id} (${telegramUser.first_name})`);
 
     // Find existing user
-    const existingUser = await serverUserService.findByTelegramId(
-      telegramUser.id,
-    );
+    console.log("[LOGIN] Looking up existing user in database");
+    const existingUser = await serverUserService.findByTelegramId(telegramUser.id);
 
     if (!existingUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not found. Please register first.",
-        },
-        { status: 404 },
-      );
+      console.log(`[LOGIN] User ${telegramUser.id} not found in database`);
+      logSecurityEvent('USER_NOT_FOUND', {
+        telegramId: telegramUser.id,
+        firstName: telegramUser.first_name
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "User not found. Please register first.",
+      }, { status: 404 });
+    }
+
+    console.log(`[LOGIN] Found existing user: ${existingUser.id}`);
+
+    // 🚨 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Сравнение данных пользователя
+    if (existingUser.first_name !== telegramUser.first_name) {
+      console.warn(`[LOGIN] First name mismatch for user ${telegramUser.id}: DB="${existingUser.first_name}" vs Telegram="${telegramUser.first_name}"`);
+      // Не блокируем, так как пользователь мог изменить имя, но логируем
     }
 
     // Update user data from Telegram (in case profile changed)
+    console.log("[LOGIN] Updating user data from Telegram");
     const updatedUser = await serverUserService.updateUser(telegramUser.id, {
       first_name: telegramUser.first_name,
       last_name: telegramUser.last_name,
@@ -119,12 +208,18 @@ export async function POST(
     });
 
     // NEBULA SECURITY CHECKS
+    console.log("[LOGIN] Starting Nebula security checks");
+    
     // Step 1: Check if user is currently blocked
-    const blockInfo = await serverBlockService.checkUserBlock(
-      updatedUser.telegram_id,
-    );
+    const blockInfo = await serverBlockService.checkUserBlock(updatedUser.telegram_id);
 
     if (blockInfo && blockInfo.isActive && blockInfo.timeRemainingSeconds > 0) {
+      console.log(`[LOGIN] User ${telegramUser.id} is currently blocked`);
+      logSecurityEvent('USER_BLOCKED', {
+        telegramId: telegramUser.id,
+        blockInfo
+      }, request);
+      
       // Create limited tokens for accessing block status page
       const initDataHash = createInitDataHash(initData);
       const accessToken = await createJWT({
@@ -192,12 +287,19 @@ export async function POST(
     }
 
     // Step 2: Check if user requires verification based on trust score
-    const verificationReq =
-      await serverBlockService.checkVerificationRequirement(
-        updatedUser.telegram_id,
-      );
+    console.log("[LOGIN] Checking verification requirements");
+    const verificationReq = await serverBlockService.checkVerificationRequirement(
+      updatedUser.telegram_id,
+    );
 
     if (verificationReq.required && verificationReq.type) {
+      console.log(`[LOGIN] User ${telegramUser.id} requires verification: ${verificationReq.type}`);
+      logSecurityEvent('VERIFICATION_REQUIRED', {
+        telegramId: telegramUser.id,
+        verificationType: verificationReq.type,
+        trustScore: verificationReq.trustScore
+      }, request);
+      
       // Create limited tokens for accessing verification page
       const initDataHash = createInitDataHash(initData);
       const accessToken = await createJWT({
@@ -265,6 +367,7 @@ export async function POST(
     }
 
     // Create full access JWT tokens
+    console.log("[LOGIN] Creating full access tokens");
     const initDataHash = createInitDataHash(initData);
 
     const accessToken = await createJWT({
@@ -318,6 +421,17 @@ export async function POST(
       last_played_at: updatedUser.last_played_at,
     };
 
+    const processingTime = Date.now() - startTime;
+    console.log(`[LOGIN] Login successful for user ${telegramUser.id} in ${processingTime}ms`);
+    
+    // Логируем успешный вход
+    logSecurityEvent('LOGIN_SUCCESS', {
+      telegramId: telegramUser.id,
+      firstName: telegramUser.first_name,
+      processingTime,
+      trustScore: updatedUser.trust_score
+    }, request);
+
     return NextResponse.json({
       success: true,
       user: userData,
@@ -331,41 +445,47 @@ export async function POST(
         trustScore: verificationReq.trustScore,
       },
     });
+    
   } catch (error) {
+    const processingTime = Date.now() - startTime;
     console.error("Login error:", error);
+
+    // Логируем ошибку
+    logSecurityEvent('LOGIN_ERROR', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+      processingTime
+    }, request);
 
     // Handle specific error types
     if (error instanceof Error) {
       if (error.message.includes("not found")) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "User not found",
-          },
-          { status: 404 },
-        );
+        return NextResponse.json({
+          success: false,
+          error: "User not found",
+        }, { status: 404 });
       }
 
-      if (
-        error.message.includes("Invalid") ||
-        error.message.includes("validation")
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Invalid authentication data",
-          },
-          { status: 400 },
-        );
+      if (error.message.includes("Invalid") || error.message.includes("validation")) {
+        return NextResponse.json({
+          success: false,
+          error: "Invalid authentication data",
+        }, { status: 400 });
+      }
+      
+      if (error.message.includes("Bot token") || error.message.includes("TELEGRAM_BOT_API")) {
+        // Серверная ошибка, не раскрываем детали
+        console.error("[LOGIN] Bot token error:", error.message);
+        return NextResponse.json({
+          success: false,
+          error: "Authentication service unavailable",
+        }, { status: 503 });
       }
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Authentication failed. Please try again.",
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({
+      success: false,
+      error: "Authentication failed. Please try again.",
+    }, { status: 500 });
   }
 }
