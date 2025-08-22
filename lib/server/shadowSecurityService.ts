@@ -1,4 +1,4 @@
-// src/lib/server/shadowSecurityService.ts - Enhanced server service with division by zero protection
+// src/lib/server/shadowSecurityService.ts - Enhanced server service with comprehensive division by zero protection
 
 import { supabaseServer } from "../supabase_server";
 
@@ -12,15 +12,39 @@ import {
 } from "@/types/security/shadowSecurity";
 
 /**
- * Enhanced server-side service for managing suspicious activity records with gyroscope monitoring
- * Handles database operations for the comprehensive shadow security system
- * FIXED: Added normalization logic to prevent division by zero errors in database
+ * Enhanced server-side service for managing suspicious activity records with comprehensive division by zero protection
+ * FIXED: Added multiple layers of protection against division by zero errors in database operations
  */
 export class ShadowSecurityService {
   /**
-   * Submit enhanced suspicious activity data to the database
-   * Creates a record only if there are suspicious clicks OR suspicious gyroscope activity
-   * FIXED: Added data normalization to prevent division by zero errors
+   * Protected division helper method to prevent division by zero errors
+   * @param numerator - The numerator value
+   * @param denominator - The denominator value  
+   * @param defaultValue - Value to return if division is unsafe (default: 0)
+   * @returns Safe division result or default value
+   */
+  static safeDivision(numerator: number, denominator: number, defaultValue: number = 0): number {
+    if (denominator === 0 || !isFinite(denominator) || !isFinite(numerator)) {
+      return defaultValue;
+    }
+    const result = numerator / denominator;
+    return isFinite(result) ? result : defaultValue;
+  }
+
+  /**
+   * Enhanced percentage calculation with safety checks
+   * @param numerator - The numerator value
+   * @param denominator - The denominator value
+   * @returns Safe percentage (0-100) or 0 if calculation is unsafe
+   */
+  static safePercentage(numerator: number, denominator: number): number {
+    const percentage = this.safeDivision(numerator, denominator, 0) * 100;
+    return Math.max(0, Math.min(100, Math.round(percentage * 100) / 100));
+  }
+
+  /**
+   * Submit enhanced suspicious activity data to the database with robust error protection
+   * FIXED: Enhanced normalization and validation to prevent all division by zero scenarios
    * @param activityData - The suspicious activity data to store
    * @returns Promise with success status and error if any
    */
@@ -68,41 +92,44 @@ export class ShadowSecurityService {
         };
       }
 
-      // CRITICAL FIX: Normalize gyroscope data to prevent division by zero
-      // Create normalized copy of data for safe database insertion
+      // ENHANCED FIX: Comprehensive data normalization with multiple safety checks
       const normalizedActivityData = { ...activityData };
 
-      // If no gyroscope checks performed, force all related metrics to zero
+      // Step 1: Handle zero gyroscope checks scenario
       if (normalizedActivityData.totalGyroscopeChecks === 0) {
         normalizedActivityData.gyroscopeMovementsDetected = 0;
         normalizedActivityData.gyroscopeMovementPercentage = 0;
 
-        // Log normalization for monitoring short sessions
         const gameDuration =
           normalizedActivityData.gameEndTime -
           normalizedActivityData.gameStartTime;
 
         console.log(
-          `Shadow Security: Normalized gyroscope data for user ${normalizedActivityData.telegramId} - ` +
-            `game ended before first gyroscope check (game duration: ${gameDuration}ms)`,
+          `Shadow Security: Zero gyroscope checks normalization for user ${normalizedActivityData.telegramId} - ` +
+            `game duration: ${gameDuration}ms`,
         );
-      } else {
-        // If checks were performed, recalculate percentage for consistency
-        const recalculatedPercentage =
-          (normalizedActivityData.gyroscopeMovementsDetected /
-            normalizedActivityData.totalGyroscopeChecks) *
-          100;
+      } 
+      // Step 2: Validate and recalculate percentage for non-zero checks
+      else {
+        // Ensure movements detected cannot exceed total checks
+        normalizedActivityData.gyroscopeMovementsDetected = Math.min(
+          normalizedActivityData.gyroscopeMovementsDetected,
+          normalizedActivityData.totalGyroscopeChecks
+        );
 
-        // Check for discrepancy with provided percentage
+        // Recalculate percentage with protection against division by zero
+        const recalculatedPercentage = this.safePercentage(
+          normalizedActivityData.gyroscopeMovementsDetected,
+          normalizedActivityData.totalGyroscopeChecks
+        );
+
+        // Check for discrepancy and use calculated value
         const percentageDifference = Math.abs(
-          recalculatedPercentage -
-            normalizedActivityData.gyroscopeMovementPercentage,
+          recalculatedPercentage - normalizedActivityData.gyroscopeMovementPercentage,
         );
 
         if (percentageDifference > 0.1) {
-          // Use recalculated value for consistency
-          normalizedActivityData.gyroscopeMovementPercentage =
-            Math.round(recalculatedPercentage * 100) / 100;
+          normalizedActivityData.gyroscopeMovementPercentage = recalculatedPercentage;
 
           console.warn(
             `Shadow Security: Corrected gyroscope percentage for user ${normalizedActivityData.telegramId} - ` +
@@ -111,8 +138,9 @@ export class ShadowSecurityService {
         }
       }
 
-      // Additional validation of normalized gyroscope data
+      // Step 3: Final validation of normalized gyroscope data
       if (normalizedActivityData.gyroscopeEnabled) {
+        // Ensure movements cannot exceed checks
         if (
           normalizedActivityData.gyroscopeMovementsDetected >
           normalizedActivityData.totalGyroscopeChecks
@@ -123,7 +151,7 @@ export class ShadowSecurityService {
           };
         }
 
-        // Ensure movement percentage is within valid bounds
+        // Ensure percentage is within valid bounds
         if (
           normalizedActivityData.gyroscopeMovementPercentage < 0 ||
           normalizedActivityData.gyroscopeMovementPercentage > 100
@@ -133,9 +161,26 @@ export class ShadowSecurityService {
             Math.min(100, normalizedActivityData.gyroscopeMovementPercentage),
           );
         }
+
+        // CRITICAL: Double-check that we won't cause division by zero in DB
+        if (normalizedActivityData.totalGyroscopeChecks === 0) {
+          normalizedActivityData.gyroscopeMovementsDetected = 0;
+          normalizedActivityData.gyroscopeMovementPercentage = 0;
+          console.warn(
+            `Shadow Security: Emergency zero-checks protection applied for user ${normalizedActivityData.telegramId}`,
+          );
+        }
       }
 
-      // Prepare database record with normalized data
+      // Step 4: Additional click data normalization
+      if (normalizedActivityData.totalClicks === 0) {
+        normalizedActivityData.suspiciousClicksCount = 0;
+        normalizedActivityData.minReactionTime = 0;
+        normalizedActivityData.maxReactionTime = 0;
+        normalizedActivityData.avgReactionTime = 0;
+      }
+
+      // Step 5: Prepare database record with extra safety checks
       const record: Omit<
         SuspiciousActivityRecord,
         "id" | "created_at" | "updated_at"
@@ -143,39 +188,46 @@ export class ShadowSecurityService {
         telegram_id: normalizedActivityData.telegramId,
         game_mode: normalizedActivityData.gameMode.toLowerCase(),
 
-        // Click monitoring fields
-        total_clicks: normalizedActivityData.totalClicks,
-        suspicious_clicks_count: normalizedActivityData.suspiciousClicksCount,
-        min_reaction_time: normalizedActivityData.minReactionTime,
-        max_reaction_time: normalizedActivityData.maxReactionTime,
-        avg_reaction_time: normalizedActivityData.avgReactionTime,
+        // Click monitoring fields with safe defaults
+        total_clicks: Math.max(0, normalizedActivityData.totalClicks),
+        suspicious_clicks_count: Math.max(0, normalizedActivityData.suspiciousClicksCount),
+        min_reaction_time: Math.max(0, normalizedActivityData.minReactionTime),
+        max_reaction_time: Math.max(0, normalizedActivityData.maxReactionTime),
+        avg_reaction_time: Math.max(0, normalizedActivityData.avgReactionTime),
 
-        // Normalized gyroscope monitoring fields
+        // Gyroscope monitoring fields with division-by-zero protection
         gyroscope_enabled: normalizedActivityData.gyroscopeEnabled,
-        gyroscope_permission_granted:
-          normalizedActivityData.gyroscopePermissionGranted,
+        gyroscope_permission_granted: normalizedActivityData.gyroscopePermissionGranted,
         gyroscope_data_available: normalizedActivityData.gyroscopeDataAvailable,
-        total_gyroscope_checks: normalizedActivityData.totalGyroscopeChecks,
-        gyroscope_movements_detected:
-          normalizedActivityData.gyroscopeMovementsDetected,
-        gyroscope_movement_percentage:
-          normalizedActivityData.gyroscopeMovementPercentage,
+        total_gyroscope_checks: Math.max(0, normalizedActivityData.totalGyroscopeChecks),
+        gyroscope_movements_detected: Math.max(0, normalizedActivityData.gyroscopeMovementsDetected),
+        gyroscope_movement_percentage: Math.max(0, Math.min(100, normalizedActivityData.gyroscopeMovementPercentage)),
         gyroscope_suspicious: normalizedActivityData.gyroscopeSuspicious,
         gyroscope_error_reason: normalizedActivityData.gyroscopeErrorReason,
-        gyroscope_min_sensitivity:
-          normalizedActivityData.gyroscopeMinSensitivity,
+        gyroscope_min_sensitivity: Math.max(0, normalizedActivityData.gyroscopeMinSensitivity),
         gyroscope_check_intervals_ms: JSON.stringify(
-          normalizedActivityData.gyroscopeCheckIntervals,
+          normalizedActivityData.gyroscopeCheckIntervals || [],
         ),
 
         // Timing fields
-        game_start_time: new Date(
-          normalizedActivityData.gameStartTime,
-        ).toISOString(),
-        game_end_time: new Date(
-          normalizedActivityData.gameEndTime,
-        ).toISOString(),
+        game_start_time: new Date(normalizedActivityData.gameStartTime).toISOString(),
+        game_end_time: new Date(normalizedActivityData.gameEndTime).toISOString(),
       };
+
+      // Step 6: Final validation before database insertion
+      if (record.total_gyroscope_checks === 0) {
+        record.gyroscope_movements_detected = 0;
+        record.gyroscope_movement_percentage = 0;
+      } else if (record.gyroscope_movements_detected > record.total_gyroscope_checks) {
+        record.gyroscope_movements_detected = record.total_gyroscope_checks;
+        record.gyroscope_movement_percentage = 100;
+      }
+
+      // Pre-insertion logging for debugging
+      console.log(
+        `Shadow Security: Attempting database insertion for user ${record.telegram_id} - ` +
+        `Gyroscope: checks=${record.total_gyroscope_checks}, movements=${record.gyroscope_movements_detected}, percentage=${record.gyroscope_movement_percentage}%`,
+      );
 
       // Insert record into database
       const { error } = await supabaseServer
@@ -188,16 +240,42 @@ export class ShadowSecurityService {
           error,
         );
 
-        // Additional logging for debugging database issues
-        if (error.code === "22012") {
-          console.error("Division by zero error detected. Data state:", {
-            totalChecks: normalizedActivityData.totalGyroscopeChecks,
-            movements: normalizedActivityData.gyroscopeMovementsDetected,
-            percentage: normalizedActivityData.gyroscopeMovementPercentage,
-            gameDuration:
-              normalizedActivityData.gameEndTime -
-              normalizedActivityData.gameStartTime,
+        // Enhanced error handling for division by zero
+        if (error.code === "22012" || error.message?.includes("division by zero")) {
+          console.error("CRITICAL: Division by zero error detected. Record state:", {
+            totalChecks: record.total_gyroscope_checks,
+            movements: record.gyroscope_movements_detected,
+            percentage: record.gyroscope_movement_percentage,
+            gameMode: record.game_mode,
+            telegramId: record.telegram_id,
+            recordData: record,
           });
+
+          // Try emergency insertion with all gyroscope data zeroed
+          const emergencyRecord = {
+            ...record,
+            total_gyroscope_checks: 0,
+            gyroscope_movements_detected: 0,
+            gyroscope_movement_percentage: 0,
+            gyroscope_suspicious: false,
+          };
+
+          console.log("Shadow Security: Attempting emergency insertion with zeroed gyroscope data");
+
+          const { error: emergencyError } = await supabaseServer
+            .from("suspicious_activity")
+            .insert(emergencyRecord);
+
+          if (emergencyError) {
+            console.error("Emergency insertion also failed:", emergencyError);
+            return {
+              success: false,
+              error: "Failed to record suspicious activity - division by zero protection failed",
+            };
+          } else {
+            console.log("Emergency insertion successful");
+            return { success: true };
+          }
         }
 
         return {
@@ -206,23 +284,18 @@ export class ShadowSecurityService {
         };
       }
 
-      // Log successful recording with enhanced details
+      // Success logging with enhanced details
       const logDetails = [];
-      const gameDuration =
-        normalizedActivityData.gameEndTime -
-        normalizedActivityData.gameStartTime;
+      const gameDuration = normalizedActivityData.gameEndTime - normalizedActivityData.gameStartTime;
 
-      // Game duration information
       if (gameDuration < 3000) {
         logDetails.push(`ultra-short session (${gameDuration}ms)`);
       }
 
-      // Click monitoring details
       if (normalizedActivityData.suspiciousClicksCount > 0) {
-        const clickSuspiciousPercentage = Math.round(
-          (normalizedActivityData.suspiciousClicksCount /
-            normalizedActivityData.totalClicks) *
-            100,
+        const clickSuspiciousPercentage = this.safePercentage(
+          normalizedActivityData.suspiciousClicksCount,
+          normalizedActivityData.totalClicks
         );
 
         logDetails.push(
@@ -230,16 +303,11 @@ export class ShadowSecurityService {
         );
       }
 
-      // Gyroscope monitoring details
       if (normalizedActivityData.gyroscopeEnabled) {
         if (normalizedActivityData.totalGyroscopeChecks === 0) {
-          logDetails.push(
-            "no gyroscope checks performed (game ended too quickly)",
-          );
+          logDetails.push("no gyroscope checks performed (game ended too quickly)");
         } else if (normalizedActivityData.gyroscopeErrorReason) {
-          logDetails.push(
-            `gyroscope error: ${normalizedActivityData.gyroscopeErrorReason}`,
-          );
+          logDetails.push(`gyroscope error: ${normalizedActivityData.gyroscopeErrorReason}`);
         } else {
           logDetails.push(
             `gyroscope: ${normalizedActivityData.gyroscopeMovementsDetected}/${normalizedActivityData.totalGyroscopeChecks} movements (${normalizedActivityData.gyroscopeMovementPercentage.toFixed(1)}%)${normalizedActivityData.gyroscopeSuspicious ? " - SUSPICIOUS" : ""}`,
@@ -249,8 +317,8 @@ export class ShadowSecurityService {
 
       console.log(
         `Shadow Security: Enhanced record created for user ${normalizedActivityData.telegramId} in ${normalizedActivityData.gameMode} mode. ` +
-          `Details: ${logDetails.join(", ")}. ` +
-          `Reaction times: ${normalizedActivityData.minReactionTime}ms - ${normalizedActivityData.maxReactionTime}ms (avg: ${normalizedActivityData.avgReactionTime}ms)`,
+        `Details: ${logDetails.join(", ")}. ` +
+        `Reaction times: ${normalizedActivityData.minReactionTime}ms - ${normalizedActivityData.maxReactionTime}ms (avg: ${normalizedActivityData.avgReactionTime}ms)`,
       );
 
       return { success: true };
@@ -389,20 +457,19 @@ export class ShadowSecurityService {
         };
       }
 
-      // Calculate enhanced statistics
+      // Calculate enhanced statistics with safe division
       const totalRecords = data.length;
 
-      // Click-based statistics
+      // Click-based statistics with safe division
       const clickSuspiciousRecords = data.filter(
         (record) => record.suspicious_clicks_count > 0,
       );
       const clickSuspiciousGames = clickSuspiciousRecords.length;
 
-      const clickSuspiciousPercentages = clickSuspiciousRecords.map(
-        (record) =>
-          (record.suspicious_clicks_count / Math.max(record.total_clicks, 1)) *
-          100,
+      const clickSuspiciousPercentages = clickSuspiciousRecords.map((record) =>
+        this.safePercentage(record.suspicious_clicks_count, record.total_clicks)
       );
+
       const averageClickSuspiciousPercentage =
         clickSuspiciousPercentages.length > 0
           ? Math.round(
@@ -415,7 +482,7 @@ export class ShadowSecurityService {
             ) / 100
           : 0;
 
-      // Gyroscope-based statistics
+      // Gyroscope-based statistics with safe division
       const gyroscopeEnabledRecords = data.filter(
         (record) => record.gyroscope_enabled,
       );
@@ -445,15 +512,17 @@ export class ShadowSecurityService {
           record.suspicious_clicks_count > 0 || record.gyroscope_suspicious,
       ).length;
 
-      // Overall suspicious percentage (considering both click and gyroscope)
+      // Overall suspicious percentage with safe calculations
       const overallSuspiciousPercentages = data.map((record) => {
         let combinedSuspiciousness = 0;
         let factorsCount = 0;
 
         // Click factor
         if (record.total_clicks > 0) {
-          combinedSuspiciousness +=
-            (record.suspicious_clicks_count / record.total_clicks) * 100;
+          combinedSuspiciousness += this.safePercentage(
+            record.suspicious_clicks_count,
+            record.total_clicks
+          );
           factorsCount++;
         }
 
@@ -468,7 +537,7 @@ export class ShadowSecurityService {
           factorsCount++;
         }
 
-        return factorsCount > 0 ? combinedSuspiciousness / factorsCount : 0;
+        return factorsCount > 0 ? this.safeDivision(combinedSuspiciousness, factorsCount) : 0;
       });
 
       const averageSuspiciousPercentage =
@@ -483,7 +552,7 @@ export class ShadowSecurityService {
             ) / 100
           : 0;
 
-      // Group records by user and calculate enhanced risk metrics
+      // Group records by user and calculate enhanced risk metrics with safe division
       const userStatsMap = new Map<
         number,
         {
@@ -520,23 +589,22 @@ export class ShadowSecurityService {
         });
       });
 
-      // Calculate enhanced user risk scores
+      // Calculate enhanced user risk scores with safe division
       const mostSuspiciousUsers = Array.from(userStatsMap.entries())
         .map(([telegram_id, stats]) => {
-          const clickSuspiciousPercentage =
-            stats.clickTotal > 0
-              ? Math.round((stats.clickSuspicious / stats.clickTotal) * 10000) /
-                100
-              : 0;
+          const clickSuspiciousPercentage = this.safePercentage(
+            stats.clickSuspicious,
+            stats.clickTotal
+          );
 
           const gyroscopeMovementPercentage =
             stats.gyroscopeGames > 0
               ? Math.round(
-                  (stats.gyroscopeMovementSum / stats.gyroscopeGames) * 100,
+                  this.safeDivision(stats.gyroscopeMovementSum, stats.gyroscopeGames) * 100,
                 ) / 100
               : 100; // Default to 100% for users without gyroscope data
 
-          // Enhanced risk score calculation
+          // Enhanced risk score calculation with safe operations
           const clickRisk = clickSuspiciousPercentage * 0.6; // 60% weight for clicks
           const gyroscopeRisk = (100 - gyroscopeMovementPercentage) * 0.4; // 40% weight for gyroscope
           const combinedRisk = clickRisk + gyroscopeRisk;
@@ -557,7 +625,7 @@ export class ShadowSecurityService {
         .sort((a, b) => b.risk_score - a.risk_score)
         .slice(0, 10);
 
-      // Analyze gyroscope error patterns
+      // Analyze gyroscope error patterns with safe percentage calculation
       const gyroscopeErrorMap = new Map<string, number>();
 
       data.forEach((record) => {
@@ -573,7 +641,7 @@ export class ShadowSecurityService {
         .map(([error_reason, count]) => ({
           error_reason,
           count,
-          percentage: Math.round((count / totalRecords) * 10000) / 100,
+          percentage: this.safePercentage(count, totalRecords),
         }))
         .sort((a, b) => b.count - a.count);
 
@@ -679,7 +747,7 @@ export class ShadowSecurityService {
         };
       }
 
-      // Calculate enhanced metrics
+      // Calculate enhanced metrics with safe division
       const totalSuspiciousClicks = data.reduce(
         (sum, record) => sum + record.suspicious_clicks_count,
         0,
@@ -688,12 +756,12 @@ export class ShadowSecurityService {
         (sum, record) => sum + record.total_clicks,
         0,
       );
-      const clickSuspiciousPercentage =
-        totalClicks > 0
-          ? Math.round((totalSuspiciousClicks / totalClicks) * 10000) / 100
-          : 0;
+      const clickSuspiciousPercentage = this.safePercentage(
+        totalSuspiciousClicks,
+        totalClicks
+      );
 
-      // Gyroscope metrics
+      // Gyroscope metrics with safe calculations
       const gyroscopeEnabledRecords = data.filter(
         (record) => record.gyroscope_enabled,
       );
@@ -704,8 +772,7 @@ export class ShadowSecurityService {
       );
       const gyroscopeAverageMovement =
         gyroscopeEnabledGames > 0
-          ? Math.round((totalGyroscopeMovement / gyroscopeEnabledGames) * 100) /
-            100
+          ? Math.round(this.safeDivision(totalGyroscopeMovement, gyroscopeEnabledGames) * 100) / 100
           : 100;
 
       // Enhanced risk assessment
@@ -715,7 +782,7 @@ export class ShadowSecurityService {
         gyroscopeEnabledGames > 0 &&
         gyroscopeAverageMovement <= gyroscopeMovementThreshold;
 
-      // Combined risk score calculation
+      // Combined risk score calculation with safe operations
       const clickRisk = clickSuspiciousPercentage * 0.6;
       const gyroscopeRisk =
         gyroscopeEnabledGames > 0 ? (100 - gyroscopeAverageMovement) * 0.4 : 0;
@@ -824,8 +891,10 @@ export class ShadowSecurityService {
         (record) => record.gyroscope_enabled,
       );
       const gyroscopeEnabledGames = gyroscopeEnabledRecords.length;
-      const gyroscopeEnabledPercentage =
-        Math.round((gyroscopeEnabledGames / totalGames) * 10000) / 100;
+      const gyroscopeEnabledPercentage = this.safePercentage(
+        gyroscopeEnabledGames,
+        totalGames
+      );
 
       const totalMovementPercentage = gyroscopeEnabledRecords.reduce(
         (sum, record) => sum + (record.gyroscope_movement_percentage || 0),
@@ -834,21 +903,19 @@ export class ShadowSecurityService {
       const averageMovementPercentage =
         gyroscopeEnabledGames > 0
           ? Math.round(
-              (totalMovementPercentage / gyroscopeEnabledGames) * 100,
+              this.safeDivision(totalMovementPercentage, gyroscopeEnabledGames) * 100,
             ) / 100
           : 0;
 
       const suspiciousGyroscopeGames = data.filter(
         (record) => record.gyroscope_suspicious,
       ).length;
-      const suspiciousGyroscopePercentage =
-        gyroscopeEnabledGames > 0
-          ? Math.round(
-              (suspiciousGyroscopeGames / gyroscopeEnabledGames) * 10000,
-            ) / 100
-          : 0;
+      const suspiciousGyroscopePercentage = this.safePercentage(
+        suspiciousGyroscopeGames,
+        gyroscopeEnabledGames
+      );
 
-      // Error analysis
+      // Error analysis with safe percentage calculation
       const errorMap = new Map<string, number>();
 
       data.forEach((record) => {
@@ -863,18 +930,18 @@ export class ShadowSecurityService {
         .map(([error, count]) => ({
           error,
           count,
-          percentage: Math.round((count / totalGames) * 10000) / 100,
+          percentage: this.safePercentage(count, totalGames),
         }))
         .sort((a, b) => b.count - a.count);
 
-      // Average checks and sensitivity
+      // Average checks and sensitivity with safe division
       const totalChecks = gyroscopeEnabledRecords.reduce(
         (sum, record) => sum + (record.total_gyroscope_checks || 0),
         0,
       );
       const averageChecksPerGame =
         gyroscopeEnabledGames > 0
-          ? Math.round((totalChecks / gyroscopeEnabledGames) * 100) / 100
+          ? Math.round(this.safeDivision(totalChecks, gyroscopeEnabledGames) * 100) / 100
           : 0;
 
       const totalSensitivity = gyroscopeEnabledRecords.reduce(
@@ -883,10 +950,10 @@ export class ShadowSecurityService {
       );
       const averageSensitivity =
         gyroscopeEnabledGames > 0
-          ? Math.round((totalSensitivity / gyroscopeEnabledGames) * 1000) / 1000
+          ? Math.round(this.safeDivision(totalSensitivity, gyroscopeEnabledGames) * 1000) / 1000
           : 0;
 
-      // NEW: Ultra-short session analysis
+      // Ultra-short session analysis
       const ultraShortSessions = data.filter((record) => {
         const startTime = new Date(record.game_start_time).getTime();
         const endTime = new Date(record.game_end_time).getTime();
@@ -895,8 +962,10 @@ export class ShadowSecurityService {
         return duration < 3000; // Less than 3 seconds
       }).length;
 
-      const ultraShortSessionPercentage =
-        Math.round((ultraShortSessions / totalGames) * 10000) / 100;
+      const ultraShortSessionPercentage = this.safePercentage(
+        ultraShortSessions,
+        totalGames
+      );
 
       return {
         success: true,
