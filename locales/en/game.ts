@@ -89,15 +89,15 @@ export const game = {
       objective:
         "Click on the white ones. Click click click, faster, even faster! Oops, you lost.",
       features: [
-        "15 escalating levels",
-        "Multiple targets",
-        "Trap circles (red)",
-        "Make a mistake - you lose. As always.",
+        "There are levels here",
+        "There are many targets",
+        "Trap circles (red) (not white)",
+        "Make a mistake - lose. As always.",
       ],
       rules: [
         "Click only on white circles",
-        "Avoid red trap circles",
-        "Don't miss the timing",
+        "Don't click on red ones, as in other modes",
+        "If you don't have time to click - trouble, sadness((",
       ],
       instructions: {
         oneMistakeDeath: "ONE MISTAKE = DEATH",
@@ -166,9 +166,9 @@ export const game = {
         "Such is life.",
       ],
       rules: [
-        "Click on white circles",
-        "Avoid red circles",
-        "Don't let circles escape",
+        "Click on the white circles",
+        "Avoid the red circles",
+        "The circle flew like a bitcoin.",
       ],
       results: {
         title: "F = ma",
@@ -205,14 +205,14 @@ export const game = {
       name: "ROTATION",
       description: "Circles spin. So do you.",
       difficulty: "Dizzying",
-      duration: "Until dizzy",
+      duration: "Naaaah",
       objective:
         "Circles rotate in a circle. Click white, don't click red. Logical? Not guaranteed.",
       features: [
-        "14 rotating circles",
-        "10 dizzying levels",
-        "Speed grows like your nausea",
-        "Mistake = motion sickness death",
+        "Spinning Circles",
+        "Levels",
+        "Speed ​​grows like your nausea",
+        "You spin me right now baby right now",
       ],
       rules: [
         "Click only on white circles",

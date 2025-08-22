@@ -272,7 +272,7 @@ function GamePageContent() {
       try {
         // Quick check without consuming attempt - let game managers handle consumption
         const canPlayNow = await canPlayFast();
-        
+
         if (!canPlayNow) {
           throw new Error("No attempts remaining");
         }
@@ -338,18 +338,17 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
-        loadingModeId
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : "opacity-100 transition-opacity duration-1000 ease-out"
-      }`}
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : "opacity-100 transition-opacity duration-1000 ease-out"
+        }`}
     >
       {/* Easter Egg Modal */}
       <WinxEasterEggModal
@@ -360,8 +359,8 @@ function GamePageContent() {
       />
 
       {/* Game Mode Info Modal */}
-      <Modal 
-        isOpen={isInfoModalOpen} 
+      <Modal
+        isOpen={isInfoModalOpen}
         onClose={handleCloseInfoModal}
         size="lg"
         classNames={{
@@ -377,7 +376,7 @@ function GamePageContent() {
               <ModalHeader className="flex items-center justify-between">
                 {selectedModeInfo && (
                   <div className="flex items-center space-x-3">
-                    <div 
+                    <div
                       className={`w-12 h-12 rounded-lg bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm border ${selectedModeInfo.color.border} flex items-center justify-center`}
                     >
                       <selectedModeInfo.icon className={selectedModeInfo.color.primary} size={24} />
@@ -398,14 +397,6 @@ function GamePageContent() {
                     </div>
                   </div>
                 )}
-                <Button
-                  isIconOnly
-                  variant="light"
-                  onPress={onClose}
-                  className="text-white/60 hover:text-white"
-                >
-                  <X size={20} />
-                </Button>
               </ModalHeader>
               <ModalBody>
                 {selectedModeInfo && (
@@ -568,7 +559,7 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* Enhanced horizontal scrolling cards with bottom glow effect */}
+      {/* Enhanced horizontal scrolling cards with hover border effect */}
       <div className="mb-8 animate-fade-in">
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex space-x-6 px-4" style={{ width: "max-content" }}>
@@ -582,27 +573,25 @@ function GamePageContent() {
                 <div key={mode.id} className="relative group">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] border-2 transition-all duration-500 backdrop-blur-md ${
-                      mode.color.border
-                    } ${
-                      isDisabled || isAnyModeLoading 
-                        ? "opacity-50" 
-                        : `group-hover:${mode.color.borderActive} group-hover:shadow-lg group-hover:${mode.color.glow}`
-                    }`}
+                    className={`w-[280px] h-[400px] border-2 transition-all duration-300 backdrop-blur-md ${mode.color.border
+                      } ${isDisabled || isAnyModeLoading
+                        ? "opacity-50"
+                        : `group-hover:border-4 group-hover:${mode.color.borderActive} group-hover:shadow-lg group-hover:${mode.color.glow}`
+                      }`}
                     style={{
                       background: "rgba(0, 0, 0, 0.3)",
                     }}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/30 backdrop-blur-sm rounded-xl mx-4 border border-white/10">
                       <div className="flex items-center space-x-3 mb-2">
-                        <div 
-                          className={`w-10 h-10 rounded-lg bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm border ${mode.color.border} flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:${mode.color.borderHover}`}
+                        <div
+                          className={`w-10 h-10 rounded-lg bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm border ${mode.color.border} flex items-center justify-center transition-all duration-300`}
                         >
                           <Icon className={mode.color.primary} size={20} />
                         </div>
                         <div>
                           <h4
-                            className={`font-bold text-xl ${mode.color.primary} transition-all duration-300 group-hover:drop-shadow-lg`}
+                            className={`font-bold text-xl ${mode.color.primary}`}
                           >
                             {t(mode.nameKey as any)}
                           </h4>
@@ -628,7 +617,7 @@ function GamePageContent() {
                     <Image
                       removeWrapper
                       alt={`${mode.id}_game_card`}
-                      className="z-0 w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                      className="z-0 w-full h-full object-cover transition-all duration-300"
                       fallbackSrc="/game-placeholder.jpg"
                       src={mode.imageUrl}
                     />
@@ -673,25 +662,8 @@ function GamePageContent() {
                       </div>
                     </CardFooter>
 
-                    {/* Bottom glow highlight effect */}
-                    <div 
-                      className={`absolute inset-x-0 bottom-0 h-1/3 rounded-b-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none overflow-hidden`}
-                    >
-                      <div 
-                        className="absolute inset-0 animate-bottom-glow"
-                        style={{
-                          background: `linear-gradient(to top, ${
-                            mode.id === 'reaction' ? '#3b82f680' :
-                            mode.id === 'survival' ? '#ef444480' :
-                            mode.id === 'physics' ? '#a855f780' :
-                            '#f59e0b80'
-                          }, transparent 70%)`,
-                        }}
-                      />
-                    </div>
-
                     {/* Enhanced glow effect overlay */}
-                    <div 
+                    <div
                       className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none bg-gradient-to-br ${mode.color.gradientFrom} ${mode.color.gradientTo}`}
                     />
                   </Card>
@@ -720,28 +692,6 @@ function GamePageContent() {
           <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
         </div>
       </div>
-
-      {/* CSS Animation for bottom glow effect */}
-      <style>{`
-        @keyframes bottom-glow {
-          0% {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          50% {
-            transform: translateY(0%);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(-20%);
-            opacity: 0.8;
-          }
-        }
-        
-        .animate-bottom-glow {
-          animation: bottom-glow 2s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 }
