@@ -1,10 +1,10 @@
-// src/app/game/page.tsx - Enhanced with bordered game mode cards
+// src/app/game/page.tsx - Enhanced with animated borders and info modal
 
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardHeader, CardFooter, Image, Button } from "@nextui-org/react";
+import { Card, CardHeader, CardFooter, Image, Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@nextui-org/react";
 import {
   Crosshair,
   Play,
@@ -13,6 +13,10 @@ import {
   RotateCw,
   Zap,
   AlertTriangle,
+  Info,
+  X,
+  Target,
+  Clock,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -29,6 +33,7 @@ interface GameMode {
   id: string;
   nameKey: string;
   descriptionKey: string;
+  objectiveKey: string;
   icon: React.ComponentType<any>;
   route: string;
   difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
@@ -39,10 +44,12 @@ interface GameMode {
     secondary: string;
     accent: string;
     buttonColor: "primary" | "danger" | "secondary" | "warning";
-    // NEW: Border colors for enhanced styling
     border: string;
     borderHover: string;
+    borderActive: string;
     glow: string;
+    gradientFrom: string;
+    gradientTo: string;
   };
   featuresKeys: string[];
   basicRules: string[];
@@ -53,6 +60,7 @@ const GAME_MODES: GameMode[] = [
     id: "reaction",
     nameKey: "game.modes.reaction.name",
     descriptionKey: "game.modes.reaction.description",
+    objectiveKey: "game.modes.reaction.objective",
     icon: Zap,
     route: "/game/reaction",
     difficulty: "🤡",
@@ -65,7 +73,10 @@ const GAME_MODES: GameMode[] = [
       buttonColor: "primary",
       border: "border-blue-400/30",
       borderHover: "border-blue-400/60",
+      borderActive: "border-blue-400",
       glow: "shadow-blue-400/20",
+      gradientFrom: "from-blue-400/20",
+      gradientTo: "to-blue-600/20",
     },
     featuresKeys: [
       "game.modes.reaction.features.0",
@@ -83,6 +94,7 @@ const GAME_MODES: GameMode[] = [
     id: "survival",
     nameKey: "game.modes.survival.name",
     descriptionKey: "game.modes.survival.description",
+    objectiveKey: "game.modes.survival.objective",
     icon: Crosshair,
     route: "/game/survival",
     difficulty: "💋😈",
@@ -95,7 +107,10 @@ const GAME_MODES: GameMode[] = [
       buttonColor: "danger",
       border: "border-red-400/30",
       borderHover: "border-red-400/60",
+      borderActive: "border-red-400",
       glow: "shadow-red-400/20",
+      gradientFrom: "from-red-400/20",
+      gradientTo: "to-red-600/20",
     },
     featuresKeys: [
       "game.modes.survival.features.0",
@@ -113,6 +128,7 @@ const GAME_MODES: GameMode[] = [
     id: "physics",
     nameKey: "game.modes.physics.name",
     descriptionKey: "game.modes.physics.description",
+    objectiveKey: "game.modes.physics.objective",
     icon: Atom,
     route: "/game/physics",
     difficulty: "👉👌",
@@ -125,7 +141,10 @@ const GAME_MODES: GameMode[] = [
       buttonColor: "secondary",
       border: "border-purple-400/30",
       borderHover: "border-purple-400/60",
+      borderActive: "border-purple-400",
       glow: "shadow-purple-400/20",
+      gradientFrom: "from-purple-400/20",
+      gradientTo: "to-purple-600/20",
     },
     featuresKeys: [
       "game.modes.physics.features.0",
@@ -143,6 +162,7 @@ const GAME_MODES: GameMode[] = [
     id: "rotation",
     nameKey: "game.modes.rotation.name",
     descriptionKey: "game.modes.rotation.description",
+    objectiveKey: "game.modes.rotation.objective",
     icon: RotateCw,
     route: "/game/rotation",
     difficulty: "🌀",
@@ -155,7 +175,10 @@ const GAME_MODES: GameMode[] = [
       buttonColor: "warning",
       border: "border-orange-400/30",
       borderHover: "border-orange-400/60",
+      borderActive: "border-orange-400",
       glow: "shadow-orange-400/20",
+      gradientFrom: "from-orange-400/20",
+      gradientTo: "to-orange-600/20",
     },
     featuresKeys: [
       "game.modes.rotation.features.0",
@@ -200,6 +223,10 @@ function GamePageContent() {
   // Easter Egg state
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [easterEggChecked, setEasterEggChecked] = useState(false);
+
+  // Info Modal state
+  const [selectedModeInfo, setSelectedModeInfo] = useState<GameMode | null>(null);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   // Initialize attempts status loading
   useEffect(() => {
@@ -272,6 +299,16 @@ function GamePageContent() {
     [loadingModeId, canPlayFast, router, fetchAttemptsStatus],
   );
 
+  const handleShowInfo = useCallback((mode: GameMode) => {
+    setSelectedModeInfo(mode);
+    setIsInfoModalOpen(true);
+  }, []);
+
+  const handleCloseInfoModal = useCallback(() => {
+    setIsInfoModalOpen(false);
+    setSelectedModeInfo(null);
+  }, []);
+
   const handleAttemptsRetry = useCallback(() => {
     clearError();
     setStartError(null);
@@ -314,14 +351,165 @@ function GamePageContent() {
           : "opacity-100 transition-opacity duration-1000 ease-out"
       }`}
     >
-
-      {/* Easter Egg Modal with authentication */}
+      {/* Easter Egg Modal */}
       <WinxEasterEggModal
         chance={EASTER_EGG_CHANCE * 100}
         isOpen={showEasterEgg}
         makeAuthenticatedRequest={makeAuthenticatedRequest}
         onClose={handleCloseEasterEgg}
       />
+
+      {/* Game Mode Info Modal */}
+      <Modal 
+        isOpen={isInfoModalOpen} 
+        onClose={handleCloseInfoModal}
+        size="lg"
+        classNames={{
+          base: "bg-black/95 backdrop-blur-xl border-2 border-white/20",
+          header: "border-b border-white/20",
+          body: "py-6",
+          footer: "border-t border-white/20",
+        }}
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex items-center justify-between">
+                {selectedModeInfo && (
+                  <div className="flex items-center space-x-3">
+                    <div 
+                      className={`w-12 h-12 rounded-lg bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm border ${selectedModeInfo.color.border} flex items-center justify-center`}
+                    >
+                      <selectedModeInfo.icon className={selectedModeInfo.color.primary} size={24} />
+                    </div>
+                    <div>
+                      <h3 className={`text-2xl font-bold ${selectedModeInfo.color.primary}`}>
+                        {t(selectedModeInfo.nameKey as any)}
+                      </h3>
+                      <div className="flex items-center space-x-2 text-sm">
+                        <span className={selectedModeInfo.color.accent}>
+                          {t(selectedModeInfo.durationKey as any)}
+                        </span>
+                        <div className="w-1 h-1 rounded-full bg-white/40" />
+                        <span className={selectedModeInfo.color.accent}>
+                          {selectedModeInfo.difficulty}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <Button
+                  isIconOnly
+                  variant="light"
+                  onPress={onClose}
+                  className="text-white/60 hover:text-white"
+                >
+                  <X size={20} />
+                </Button>
+              </ModalHeader>
+              <ModalBody>
+                {selectedModeInfo && (
+                  <div className="space-y-6">
+                    {/* Objective */}
+                    <div>
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Target className={selectedModeInfo.color.primary} size={16} />
+                        <h4 className={`font-bold ${selectedModeInfo.color.primary}`}>
+                          {t("game.general.objective")}
+                        </h4>
+                      </div>
+                      <p className={`text-sm leading-relaxed ${selectedModeInfo.color.secondary}`}>
+                        {t(selectedModeInfo.objectiveKey as any)}
+                      </p>
+                    </div>
+
+                    {/* Rules */}
+                    <div>
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Shield className={selectedModeInfo.color.primary} size={16} />
+                        <h4 className={`font-bold ${selectedModeInfo.color.primary}`}>
+                          {t("game.general.rules")}
+                        </h4>
+                      </div>
+                      <ul className="space-y-2">
+                        {selectedModeInfo.basicRules.map((ruleKey, index) => (
+                          <li key={index} className={`text-sm flex items-start space-x-2 ${selectedModeInfo.color.secondary}`}>
+                            <span className={`text-xs mt-1 ${selectedModeInfo.color.accent}`}>•</span>
+                            <span>{t(ruleKey as any)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Features */}
+                    <div>
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Zap className={selectedModeInfo.color.primary} size={16} />
+                        <h4 className={`font-bold ${selectedModeInfo.color.primary}`}>
+                          Особенности
+                        </h4>
+                      </div>
+                      <ul className="space-y-2">
+                        {selectedModeInfo.featuresKeys.map((featureKey, index) => (
+                          <li key={index} className={`text-sm flex items-start space-x-2 ${selectedModeInfo.color.secondary}`}>
+                            <span className={`text-xs mt-1 ${selectedModeInfo.color.accent}`}>•</span>
+                            <span>{t(featureKey as any)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Difficulty Info */}
+                    <div className={`p-4 rounded-lg border ${selectedModeInfo.color.border} bg-white/5`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <Clock className={selectedModeInfo.color.primary} size={14} />
+                            <span className={`text-sm font-bold ${selectedModeInfo.color.primary}`}>
+                              {t("game.general.difficulty")}
+                            </span>
+                          </div>
+                          <span className={`text-xs ${selectedModeInfo.color.accent}`}>
+                            {t(selectedModeInfo.durationKey as any)}
+                          </span>
+                        </div>
+                        <div className="text-2xl">
+                          {selectedModeInfo.difficulty}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </ModalBody>
+              <ModalFooter>
+                {selectedModeInfo && (
+                  <div className="flex space-x-3 w-full">
+                    <Button
+                      variant="bordered"
+                      onPress={onClose}
+                      className="flex-1 border-white/30 text-white/80 hover:border-white/50"
+                    >
+                      Закрыть
+                    </Button>
+                    <Button
+                      color={selectedModeInfo.color.buttonColor}
+                      onPress={() => {
+                        onClose();
+                        handleModeStart(selectedModeInfo);
+                      }}
+                      isDisabled={!canPlay || loadingModeId !== null}
+                      className="flex-1"
+                      startContent={!canPlay ? <Shield size={16} /> : <Play size={16} />}
+                    >
+                      {!canPlay ? t("game.general.lock") : t("common.play")}
+                    </Button>
+                  </div>
+                )}
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
 
       <div className="px-4">
         <div className="text-center space-y-4 mb-8">
@@ -380,7 +568,7 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* Enhanced horizontal scrolling cards with borders and hover effects */}
+      {/* Enhanced horizontal scrolling cards with animated borders */}
       <div className="mb-8 animate-fade-in">
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex space-x-6 px-4" style={{ width: "max-content" }}>
@@ -394,12 +582,12 @@ function GamePageContent() {
                 <div key={mode.id} className="relative group">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] border-2 transition-all duration-300 backdrop-blur-md ${
+                    className={`w-[280px] h-[400px] border-2 transition-all duration-500 backdrop-blur-md ${
                       mode.color.border
                     } ${
                       isDisabled || isAnyModeLoading 
                         ? "opacity-50" 
-                        : `hover:${mode.color.borderHover} hover:shadow-lg hover:${mode.color.glow} hover:scale-[1.02] hover:-translate-y-1`
+                        : `group-hover:${mode.color.borderActive} group-hover:shadow-lg group-hover:${mode.color.glow}`
                     }`}
                     style={{
                       background: "rgba(0, 0, 0, 0.3)",
@@ -408,7 +596,7 @@ function GamePageContent() {
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/30 backdrop-blur-sm rounded-xl mx-4 border border-white/10">
                       <div className="flex items-center space-x-3 mb-2">
                         <div 
-                          className={`w-10 h-10 rounded-lg bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm border ${mode.color.border} flex items-center justify-center transition-all duration-300 group-hover:scale-110`}
+                          className={`w-10 h-10 rounded-lg bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm border ${mode.color.border} flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:${mode.color.borderHover}`}
                         >
                           <Icon className={mode.color.primary} size={20} />
                         </div>
@@ -446,42 +634,62 @@ function GamePageContent() {
                     />
 
                     <CardFooter className="absolute bg-black/50 backdrop-blur-md bottom-0 border-t-1 border-white/20 z-10 justify-between">
-                      <Button
-                        className="text-tiny min-w-[80px] transition-all duration-300"
-                        color={mode.color.buttonColor}
-                        isDisabled={isAnyModeLoading || isDisabled}
-                        isLoading={isCurrentModeLoading}
-                        radius="full"
-                        size="sm"
-                        startContent={
-                          !isCurrentModeLoading && !isAnyModeLoading ? (
-                            isDisabled ? (
-                              <Shield size={14} />
-                            ) : (
-                              <Play size={14} />
-                            )
-                          ) : null
-                        }
-                        onClick={() => handleModeStart(mode)}
-                      >
-                        {isCurrentModeLoading
-                          ? t("common.loading")
-                          : isAnyModeLoading && !isCurrentModeLoading
-                            ? t("game.general.lock")
-                            : isDisabled
+                      <div className="flex space-x-2 w-full">
+                        <Button
+                          isIconOnly
+                          variant="bordered"
+                          size="sm"
+                          className="min-w-[40px] border-white/30 text-white/80 hover:border-white/50"
+                          onPress={() => handleShowInfo(mode)}
+                        >
+                          <Info size={14} />
+                        </Button>
+                        <Button
+                          className="text-tiny flex-1 transition-all duration-300"
+                          color={mode.color.buttonColor}
+                          isDisabled={isAnyModeLoading || isDisabled}
+                          isLoading={isCurrentModeLoading}
+                          radius="full"
+                          size="sm"
+                          startContent={
+                            !isCurrentModeLoading && !isAnyModeLoading ? (
+                              isDisabled ? (
+                                <Shield size={14} />
+                              ) : (
+                                <Play size={14} />
+                              )
+                            ) : null
+                          }
+                          onClick={() => handleModeStart(mode)}
+                        >
+                          {isCurrentModeLoading
+                            ? t("common.loading")
+                            : isAnyModeLoading && !isCurrentModeLoading
                               ? t("game.general.lock")
-                              : t("common.play")}
-                      </Button>
+                              : isDisabled
+                                ? t("game.general.lock")
+                                : t("common.play")}
+                        </Button>
+                      </div>
                     </CardFooter>
+
+                    {/* Animated border pulse effect */}
+                    <div 
+                      className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`}
+                      style={{
+                        background: `linear-gradient(45deg, transparent, ${
+                          mode.id === 'reaction' ? '#3b82f640' :
+                          mode.id === 'survival' ? '#ef444440' :
+                          mode.id === 'physics' ? '#a855f740' :
+                          '#f59e0b40'
+                        }, transparent)`,
+                        animation: 'border-pulse 2s ease-in-out infinite',
+                      }}
+                    />
 
                     {/* Enhanced glow effect overlay */}
                     <div 
-                      className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none bg-gradient-to-br ${
-                        mode.id === 'reaction' ? 'from-blue-400/20 to-blue-600/20' :
-                        mode.id === 'survival' ? 'from-red-400/20 to-red-600/20' :
-                        mode.id === 'physics' ? 'from-purple-400/20 to-purple-600/20' :
-                        'from-orange-400/20 to-orange-600/20'
-                      }`}
+                      className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none bg-gradient-to-br ${mode.color.gradientFrom} ${mode.color.gradientTo}`}
                     />
                   </Card>
 
@@ -509,6 +717,20 @@ function GamePageContent() {
           <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
         </div>
       </div>
+
+      {/* CSS Animation for border pulse */}
+      <style jsx global>{`
+        @keyframes border-pulse {
+          0%, 100% {
+            opacity: 0;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.3;
+            transform: scale(1.02);
+          }
+        }
+      `}</style>
     </div>
   );
 }
