@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Updated with Easter Egg rewards integration
+// src/app/game/page.tsx - Fixed version without double consume calls
 
 "use client";
 
@@ -22,7 +22,7 @@ import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAt
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
 // Easter Egg chance configuration
-const EASTER_EGG_CHANCE = 0.001; // 0.5% chance
+const EASTER_EGG_CHANCE = 0.001; // 0.1% chance
 
 interface GameMode {
   id: string;
@@ -164,13 +164,13 @@ function GamePageContent() {
     canPlay,
     attemptsRemaining,
     fetchAttemptsStatus,
-    consumeAttempt,
+    canPlayFast, // Use fast check instead of consuming attempt
     clearError,
   } = useAttempts(makeAuthenticatedRequest);
   const t = useT();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
-  const [consumeError, setConsumeError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
 
   // Easter Egg state
   const [showEasterEgg, setShowEasterEgg] = useState(false);
@@ -209,33 +209,33 @@ function GamePageContent() {
 
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
-      if (loadingModeId || !canPlay) {
-        console.warn("Cannot start game:", { loadingModeId, canPlay });
-
+      if (loadingModeId) {
+        console.warn("Cannot start game: already loading another mode");
         return;
       }
 
       setLoadingModeId(mode.id);
-      setConsumeError(null);
+      setStartError(null);
 
       try {
-        // Consume attempt before starting game
-        const updatedStatus = await consumeAttempt();
-
-        if (!updatedStatus) {
-          throw new Error("Failed to consume attempt");
+        // Quick check without consuming attempt - let game managers handle consumption
+        const canPlayNow = await canPlayFast();
+        
+        if (!canPlayNow) {
+          throw new Error("No attempts remaining");
         }
 
         // Small delay for loading animation
         setTimeout(() => {
           router.push(mode.route);
         }, 600);
+
       } catch (error) {
-        console.error("Error consuming attempt:", error);
+        console.error("Error starting game:", error);
         const errorMessage =
           error instanceof Error ? error.message : "Failed to start game";
 
-        setConsumeError(errorMessage);
+        setStartError(errorMessage);
         setLoadingModeId(null);
 
         // Refresh attempts status after error
@@ -244,12 +244,12 @@ function GamePageContent() {
         }, 1000);
       }
     },
-    [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus],
+    [loadingModeId, canPlayFast, router, fetchAttemptsStatus],
   );
 
   const handleAttemptsRetry = useCallback(() => {
     clearError();
-    setConsumeError(null);
+    setStartError(null);
     fetchAttemptsStatus(true);
   }, [clearError, fetchAttemptsStatus]);
 
@@ -257,12 +257,12 @@ function GamePageContent() {
     setShowEasterEgg(false);
   }, []);
 
-  // Clear consume error when attempts change
+  // Clear start error when attempts change
   useEffect(() => {
-    if (consumeError && attemptsStatus) {
-      setConsumeError(null);
+    if (startError && attemptsStatus) {
+      setStartError(null);
     }
-  }, [attemptsStatus, consumeError]);
+  }, [attemptsStatus, startError]);
 
   // Telegram WebApp back button
   useEffect(() => {
@@ -307,8 +307,8 @@ function GamePageContent() {
           </p>
         </div>
 
-        {/* Consume error display */}
-        {consumeError && (
+        {/* Start error display */}
+        {startError && (
           <div className="mb-6 animate-fade-in">
             <div
               className="bg-black/90 backdrop-blur-xl border-2 border-red-400/40 text-white w-full relative overflow-hidden"
@@ -327,7 +327,7 @@ function GamePageContent() {
                 </div>
                 <div className="h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent mb-2" />
                 <p className="text-red-300 font-mono text-xs mb-2">
-                  {consumeError}
+                  {startError}
                 </p>
                 <button
                   className="font-mono text-xs tracking-wider text-red-300 hover:text-red-200 transition-colors underline"

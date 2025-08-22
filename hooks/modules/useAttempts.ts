@@ -1,4 +1,4 @@
-// src/hooks/modules/useAttempts.ts - Updated with game session support
+// src/hooks/modules/useAttempts.ts - Cleaned version without legacy methods
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { GameMode } from "@/types/game-modes/common";
@@ -10,7 +10,7 @@ export interface AttemptsStatus {
   resetTime?: Date;
   timeUntilReset?: number;
   sessionToken?: string;
-  // NEW: Session data
+  // Session data
   sessionId?: string;
   sessionExpiresAt?: Date;
 }
@@ -30,7 +30,7 @@ interface AttemptsState {
   isLoading: boolean;
   error: string | null;
   lastFetch: number; // Timestamp for caching
-  // NEW: Session state
+  // Session state
   currentSessionId: string | null;
   currentGameMode: GameMode | null;
 }
@@ -208,7 +208,7 @@ export function useAttempts(
   );
 
   /**
-   * NEW: Consume attempt with game mode and session creation
+   * Consume attempt with game mode and session creation
    */
   const consumeAttemptWithSession = useCallback(
     async (gameMode: GameMode): Promise<AttemptsStatus | null> => {
@@ -284,14 +284,6 @@ export function useAttempts(
     },
     [makeAuthenticatedRequest],
   );
-
-  /**
-   * Legacy method for backwards compatibility
-   */
-  const consumeAttempt = useCallback(async (): Promise<AttemptsStatus | null> => {
-    // Default to survival mode for backwards compatibility
-    return consumeAttemptWithSession(GameMode.SURVIVAL);
-  }, [consumeAttemptWithSession]);
 
   /**
    * Clear current session
@@ -383,16 +375,15 @@ export function useAttempts(
     canPlay: state.status?.canPlay ?? false,
     attemptsRemaining: state.status?.attemptsRemaining ?? 0,
 
-    // Enhanced actions with session support
+    // Main actions
     fetchAttemptsStatus,
     debouncedFetch,
-    consumeAttempt, // Legacy method
-    consumeAttemptWithSession, // NEW: Enhanced method with game mode
+    consumeAttemptWithSession, // Primary method for consuming attempts
     canPlayFast,
     clearError,
     resetAttemptsState,
 
-    // NEW: Session management
+    // Session management
     getCurrentSession,
     clearSession,
     currentSessionId: state.currentSessionId,
