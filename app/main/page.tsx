@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated main page with integrated PC detection
+// src/app/main/page.tsx - Updated main page with repositioned Daily Quest Button
 
 "use client";
 
@@ -429,27 +429,28 @@ function MainPageContent() {
         />
       </div>
 
+      {/* Daily Quest Button - Below Season Button */}
+      <div
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
+        style={{ top: "110px" }}
+      >
+        <DailyQuestButton
+          isTransitioning={isTransitioning}
+          makeAuthenticatedRequest={makeAuthenticatedRequest}
+          onClick={handleOpenDailyQuest}
+        />
+      </div>
+
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
-        {/* Daily Quest Button - Above title */}
-        <div
-          className={`${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${
-                  showTopButtons
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 -translate-y-8"
-                }`
-              : "opacity-100 translate-y-0"
-          }`}
-        >
-          <DailyQuestButton
-            isTransitioning={isTransitioning}
-            makeAuthenticatedRequest={makeAuthenticatedRequest}
-            onClick={handleOpenDailyQuest}
-          />
-        </div>
-
         {/* Title Section */}
         <div className="relative">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">

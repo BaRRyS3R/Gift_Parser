@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Enhanced with session management
+// src/game-modes/rotation/RotationGameManager.tsx - Fixed session management
 
 "use client";
 
@@ -43,7 +43,7 @@ interface SaveStatus {
   attempt: number;
   maxAttempts: number;
   error: string | null;
-  sessionError: string | null; // NEW: Session-specific errors
+  sessionError: string | null;
   isSuccess: boolean;
   showRetryDetails: boolean;
 }
@@ -52,14 +52,14 @@ interface PlayAgainError {
   show: boolean;
   message: string;
   redirecting: boolean;
-  isSessionError: boolean; // NEW: Flag for session-related errors
+  isSessionError: boolean;
 }
 
 interface SessionStatus {
   sessionId: string | null;
   expiresAt: Date | null;
   isValid: boolean;
-  timeRemaining: number | null; // milliseconds until expiry
+  timeRemaining: number | null;
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -108,9 +108,11 @@ export default function RotationGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  // NEW: Session management state
   const [sessionStatus, setSessionStatus] =
     useState<SessionStatus>(initialSessionStatus);
+
+  // CRITICAL FIX: Store session ID in a ref to avoid race conditions
+  const currentSessionRef = useRef<string | null>(null);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
@@ -118,7 +120,6 @@ export default function RotationGameManager() {
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] =
     useState<number[]>([]);
 
-  // State management refs
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<RotationGameState>(gameState);
@@ -130,7 +131,7 @@ export default function RotationGameManager() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // NEW: Local session timer (no visual display)
+  // Local session timer (no visual display)
   useEffect(() => {
     if (
       sessionStatus.sessionId &&
@@ -147,7 +148,6 @@ export default function RotationGameManager() {
           isValid: timeRemaining > 0,
         }));
 
-        // End game when session expires
         if (
           timeRemaining <= 0 &&
           gameStateRef.current.gameState === GameState.PLAYING
@@ -164,7 +164,6 @@ export default function RotationGameManager() {
     }
   }, [sessionStatus.sessionId, sessionStatus.isValid, sessionStatus.expiresAt]);
 
-  // Visibility change detection system
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === "visible";
@@ -211,7 +210,6 @@ export default function RotationGameManager() {
       }
     };
 
-    // Telegram Web App specific handlers
     const setupTelegramHandlers = () => {
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
@@ -245,10 +243,9 @@ export default function RotationGameManager() {
         };
       }
 
-      return () => {};
+      return () => { };
     };
 
-    // Subscribe to events
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -256,7 +253,6 @@ export default function RotationGameManager() {
 
     const cleanupTelegram = setupTelegramHandlers();
 
-    // Additional check for mobile devices
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       const handleOrientationChange = () => {
         setTimeout(() => {
@@ -308,7 +304,7 @@ export default function RotationGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -345,10 +341,14 @@ export default function RotationGameManager() {
     }
   }, []);
 
-  // Enhanced save game result with session validation
+  // FIXED: Enhanced save game result with proper session management
   const handleSaveGameResult = useCallback(
     async (result: RotationGameResult) => {
-      if (!sessionStatus.sessionId) {
+      // CRITICAL FIX: Use ref instead of state to avoid race condition
+      const sessionId = currentSessionRef.current;
+
+      if (!sessionId) {
+        console.error("No session ID available for game save");
         setSaveStatus((prev) => ({
           ...prev,
           sessionError: "No valid session found",
@@ -357,6 +357,8 @@ export default function RotationGameManager() {
 
         return;
       }
+
+      console.log("Saving game with session ID:", sessionId);
 
       setSaveStatus((prev) => ({
         ...prev,
@@ -400,7 +402,7 @@ export default function RotationGameManager() {
                 .catch(() => ({}));
             }
           }
-        } catch (error) {}
+        } catch (error) { }
       };
 
       let attemptCount = 1;
@@ -418,7 +420,8 @@ export default function RotationGameManager() {
             await processSuspiciousActivity();
           }
 
-          await saveGameResult(result, sessionStatus.sessionId!);
+          // FIXED: Use sessionId from ref, not state
+          await saveGameResult(result, sessionId);
 
           setSaveStatus((prev) => ({
             ...prev,
@@ -428,7 +431,6 @@ export default function RotationGameManager() {
             sessionError: null,
           }));
         } catch (error) {
-          // Handle session errors specially (don't retry)
           if (error instanceof Error && error.message.includes("session")) {
             setSaveStatus((prev) => ({
               ...prev,
@@ -437,7 +439,7 @@ export default function RotationGameManager() {
               error: null,
             }));
 
-            return; // Don't retry session errors
+            return;
           }
 
           attemptCount++;
@@ -467,13 +469,7 @@ export default function RotationGameManager() {
         }));
       }
     },
-    [
-      makeAuthenticatedRequest,
-      t,
-      user,
-      sessionStatus.sessionId,
-      saveGameResult,
-    ],
+    [makeAuthenticatedRequest, t, user, saveGameResult], // Removed sessionStatus dependency
   );
 
   const endGame = useCallback(
@@ -514,10 +510,8 @@ export default function RotationGameManager() {
             updatedStats.decoyHits = finalState.stats.decoyHits + 1;
             break;
           case "app_minimized":
-            // Don't increment error counters when app is minimized
             break;
           case "session_expired":
-            // Don't increment error counters when session expires
             break;
         }
 
@@ -531,7 +525,6 @@ export default function RotationGameManager() {
 
         const result = createRotationGameResult(finalGameState);
 
-        // Add death cause for app minimization or session expiry
         if (cause === "app_minimized" || cause === "session_expired") {
           (result as any).deathCause = cause;
         }
@@ -567,7 +560,7 @@ export default function RotationGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -729,7 +722,6 @@ export default function RotationGameManager() {
     isSchedulingActivationRef.current = false;
 
     try {
-      // NEW: Consume attempt with session creation
       const attemptsResult = await consumeAttemptWithSession(GameMode.ROTATION);
 
       if (!attemptsResult || !attemptsResult.canPlay) {
@@ -743,8 +735,14 @@ export default function RotationGameManager() {
         return;
       }
 
-      // Set up session status
+      // CRITICAL FIX: Store session ID in ref immediately after getting it
       if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
+        console.log("Session created:", attemptsResult.sessionId);
+
+        // Store in ref for immediate access
+        currentSessionRef.current = attemptsResult.sessionId;
+
+        // Also set state for UI purposes
         setSessionStatus({
           sessionId: attemptsResult.sessionId,
           expiresAt: attemptsResult.sessionExpiresAt,
@@ -874,6 +872,9 @@ export default function RotationGameManager() {
       if (sessionTimerRef.current) {
         clearInterval(sessionTimerRef.current);
       }
+
+      // ADDED: Cleanup session ref
+      currentSessionRef.current = null;
     };
   }, []);
 
@@ -970,103 +971,101 @@ export default function RotationGameManager() {
             </div>
           </div>
 
-          {/* Enhanced save status with session error handling */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.sessionError ||
             saveStatus.isSuccess) && (
-            <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
-                    <span className="text-sm text-orange-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                      <span className="text-sm text-orange-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recordingRotation")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-orange-400/60" size={14} />
-                        <span className="text-xs text-orange-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-orange-400/20 rounded-full h-1">
-                        <div
-                          className="bg-orange-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recordingRotation")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {/* Session error display */}
-              {saveStatus.sessionError && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <ShieldAlert className="text-orange-400" size={16} />
-                    <span className="text-sm text-orange-400">
-                      Session Security Error
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-orange-400/60" size={14} />
+                          <span className="text-xs text-orange-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-orange-400/20 rounded-full h-1">
+                          <div
+                            className="bg-orange-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-orange-400/60 text-xs mb-3">
-                    {saveStatus.sessionError}
-                  </div>
-                  <div className="text-white/60 text-xs">
-                    Game may not be saved due to session validation failure
-                  </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.rotationRecordedSuccessfully")}
-                    </span>
+                {saveStatus.sessionError && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <ShieldAlert className="text-orange-400" size={16} />
+                      <span className="text-sm text-orange-400">
+                        Session Security Error
+                      </span>
+                    </div>
+                    <div className="text-orange-400/60 text-xs mb-3">
+                      {saveStatus.sessionError}
+                    </div>
+                    <div className="text-white/60 text-xs">
+                      Game may not be saved due to session validation failure
+                    </div>
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.rotationRecordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-orange-400 text-sm">
-                      {t("save.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-orange-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                      onClick={() =>
+                        gameResult && handleSaveGameResult(gameResult)
+                      }
+                    >
+                      {t("save.retrySave")}
+                    </button>
                   </div>
-                  <button
-                    className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                    onClick={() =>
-                      gameResult && handleSaveGameResult(gameResult)
-                    }
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
@@ -1078,11 +1077,10 @@ export default function RotationGameManager() {
                     <AlertTriangle className="text-red-400" size={16} />
                   )}
                   <span
-                    className={`text-sm font-bold ${
-                      playAgainError.isSessionError
+                    className={`text-sm font-bold ${playAgainError.isSessionError
                         ? "text-orange-400"
                         : "text-red-400"
-                    }`}
+                      }`}
                   >
                     {t("game.modes.rotation.playAgain.cannotPlay")}
                   </span>
@@ -1108,11 +1106,10 @@ export default function RotationGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                isPlayingAgain || playAgainError.show || saveStatus.isLoading
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-              }`}
+                }`}
               disabled={
                 isPlayingAgain || playAgainError.show || saveStatus.isLoading
               }

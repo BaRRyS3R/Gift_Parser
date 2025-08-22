@@ -1,7 +1,7 @@
-// src/components/DailyQuestButton/DailyQuestButton.tsx - Оптимизировано
+// src/components/DailyQuestButton/DailyQuestButton.tsx - Future Tech Design
 
 import React, { useEffect, useRef } from "react";
-import { Target, CheckCircle } from "lucide-react";
+import { Target, CheckCircle, Zap, Star } from "lucide-react";
 
 import { useDailyQuests } from "@/hooks/modules/useDailyQuests";
 import { useT } from "@/contexts/LocalizationContext";
@@ -38,7 +38,7 @@ export default function DailyQuestButton({
       hasFetchedRef.current = true;
       fetchDailyQuest();
     }
-  }, []); // ✅ ИСПРАВЛЕНО: пустой массив зависимостей
+  }, []);
 
   // Don't render button if no quest is available
   if (!hasActiveQuest) {
@@ -48,92 +48,193 @@ export default function DailyQuestButton({
   const getButtonContent = () => {
     if (isCompleted) {
       return {
-        icon: <CheckCircle className="text-green-400" size={18} />,
+        icon: <CheckCircle className="text-emerald-300" size={20} />,
+        secondaryIcon: <Star className="text-yellow-300" size={16} />,
         text: t("quests.button.completed"),
-        bgColor: "bg-green-500/20",
-        borderColor: "border-green-400/50",
-        hoverBg: "hover:bg-green-500/30",
-        textColor: "text-green-300",
+        bgGradient: "from-emerald-500/30 via-green-500/20 to-emerald-600/30",
+        borderGradient: "from-emerald-300 via-green-400 to-emerald-500",
+        glowColor: "emerald-400",
+        textColor: "text-emerald-200",
+        shadowColor: "shadow-emerald-500/50",
       };
     }
 
     return {
-      icon: <Target className="text-cyan-400" size={18} />,
+      icon: <Target className="text-cyan-300" size={20} />,
+      secondaryIcon: <Zap className="text-blue-300" size={16} />,
       text: t("quests.button.active"),
-      bgColor: "bg-cyan-500/20",
-      borderColor: "border-cyan-400/50",
-      hoverBg: "hover:bg-cyan-500/30",
-      textColor: "text-cyan-300",
+      bgGradient: "from-cyan-500/30 via-blue-500/20 to-purple-600/30",
+      borderGradient: "from-cyan-300 via-blue-400 to-purple-500",
+      glowColor: "cyan-400",
+      textColor: "text-cyan-200",
+      shadowColor: "shadow-cyan-500/50",
     };
   };
 
   const buttonContent = getButtonContent();
 
   return (
-    <button
-      aria-label={t("quests.button.aria")}
-      className={`group relative w-auto px-4 h-12 ${buttonContent.bgColor} backdrop-blur-sm border ${buttonContent.borderColor} text-white rounded-lg ${buttonContent.hoverBg} transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden`}
-      disabled={isTransitioning}
-      onClick={onClick}
-    >
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+    <div className="relative group">
+      {/* Outer glow ring */}
+      <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm" />
+      
+      {/* Main button container */}
+      <button
+        aria-label={t("quests.button.aria")}
+        className={`relative w-auto px-6 py-3 h-14 bg-gradient-to-br ${buttonContent.bgGradient} backdrop-blur-lg border border-transparent text-white rounded-xl transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden ${buttonContent.shadowColor} shadow-lg hover:shadow-xl group`}
+        disabled={isTransitioning}
+        onClick={onClick}
+        style={{
+          background: `linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.8) 100%)`,
+          backdropFilter: "blur(20px)",
+        }}
+      >
+        {/* Animated border */}
+        <div 
+          className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+          style={{
+            background: `linear-gradient(90deg, transparent, ${isCompleted ? '#10b981' : '#06b6d4'}, transparent)`,
+            backgroundSize: '200% 100%',
+            animation: 'borderScan 2s linear infinite',
+            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            maskComposite: 'xor',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            padding: '1px',
+          }}
+        />
 
-      {/* Main content */}
-      <div className="relative z-10 flex items-center space-x-3">
-        {/* Icon */}
-        <div className="flex items-center justify-center">
-          {buttonContent.icon}
-        </div>
+        {/* Holographic overlay */}
+        <div 
+          className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500"
+          style={{
+            background: `linear-gradient(45deg, 
+              transparent 30%, 
+              rgba(255,255,255,0.1) 50%, 
+              transparent 70%)`,
+            backgroundSize: '200% 200%',
+            animation: 'hologram 3s ease-in-out infinite',
+          }}
+        />
 
-        {/* Text and progress */}
-        <div className="flex flex-col items-start min-w-0">
-          <span
-            className={`text-sm font-mono tracking-wider ${buttonContent.textColor} whitespace-nowrap`}
-          >
-            {buttonContent.text}
-          </span>
+        {/* Pulsing core light */}
+        <div 
+          className={`absolute inset-0 rounded-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500 bg-gradient-radial from-${buttonContent.glowColor}/30 to-transparent`}
+          style={{
+            animation: 'pulse 2s ease-in-out infinite',
+          }}
+        />
 
-          {/* Progress indicator for active quests */}
-          {!isCompleted && (
-            <div className="flex items-center space-x-2 mt-1">
-              <div className="w-12 bg-white/20 rounded-full h-1 overflow-hidden">
-                <div
-                  className="h-1 bg-cyan-400 transition-all duration-500 ease-out"
-                  style={{ width: `${progressPercentage}%` }}
-                />
+        {/* Main content container */}
+        <div className="relative z-10 flex items-center space-x-4">
+          {/* Icon cluster */}
+          <div className="relative flex items-center justify-center">
+            {/* Primary icon */}
+            <div className="relative">
+              {buttonContent.icon}
+              {/* Icon glow */}
+              <div className={`absolute inset-0 blur-sm opacity-50 group-hover:opacity-100 transition-opacity duration-500 text-${buttonContent.glowColor}`}>
+                {buttonContent.icon}
               </div>
-              <span className="text-xs text-white/60 font-mono">
-                {Math.round(progressPercentage)}%
-              </span>
             </div>
-          )}
+            
+            {/* Secondary icon for decoration */}
+            <div className="absolute -top-1 -right-1 opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+              {buttonContent.secondaryIcon}
+            </div>
+          </div>
+
+          {/* Content section */}
+          <div className="flex flex-col items-start min-w-0">
+            {/* Main text */}
+            <div className="flex items-center space-x-2">
+              <span className={`text-sm font-mono font-bold tracking-wider ${buttonContent.textColor} whitespace-nowrap group-hover:text-white transition-colors duration-300`}>
+                {buttonContent.text}
+              </span>
+              
+              {/* Status indicator */}
+              <div className={`w-2 h-2 rounded-full bg-${buttonContent.glowColor} opacity-60 group-hover:opacity-100 transition-opacity duration-300`} 
+                   style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+            </div>
+
+            {/* Progress section for active quests */}
+            {!isCompleted && (
+              <div className="flex items-center space-x-3 mt-2 w-full">
+                {/* Progress bar */}
+                <div className="relative w-16 h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/10">
+                  {/* Background track */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-gray-600/30 to-gray-500/30" />
+                  
+                  {/* Progress fill */}
+                  <div
+                    className={`absolute top-0 left-0 h-full bg-gradient-to-r from-${buttonContent.glowColor} to-blue-400 transition-all duration-700 ease-out rounded-full`}
+                    style={{ 
+                      width: `${progressPercentage}%`,
+                      boxShadow: `0 0 8px rgba(6, 182, 212, 0.5)`,
+                    }}
+                  />
+                  
+                  {/* Progress glow */}
+                  <div
+                    className={`absolute top-0 left-0 h-full bg-gradient-to-r from-${buttonContent.glowColor}/60 to-blue-400/60 transition-all duration-700 ease-out rounded-full blur-sm`}
+                    style={{ width: `${progressPercentage}%` }}
+                  />
+                </div>
+                
+                {/* Percentage display */}
+                <span className="text-xs text-white/70 font-mono font-bold min-w-[2.5rem] text-right">
+                  {Math.round(progressPercentage)}%
+                </span>
+              </div>
+            )}
+
+            {/* Completion effects */}
+            {isCompleted && (
+              <div className="flex items-center space-x-2 mt-1">
+                <span className="text-xs text-emerald-300/80 font-mono tracking-wide">
+                  MISSION COMPLETE
+                </span>
+                {/* Celebration particles */}
+                <div className="flex space-x-1">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1 h-1 bg-yellow-400 rounded-full opacity-60"
+                      style={{
+                        animation: `sparkle 1.5s ease-in-out infinite ${i * 0.2}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Completion indicator */}
-        {isCompleted && (
-          <div className="flex items-center justify-center w-3 h-3">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          </div>
-        )}
-      </div>
+        {/* Scanning line effect */}
+        <div
+          className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-80 transition-opacity duration-500"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${isCompleted ? '#10b981' : '#06b6d4'}, transparent)`,
+            animation: 'scanLine 2.5s ease-in-out infinite',
+          }}
+        />
 
-      {/* Hover effect glow */}
-      <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <div className="absolute inset-0 bg-cyan-500/20 rounded-lg blur-sm" />
-      </div>
+        {/* Bottom edge highlight */}
+        <div
+          className="absolute bottom-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-60 transition-opacity duration-500"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${isCompleted ? '#34d399' : '#22d3ee'}, transparent)`,
+            animation: 'scanLine 2.5s ease-in-out infinite reverse',
+          }}
+        />
+      </button>
 
-      {/* External glow on hover */}
+      {/* Enhanced external glow */}
       <div
-        className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-cyan-500/40 to-cyan-600/20"
+        className={`absolute -inset-2 rounded-xl blur-lg opacity-0 group-hover:opacity-30 transition-opacity duration-700 bg-gradient-to-br ${buttonContent.bgGradient}`}
         style={{ zIndex: -1 }}
       />
-
-      {/* Scanning line for future tech effect */}
-      <div
-        className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
-        style={{ animation: "shimmer 2s ease-in-out infinite" }}
-      />
-    </button>
+    </div>
   );
 }
