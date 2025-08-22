@@ -1,9 +1,9 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Updated with play again functionality
+// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with session management
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Zap, RotateCcw, Target, Clock, AlertTriangle } from "lucide-react";
+import { Zap, RotateCcw, Target, Clock, AlertTriangle, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -20,7 +20,8 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
-import { GameState } from "@/types/game-modes/common";
+import { useGame } from "@/hooks/modules/useGame";
+import { GameState, GameMode } from "@/types/game-modes/common";
 import {
   ReactionGameState,
   ReactionGameResult,
@@ -33,6 +34,7 @@ interface SaveStatus {
   attempt: number;
   maxAttempts: number;
   error: string | null;
+  sessionError: string | null; // NEW: Session-specific errors
   isSuccess: boolean;
   showRetryDetails: boolean;
   skipped: boolean;
@@ -42,6 +44,14 @@ interface PlayAgainError {
   show: boolean;
   message: string;
   redirecting: boolean;
+  isSessionError: boolean; // NEW: Flag for session-related errors
+}
+
+interface SessionStatus {
+  sessionId: string | null;
+  expiresAt: Date | null;
+  isValid: boolean;
+  timeRemaining: number | null; // milliseconds until expiry
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -49,6 +59,7 @@ const initialSaveStatus: SaveStatus = {
   attempt: 0,
   maxAttempts: 3,
   error: null,
+  sessionError: null,
   isSuccess: false,
   showRetryDetails: false,
   skipped: false,
@@ -58,11 +69,20 @@ const initialPlayAgainError: PlayAgainError = {
   show: false,
   message: "",
   redirecting: false,
+  isSessionError: false,
+};
+
+const initialSessionStatus: SessionStatus = {
+  sessionId: null,
+  expiresAt: null,
+  isValid: false,
+  timeRemaining: null,
 };
 
 export default function ReactionGameManager() {
   const { makeAuthenticatedRequest } = useUser();
-  const { canPlay, consumeAttempt, fetchAttemptsStatus } = useAttempts(
+  const { saveGameResult } = useGame(makeAuthenticatedRequest);
+  const { consumeAttemptWithSession, fetchAttemptsStatus } = useAttempts(
     makeAuthenticatedRequest,
   );
   const router = useRouter();
@@ -79,16 +99,66 @@ export default function ReactionGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
+  // NEW: Session management state
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
+
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
 
   const gameStateRef = useRef<ReactionGameState>(gameState);
+  const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // NEW: Local session timer (no visual display)
+  useEffect(() => {
+    if (sessionStatus.sessionId && sessionStatus.isValid && sessionStatus.expiresAt) {
+      sessionTimerRef.current = setInterval(() => {
+        const now = Date.now();
+        const timeRemaining = sessionStatus.expiresAt!.getTime() - now;
+        
+        setSessionStatus(prev => ({
+          ...prev,
+          timeRemaining,
+          isValid: timeRemaining > 0,
+        }));
+
+        // End game when session expires
+        if (timeRemaining <= 0 && gameStateRef.current.gameState === GameState.PLAYING) {
+          // For reaction mode, we treat session expiry as a miss
+          setGameState((prev) => {
+            const finalState = {
+              ...prev,
+              gameState: GameState.FINISHED,
+              stats: {
+                ...prev.stats,
+                missedTarget: true,
+              },
+            };
+
+            const result = createReactionGameResult(finalState);
+            (result as any).deathCause = "session_expired";
+
+            setGameResult(result);
+            handleSaveGameResult(result);
+            cleanupReactionGame(finalState);
+
+            return finalState;
+          });
+        }
+      }, 1000);
+
+      return () => {
+        if (sessionTimerRef.current) {
+          clearInterval(sessionTimerRef.current);
+        }
+      };
+    }
+  }, [sessionStatus.sessionId, sessionStatus.isValid, sessionStatus.expiresAt]);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -141,6 +211,7 @@ export default function ReactionGameManager() {
     }
   }, []);
 
+  // Enhanced save game result with session validation
   const handleSaveGameResult = useCallback(
     async (result: ReactionGameResult) => {
       if (result.missed || result.reactionTime <= 0) {
@@ -150,8 +221,18 @@ export default function ReactionGameManager() {
           isLoading: false,
           isSuccess: false,
           error: null,
+          sessionError: null,
         }));
 
+        return;
+      }
+
+      if (!sessionStatus.sessionId) {
+        setSaveStatus((prev) => ({
+          ...prev,
+          sessionError: "No valid session found",
+          isLoading: false,
+        }));
         return;
       }
 
@@ -160,6 +241,7 @@ export default function ReactionGameManager() {
         isLoading: true,
         attempt: 1,
         error: null,
+        sessionError: null,
         isSuccess: false,
         showRetryDetails: false,
         skipped: false,
@@ -176,33 +258,31 @@ export default function ReactionGameManager() {
         }
 
         try {
-          const response = await makeAuthenticatedRequest("/api/game/save", {
-            method: "POST",
-            body: JSON.stringify({ gameResult: result }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to save game result");
-          }
-
-          const responseData = await response.json();
-
-          if (!responseData.success) {
-            throw new Error(responseData.error || "Failed to save game result");
-          }
+          await saveGameResult(result, sessionStatus.sessionId!);
 
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
             isSuccess: true,
             error: null,
+            sessionError: null,
           }));
         } catch (error) {
+          // Handle session errors specially (don't retry)
+          if (error instanceof Error && error.message.includes("session")) {
+            setSaveStatus((prev) => ({
+              ...prev,
+              isLoading: false,
+              sessionError: error.message,
+              error: null,
+            }));
+            return; // Don't retry session errors
+          }
+
           attemptCount++;
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -213,16 +293,18 @@ export default function ReactionGameManager() {
       try {
         await attemptSave();
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : t("errors.saveGameResult");
+        
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
           isSuccess: false,
-          error:
-            error instanceof Error ? error.message : t("errors.saveGameResult"),
+          error: errorMessage.includes("session") ? null : errorMessage,
+          sessionError: errorMessage.includes("session") ? errorMessage : null,
         }));
       }
     },
-    [makeAuthenticatedRequest, t],
+    [saveGameResult, t, sessionStatus.sessionId],
   );
 
   const handleGameTimeout = useCallback(() => {
@@ -313,42 +395,85 @@ export default function ReactionGameManager() {
     [triggerHapticFeedback, handleSaveGameResult],
   );
 
-  const startGame = useCallback(() => {
-    setGameState(initializeReactionGameState());
-    setGameResult(null);
-    setSaveStatus(initialSaveStatus);
-    setPlayAgainError(initialPlayAgainError);
-    setActivatedCircles([]);
-    setLastActivationTimestamp(0);
-    setIsPlayingAgain(false);
+  const startGame = useCallback(async () => {
+    try {
+      // NEW: Consume attempt with session creation
+      const attemptsResult = await consumeAttemptWithSession(GameMode.REACTION);
+      
+      if (!attemptsResult || !attemptsResult.canPlay) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.reaction.playAgain.noAttempts"),
+          redirecting: false,
+          isSessionError: false,
+        });
+        return;
+      }
 
-    setTimeout(() => {
-      setShowCircles(true);
-    }, 100);
+      // Set up session status
+      if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
+        setSessionStatus({
+          sessionId: attemptsResult.sessionId,
+          expiresAt: attemptsResult.sessionExpiresAt,
+          isValid: true,
+          timeRemaining: attemptsResult.sessionExpiresAt.getTime() - Date.now(),
+        });
+      } else {
+        console.error("No session data received from consume attempt");
+        setPlayAgainError({
+          show: true,
+          message: "Failed to create game session",
+          redirecting: false,
+          isSessionError: true,
+        });
+        return;
+      }
 
-    setTimeout(() => {
-      setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
+      setGameState(initializeReactionGameState());
+      setGameResult(null);
+      setSaveStatus(initialSaveStatus);
+      setPlayAgainError(initialPlayAgainError);
+      setActivatedCircles([]);
+      setLastActivationTimestamp(0);
+      setIsPlayingAgain(false);
 
-      const delay = getRandomDelay(gameStateRef.current.config);
+      setTimeout(() => {
+        setShowCircles(true);
+      }, 100);
 
-      const timeout = setTimeout(() => {
-        if (gameStateRef.current.gameState === GameState.PLAYING) {
-          setGameState((current) =>
-            activateRandomCircle(
-              current,
-              handleCircleActivated,
-              handleGameTimeout,
-            ),
-          );
-        }
-      }, delay);
+      setTimeout(() => {
+        setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-      setGameState((prev) => ({
-        ...prev,
-        startDelayTimeout: timeout,
-      }));
-    }, 500);
-  }, [handleCircleActivated, handleGameTimeout]);
+        const delay = getRandomDelay(gameStateRef.current.config);
+
+        const timeout = setTimeout(() => {
+          if (gameStateRef.current.gameState === GameState.PLAYING) {
+            setGameState((current) =>
+              activateRandomCircle(
+                current,
+                handleCircleActivated,
+                handleGameTimeout,
+              ),
+            );
+          }
+        }, delay);
+
+        setGameState((prev) => ({
+          ...prev,
+          startDelayTimeout: timeout,
+        }));
+      }, 500);
+
+    } catch (error) {
+      console.error("Failed to start game:", error);
+      setPlayAgainError({
+        show: true,
+        message: t("game.modes.reaction.playAgain.error"),
+        redirecting: false,
+        isSessionError: false,
+      });
+    }
+  }, [handleCircleActivated, handleGameTimeout, consumeAttemptWithSession, t]);
 
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
@@ -365,56 +490,33 @@ export default function ReactionGameManager() {
           show: true,
           message: t("game.modes.reaction.playAgain.noAttempts"),
           redirecting: false,
+          isSessionError: false,
         });
         setIsPlayingAgain(false);
-
-        return;
-      }
-
-      // Consume attempt and verify the operation succeeded
-      const consumeResult = await consumeAttempt();
-
-      // Verify that the consume operation was successful
-      if (!consumeResult) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.reaction.playAgain.failedToConsume"),
-          redirecting: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
-      // Additional safety check: verify we still have the ability to play
-      // (though attemptsRemaining might be 0 after consuming the last attempt)
-      if (consumeResult.attemptsRemaining < 0) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.reaction.playAgain.failedToConsume"),
-          redirecting: false,
-        });
-        setIsPlayingAgain(false);
-
         return;
       }
 
       // All checks passed - start new game
-      startGame();
+      await startGame();
     } catch (error) {
       console.error("Error starting new game:", error);
       setPlayAgainError({
         show: true,
         message: t("game.modes.reaction.playAgain.error"),
         redirecting: false,
+        isSessionError: false,
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
+  }, [isPlayingAgain, fetchAttemptsStatus, startGame, t]);
 
   useEffect(() => {
     return () => {
       cleanupReactionGame(gameStateRef.current);
+      
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current);
+      }
     };
   }, []);
 
@@ -514,9 +616,10 @@ export default function ReactionGameManager() {
             </div>
           </div>
 
-          {/* Save Status Display */}
+          {/* Enhanced save status with session error handling */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
+            saveStatus.sessionError ||
             saveStatus.isSuccess ||
             saveStatus.skipped) && (
             <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
@@ -552,6 +655,24 @@ export default function ReactionGameManager() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Session error display */}
+              {saveStatus.sessionError && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-orange-400" size={16} />
+                    <span className="text-sm text-orange-400">
+                      Session Security Error
+                    </span>
+                  </div>
+                  <div className="text-orange-400/60 text-xs mb-3">
+                    {saveStatus.sessionError}
+                  </div>
+                  <div className="text-white/60 text-xs">
+                    Game may not be saved due to session validation failure
+                  </div>
                 </div>
               )}
 
@@ -599,7 +720,7 @@ export default function ReactionGameManager() {
                   </div>
                   <button
                     className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
+                    onClick={() => gameResult && handleSaveGameResult(gameResult)}
                   >
                     {t("save.retrySave")}
                   </button>
@@ -613,8 +734,14 @@ export default function ReactionGameManager() {
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">
                 <div className="flex items-center justify-center space-x-2 mb-2">
-                  <AlertTriangle className="text-red-400" size={16} />
-                  <span className="text-red-400 text-sm font-bold">
+                  {playAgainError.isSessionError ? (
+                    <ShieldAlert className="text-orange-400" size={16} />
+                  ) : (
+                    <AlertTriangle className="text-red-400" size={16} />
+                  )}
+                  <span className={`text-sm font-bold ${
+                    playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
+                  }`}>
                     {t("game.modes.reaction.playAgain.cannotPlay")}
                   </span>
                 </div>

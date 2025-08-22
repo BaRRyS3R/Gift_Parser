@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Enhanced with auto-end on visibility loss
+// src/game-modes/physics/PhysicsGameManager.tsx - Enhanced with session management
 
 "use client";
 
@@ -11,6 +11,7 @@ import {
   RotateCcw,
   TrendingDown,
   EyeOff,
+  ShieldAlert,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as Matter from "matter-js";
@@ -46,6 +47,7 @@ interface SaveStatus {
   attempt: number;
   maxAttempts: number;
   error: string | null;
+  sessionError: string | null; // NEW: Session-specific errors
   isSuccess: boolean;
   showRetryDetails: boolean;
 }
@@ -54,6 +56,14 @@ interface PlayAgainError {
   show: boolean;
   message: string;
   redirecting: boolean;
+  isSessionError: boolean; // NEW: Flag for session-related errors
+}
+
+interface SessionStatus {
+  sessionId: string | null;
+  expiresAt: Date | null;
+  isValid: boolean;
+  timeRemaining: number | null; // milliseconds until expiry
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -61,6 +71,7 @@ const initialSaveStatus: SaveStatus = {
   attempt: 0,
   maxAttempts: 3,
   error: null,
+  sessionError: null,
   isSuccess: false,
   showRetryDetails: false,
 };
@@ -69,12 +80,20 @@ const initialPlayAgainError: PlayAgainError = {
   show: false,
   message: "",
   redirecting: false,
+  isSessionError: false,
+};
+
+const initialSessionStatus: SessionStatus = {
+  sessionId: null,
+  expiresAt: null,
+  isValid: false,
+  timeRemaining: null,
 };
 
 export default function PhysicsGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
-  const { consumeAttempt, fetchAttemptsStatus } = useAttempts(
+  const { consumeAttemptWithSession, fetchAttemptsStatus } = useAttempts(
     makeAuthenticatedRequest,
   );
   const router = useRouter();
@@ -91,22 +110,52 @@ export default function PhysicsGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
+  // NEW: Session management state
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
+
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<PhysicsGameState>(gameState);
   const engineUpdateRef = useRef<number>();
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
   const lastVisibilityState = useRef<boolean>(true);
+  const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Обработка событий видимости приложения
+  // NEW: Local session timer (no visual display)
+  useEffect(() => {
+    if (sessionStatus.sessionId && sessionStatus.isValid && sessionStatus.expiresAt) {
+      sessionTimerRef.current = setInterval(() => {
+        const now = Date.now();
+        const timeRemaining = sessionStatus.expiresAt!.getTime() - now;
+        
+        setSessionStatus(prev => ({
+          ...prev,
+          timeRemaining,
+          isValid: timeRemaining > 0,
+        }));
+
+        // End game when session expires
+        if (timeRemaining <= 0 && gameStateRef.current.gameState === GameState.PLAYING) {
+          endGame("session_expired");
+        }
+      }, 1000);
+
+      return () => {
+        if (sessionTimerRef.current) {
+          clearInterval(sessionTimerRef.current);
+        }
+      };
+    }
+  }, [sessionStatus.sessionId, sessionStatus.isValid, sessionStatus.expiresAt]);
+
+  // App visibility monitoring
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === "visible";
 
-      // Если приложение стало невидимым и игра активна
       if (
         !isVisible &&
         lastVisibilityState.current &&
@@ -120,7 +169,6 @@ export default function PhysicsGameManager() {
     };
 
     const handleBlur = () => {
-      // Дополнительная проверка при потере фокуса окна
       if (
         gameStateRef.current.gameState === GameState.PLAYING &&
         !isGameEndingRef.current
@@ -130,7 +178,6 @@ export default function PhysicsGameManager() {
     };
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Завершение игры при попытке закрыть/обновить страницу
       if (
         gameStateRef.current.gameState === GameState.PLAYING &&
         !isGameEndingRef.current
@@ -139,12 +186,10 @@ export default function PhysicsGameManager() {
       }
     };
 
-    // Специфичная обработка для Telegram Web App
     const handleTelegramEvents = () => {
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
 
-        // Обработка событий Telegram
         tg.onEvent("viewportChanged", (params: any) => {
           if (
             params.isStateStable === false &&
@@ -155,7 +200,6 @@ export default function PhysicsGameManager() {
         });
 
         tg.onEvent("themeChanged", () => {
-          // При смене темы также может означать сворачивание
           if (
             gameStateRef.current.gameState === GameState.PLAYING &&
             document.visibilityState !== "visible"
@@ -166,17 +210,13 @@ export default function PhysicsGameManager() {
       }
     };
 
-    // Подписка на события
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
-    // Инициализация Telegram событий
     handleTelegramEvents();
 
-    // Дополнительная проверка для мобильных устройств
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      // Обработка событий блокировки экрана на мобильных устройствах
       window.addEventListener("pagehide", () => {
         if (gameStateRef.current.gameState === GameState.PLAYING) {
           endGame("app_minimized");
@@ -234,18 +274,28 @@ export default function PhysicsGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
 
+  // Enhanced save game result with session validation
   const handleSaveGameResult = useCallback(
     async (result: PhysicsGameResult) => {
+      if (!sessionStatus.sessionId) {
+        setSaveStatus((prev) => ({
+          ...prev,
+          sessionError: "No valid session found",
+          isLoading: false,
+        }));
+        return;
+      }
+
       setSaveStatus((prev) => ({
         ...prev,
         isLoading: true,
         attempt: 1,
         error: null,
+        sessionError: null,
         isSuccess: false,
         showRetryDetails: false,
       }));
@@ -300,19 +350,30 @@ export default function PhysicsGameManager() {
             await processSuspiciousActivity();
           }
 
-          await saveGameResult(result);
+          await saveGameResult(result, sessionStatus.sessionId!);
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
             isSuccess: true,
             error: null,
+            sessionError: null,
           }));
         } catch (error) {
+          // Handle session errors specially (don't retry)
+          if (error instanceof Error && error.message.includes("session")) {
+            setSaveStatus((prev) => ({
+              ...prev,
+              isLoading: false,
+              sessionError: error.message,
+              error: null,
+            }));
+            return; // Don't retry session errors
+          }
+
           attemptCount++;
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -323,16 +384,18 @@ export default function PhysicsGameManager() {
       try {
         await attemptSave();
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : t("errors.saveGameResult");
+        
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
           isSuccess: false,
-          error:
-            error instanceof Error ? error.message : t("errors.saveGameResult"),
+          error: errorMessage.includes("session") ? null : errorMessage,
+          sessionError: errorMessage.includes("session") ? errorMessage : null,
         }));
       }
     },
-    [saveGameResult, t, makeAuthenticatedRequest, user],
+    [saveGameResult, t, makeAuthenticatedRequest, user, sessionStatus.sessionId],
   );
 
   const updatePhysicsEngine = useCallback(() => {
@@ -382,7 +445,7 @@ export default function PhysicsGameManager() {
   }, []);
 
   const endGame = useCallback(
-    (cause: "mistakes" | "escaped_circles" | "timeout" | "app_minimized") => {
+    (cause: "mistakes" | "escaped_circles" | "timeout" | "app_minimized" | "session_expired") => {
       if (isGameEndingRef.current) {
         return;
       }
@@ -542,45 +605,89 @@ export default function PhysicsGameManager() {
     [triggerHapticFeedback],
   );
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback(async () => {
     isGameEndingRef.current = false;
-    const initialState = initializePhysicsGameState();
 
-    shadowSecurityRef.current = new ShadowSecurityManager(
-      GameMode.PHYSICS,
-      initialState.gameStartTime || Date.now(),
-      {
-        enabled: true,
-        sensitivityThreshold: 1.0,
-        suspiciousMovementThreshold: 70.0,
-        maxCheckInterval: 3000,
-        minCheckInterval: 3000,
-        requirePermissionCheck: false,
-      },
-    );
+    try {
+      // NEW: Consume attempt with session creation
+      const attemptsResult = await consumeAttemptWithSession(GameMode.PHYSICS);
+      
+      if (!attemptsResult || !attemptsResult.canPlay) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.physics.playAgain.noAttempts"),
+          redirecting: false,
+          isSessionError: false,
+        });
+        return;
+      }
 
-    setGameState(initialState);
-    setGameResult(null);
-    setSaveStatus(initialSaveStatus);
-    setPlayAgainError(initialPlayAgainError);
-    setIsPlayingAgain(false);
+      // Set up session status
+      if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
+        setSessionStatus({
+          sessionId: attemptsResult.sessionId,
+          expiresAt: attemptsResult.sessionExpiresAt,
+          isValid: true,
+          timeRemaining: attemptsResult.sessionExpiresAt.getTime() - Date.now(),
+        });
+      } else {
+        console.error("No session data received from consume attempt");
+        setPlayAgainError({
+          show: true,
+          message: "Failed to create game session",
+          redirecting: false,
+          isSessionError: true,
+        });
+        return;
+      }
 
-    setTimeout(() => {
-      setShowCanvas(true);
-    }, 100);
+      const initialState = initializePhysicsGameState();
 
-    setTimeout(() => {
-      setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
+      shadowSecurityRef.current = new ShadowSecurityManager(
+        GameMode.PHYSICS,
+        initialState.gameStartTime || Date.now(),
+        {
+          enabled: true,
+          sensitivityThreshold: 1.0,
+          suspiciousMovementThreshold: 70.0,
+          maxCheckInterval: 3000,
+          minCheckInterval: 3000,
+          requirePermissionCheck: false,
+        },
+      );
+
+      setGameState(initialState);
+      setGameResult(null);
+      setSaveStatus(initialSaveStatus);
+      setPlayAgainError(initialPlayAgainError);
+      setIsPlayingAgain(false);
 
       setTimeout(() => {
-        updatePhysicsEngine();
+        setShowCanvas(true);
       }, 100);
 
       setTimeout(() => {
-        scheduleNextActivation();
-      }, 1000);
-    }, 800);
-  }, [scheduleNextActivation, updatePhysicsEngine]);
+        setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
+
+        setTimeout(() => {
+          updatePhysicsEngine();
+        }, 100);
+
+        setTimeout(() => {
+          scheduleNextActivation();
+        }, 1000);
+      }, 800);
+
+    } catch (error) {
+      console.error("Failed to start game:", error);
+      setPlayAgainError({
+        show: true,
+        message: t("game.modes.physics.playAgain.error"),
+        redirecting: false,
+        isSessionError: false,
+      });
+    }
+  }, [scheduleNextActivation, updatePhysicsEngine, consumeAttemptWithSession, t]);
 
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
@@ -595,46 +702,23 @@ export default function PhysicsGameManager() {
           show: true,
           message: t("game.modes.physics.playAgain.noAttempts"),
           redirecting: false,
+          isSessionError: false,
         });
         setIsPlayingAgain(false);
-
         return;
       }
 
-      const consumeResult = await consumeAttempt();
-
-      if (!consumeResult) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.physics.playAgain.failedToConsume"),
-          redirecting: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
-      if (consumeResult.attemptsRemaining < 0) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.physics.playAgain.failedToConsume"),
-          redirecting: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
-      startGame();
+      await startGame();
     } catch (error) {
       setPlayAgainError({
         show: true,
         message: t("game.modes.physics.playAgain.error"),
         redirecting: false,
+        isSessionError: false,
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
+  }, [isPlayingAgain, fetchAttemptsStatus, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -645,6 +729,10 @@ export default function PhysicsGameManager() {
 
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanup();
+      }
+
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current);
       }
     };
   }, []);
@@ -659,6 +747,8 @@ export default function PhysicsGameManager() {
         return <Clock className="text-yellow-400" size={20} />;
       case "app_minimized":
         return <EyeOff className="text-gray-400" size={20} />;
+      case "session_expired":
+        return <ShieldAlert className="text-orange-400" size={20} />;
       default:
         return <Crosshair className="text-red-400" size={20} />;
     }
@@ -670,6 +760,7 @@ export default function PhysicsGameManager() {
       escaped_circles: "game.modes.physics.deathCauses.escapedCircles",
       timeout: "game.modes.physics.deathCauses.timeout",
       app_minimized: "game.modes.physics.deathCauses.appMinimized",
+      session_expired: "game.modes.physics.deathCauses.sessionExpired",
     };
 
     const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping];
@@ -748,8 +839,10 @@ export default function PhysicsGameManager() {
             </div>
           </div>
 
+          {/* Enhanced save status with session error handling */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
+            saveStatus.sessionError ||
             saveStatus.isSuccess) && (
             <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
               {saveStatus.isLoading && (
@@ -787,6 +880,24 @@ export default function PhysicsGameManager() {
                 </div>
               )}
 
+              {/* Session error display */}
+              {saveStatus.sessionError && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-orange-400" size={16} />
+                    <span className="text-sm text-orange-400">
+                      Session Security Error
+                    </span>
+                  </div>
+                  <div className="text-orange-400/60 text-xs mb-3">
+                    {saveStatus.sessionError}
+                  </div>
+                  <div className="text-white/60 text-xs">
+                    Game may not be saved due to session validation failure
+                  </div>
+                </div>
+              )}
+
               {saveStatus.isSuccess && !saveStatus.isLoading && (
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
@@ -818,7 +929,7 @@ export default function PhysicsGameManager() {
                   </div>
                   <button
                     className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
+                    onClick={() => gameResult && handleSaveGameResult(gameResult)}
                   >
                     {t("save.retrySave")}
                   </button>
@@ -831,8 +942,14 @@ export default function PhysicsGameManager() {
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">
                 <div className="flex items-center justify-center space-x-2 mb-2">
-                  <AlertTriangle className="text-red-400" size={16} />
-                  <span className="text-red-400 text-sm font-bold">
+                  {playAgainError.isSessionError ? (
+                    <ShieldAlert className="text-orange-400" size={16} />
+                  ) : (
+                    <AlertTriangle className="text-red-400" size={16} />
+                  )}
+                  <span className={`text-sm font-bold ${
+                    playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
+                  }`}>
                     {t("game.modes.physics.playAgain.cannotPlay")}
                   </span>
                 </div>

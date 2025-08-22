@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Cleaned version without debug UI
+// src/game-modes/rotation/RotationGameManager.tsx - Enhanced with session management
 
 "use client";
 
@@ -10,6 +10,7 @@ import {
   Target,
   RotateCw,
   EyeOff,
+  ShieldAlert,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -27,6 +28,7 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
+import { useGame } from "@/hooks/modules/useGame";
 import { GameState, GameMode } from "@/types/game-modes/common";
 import {
   RotationGameState,
@@ -41,6 +43,7 @@ interface SaveStatus {
   attempt: number;
   maxAttempts: number;
   error: string | null;
+  sessionError: string | null; // NEW: Session-specific errors
   isSuccess: boolean;
   showRetryDetails: boolean;
 }
@@ -49,6 +52,14 @@ interface PlayAgainError {
   show: boolean;
   message: string;
   redirecting: boolean;
+  isSessionError: boolean; // NEW: Flag for session-related errors
+}
+
+interface SessionStatus {
+  sessionId: string | null;
+  expiresAt: Date | null;
+  isValid: boolean;
+  timeRemaining: number | null; // milliseconds until expiry
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -56,6 +67,7 @@ const initialSaveStatus: SaveStatus = {
   attempt: 0,
   maxAttempts: 3,
   error: null,
+  sessionError: null,
   isSuccess: false,
   showRetryDetails: false,
 };
@@ -64,13 +76,22 @@ const initialPlayAgainError: PlayAgainError = {
   show: false,
   message: "",
   redirecting: false,
+  isSessionError: false,
+};
+
+const initialSessionStatus: SessionStatus = {
+  sessionId: null,
+  expiresAt: null,
+  isValid: false,
+  timeRemaining: null,
 };
 
 const LEVEL_UPDATE_INTERVAL = 100;
 
 export default function RotationGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
-  const { consumeAttempt, fetchAttemptsStatus } = useAttempts(
+  const { saveGameResult } = useGame(makeAuthenticatedRequest);
+  const { consumeAttemptWithSession, fetchAttemptsStatus } = useAttempts(
     makeAuthenticatedRequest,
   );
   const router = useRouter();
@@ -87,6 +108,9 @@ export default function RotationGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
+  // NEW: Session management state
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
+
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
@@ -99,10 +123,38 @@ export default function RotationGameManager() {
   const gameStateRef = useRef<RotationGameState>(gameState);
   const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
   const lastVisibilityState = useRef<boolean>(true);
+  const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // NEW: Local session timer (no visual display)
+  useEffect(() => {
+    if (sessionStatus.sessionId && sessionStatus.isValid && sessionStatus.expiresAt) {
+      sessionTimerRef.current = setInterval(() => {
+        const now = Date.now();
+        const timeRemaining = sessionStatus.expiresAt!.getTime() - now;
+        
+        setSessionStatus(prev => ({
+          ...prev,
+          timeRemaining,
+          isValid: timeRemaining > 0,
+        }));
+
+        // End game when session expires
+        if (timeRemaining <= 0 && gameStateRef.current.gameState === GameState.PLAYING) {
+          endGame("session_expired");
+        }
+      }, 1000);
+
+      return () => {
+        if (sessionTimerRef.current) {
+          clearInterval(sessionTimerRef.current);
+        }
+      };
+    }
+  }, [sessionStatus.sessionId, sessionStatus.isValid, sessionStatus.expiresAt]);
 
   // Visibility change detection system
   useEffect(() => {
@@ -285,13 +337,24 @@ export default function RotationGameManager() {
     }
   }, []);
 
+  // Enhanced save game result with session validation
   const handleSaveGameResult = useCallback(
     async (result: RotationGameResult) => {
+      if (!sessionStatus.sessionId) {
+        setSaveStatus((prev) => ({
+          ...prev,
+          sessionError: "No valid session found",
+          isLoading: false,
+        }));
+        return;
+      }
+
       setSaveStatus((prev) => ({
         ...prev,
         isLoading: true,
         attempt: 1,
         error: null,
+        sessionError: null,
         isSuccess: false,
         showRetryDetails: false,
       }));
@@ -346,36 +409,31 @@ export default function RotationGameManager() {
             await processSuspiciousActivity();
           }
 
-          const response = await makeAuthenticatedRequest("/api/game/save", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ gameResult: result }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to save game result");
-          }
-
-          const responseData = await response.json();
-
-          if (!responseData.success) {
-            throw new Error(responseData.error || "Failed to save game result");
-          }
+          await saveGameResult(result, sessionStatus.sessionId!);
 
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
             isSuccess: true,
             error: null,
+            sessionError: null,
           }));
         } catch (error) {
+          // Handle session errors specially (don't retry)
+          if (error instanceof Error && error.message.includes("session")) {
+            setSaveStatus((prev) => ({
+              ...prev,
+              isLoading: false,
+              sessionError: error.message,
+              error: null,
+            }));
+            return; // Don't retry session errors
+          }
+
           attemptCount++;
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -386,20 +444,22 @@ export default function RotationGameManager() {
       try {
         await attemptSave();
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : t("errors.saveGameResult");
+        
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
           isSuccess: false,
-          error:
-            error instanceof Error ? error.message : t("errors.saveGameResult"),
+          error: errorMessage.includes("session") ? null : errorMessage,
+          sessionError: errorMessage.includes("session") ? errorMessage : null,
         }));
       }
     },
-    [makeAuthenticatedRequest, t, user],
+    [makeAuthenticatedRequest, t, user, sessionStatus.sessionId, saveGameResult],
   );
 
   const endGame = useCallback(
-    (cause: "miss" | "wrong_click" | "decoy_hit" | "app_minimized") => {
+    (cause: "miss" | "wrong_click" | "decoy_hit" | "app_minimized" | "session_expired") => {
       if (isGameEndingRef.current) {
         return;
       }
@@ -431,6 +491,9 @@ export default function RotationGameManager() {
           case "app_minimized":
             // Don't increment error counters when app is minimized
             break;
+          case "session_expired":
+            // Don't increment error counters when session expires
+            break;
         }
 
         const finalGameState = {
@@ -443,9 +506,9 @@ export default function RotationGameManager() {
 
         const result = createRotationGameResult(finalGameState);
 
-        // Add app_minimized death cause if applicable
-        if (cause === "app_minimized") {
-          (result as any).deathCause = "app_minimized";
+        // Add death cause for app minimization or session expiry
+        if (cause === "app_minimized" || cause === "session_expired") {
+          (result as any).deathCause = cause;
         }
 
         setGameResult(result);
@@ -636,68 +699,111 @@ export default function RotationGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback(async () => {
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
-    const newGameState = initializeRotationGameState();
-
-    shadowSecurityRef.current = new ShadowSecurityManager(
-      GameMode.ROTATION,
-      newGameState.gameStartTime || Date.now(),
-      {
-        enabled: true,
-        sensitivityThreshold: 1.0,
-        suspiciousMovementThreshold: 70.0,
-        maxCheckInterval: 5000,
-        minCheckInterval: 5000,
-        requirePermissionCheck: false,
-      },
-    );
-
-    setGameState(newGameState);
-    setGameResult(null);
-    setSaveStatus(initialSaveStatus);
-    setPlayAgainError(initialPlayAgainError);
-    setActivatedCircles([]);
-    setLastActivationTimestamp(0);
-    setIsPlayingAgain(false);
-    setInstantlyDeactivatedCircles([]);
-
-    setTimeout(() => {
-      setShowCircles(true);
-    }, 100);
-
-    setTimeout(() => {
-      setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
-
-      const levelInterval = setInterval(() => {
-        setGameState((current) => {
-          if (
-            !current.isActive ||
-            current.gameState !== GameState.PLAYING ||
-            current.isGameEnding ||
-            isGameEndingRef.current
-          ) {
-            clearInterval(levelInterval);
-
-            return current;
-          }
-
-          return updateRotationLevel(current, Date.now());
+    try {
+      // NEW: Consume attempt with session creation
+      const attemptsResult = await consumeAttemptWithSession(GameMode.ROTATION);
+      
+      if (!attemptsResult || !attemptsResult.canPlay) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.rotation.playAgain.noAttempts"),
+          redirecting: false,
+          isSessionError: false,
         });
-      }, LEVEL_UPDATE_INTERVAL);
+        return;
+      }
+
+      // Set up session status
+      if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
+        setSessionStatus({
+          sessionId: attemptsResult.sessionId,
+          expiresAt: attemptsResult.sessionExpiresAt,
+          isValid: true,
+          timeRemaining: attemptsResult.sessionExpiresAt.getTime() - Date.now(),
+        });
+      } else {
+        console.error("No session data received from consume attempt");
+        setPlayAgainError({
+          show: true,
+          message: "Failed to create game session",
+          redirecting: false,
+          isSessionError: true,
+        });
+        return;
+      }
+
+      const newGameState = initializeRotationGameState();
+
+      shadowSecurityRef.current = new ShadowSecurityManager(
+        GameMode.ROTATION,
+        newGameState.gameStartTime || Date.now(),
+        {
+          enabled: true,
+          sensitivityThreshold: 1.0,
+          suspiciousMovementThreshold: 70.0,
+          maxCheckInterval: 5000,
+          minCheckInterval: 5000,
+          requirePermissionCheck: false,
+        },
+      );
+
+      setGameState(newGameState);
+      setGameResult(null);
+      setSaveStatus(initialSaveStatus);
+      setPlayAgainError(initialPlayAgainError);
+      setActivatedCircles([]);
+      setLastActivationTimestamp(0);
+      setIsPlayingAgain(false);
+      setInstantlyDeactivatedCircles([]);
 
       setTimeout(() => {
-        scheduleNextActivation();
-      }, 1000);
+        setShowCircles(true);
+      }, 100);
 
-      setGameState((prev) => ({
-        ...prev,
-        levelUpdateInterval: levelInterval,
-      }));
-    }, 800);
-  }, [scheduleNextActivation]);
+      setTimeout(() => {
+        setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
+
+        const levelInterval = setInterval(() => {
+          setGameState((current) => {
+            if (
+              !current.isActive ||
+              current.gameState !== GameState.PLAYING ||
+              current.isGameEnding ||
+              isGameEndingRef.current
+            ) {
+              clearInterval(levelInterval);
+
+              return current;
+            }
+
+            return updateRotationLevel(current, Date.now());
+          });
+        }, LEVEL_UPDATE_INTERVAL);
+
+        setTimeout(() => {
+          scheduleNextActivation();
+        }, 1000);
+
+        setGameState((prev) => ({
+          ...prev,
+          levelUpdateInterval: levelInterval,
+        }));
+      }, 800);
+
+    } catch (error) {
+      console.error("Failed to start game:", error);
+      setPlayAgainError({
+        show: true,
+        message: t("game.modes.rotation.playAgain.error"),
+        redirecting: false,
+        isSessionError: false,
+      });
+    }
+  }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
@@ -712,46 +818,23 @@ export default function RotationGameManager() {
           show: true,
           message: t("game.modes.rotation.playAgain.noAttempts"),
           redirecting: false,
+          isSessionError: false,
         });
         setIsPlayingAgain(false);
-
         return;
       }
 
-      const consumeResult = await consumeAttempt();
-
-      if (!consumeResult) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.rotation.playAgain.failedToConsume"),
-          redirecting: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
-      if (consumeResult.attemptsRemaining < 0) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.rotation.playAgain.failedToConsume"),
-          redirecting: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
-      startGame();
+      await startGame();
     } catch (error) {
       setPlayAgainError({
         show: true,
         message: t("game.modes.rotation.playAgain.error"),
         redirecting: false,
+        isSessionError: false,
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
+  }, [isPlayingAgain, fetchAttemptsStatus, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -759,6 +842,10 @@ export default function RotationGameManager() {
 
       if (shadowSecurityRef.current) {
         shadowSecurityRef.current.cleanup();
+      }
+
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current);
       }
     };
   }, []);
@@ -773,6 +860,8 @@ export default function RotationGameManager() {
         return <AlertTriangle className="text-red-400" size={20} />;
       case "app_minimized":
         return <EyeOff className="text-gray-400" size={20} />;
+      case "session_expired":
+        return <ShieldAlert className="text-orange-400" size={20} />;
       default:
         return <RotateCw className="text-red-400" size={20} />;
     }
@@ -785,6 +874,7 @@ export default function RotationGameManager() {
       decoy_hit: "game.modes.rotation.deathCauses.decoyHit",
       timeout: "game.modes.rotation.deathCauses.default",
       app_minimized: "game.modes.physics.deathCauses.appMinimized",
+      session_expired: "game.modes.rotation.deathCauses.sessionExpired",
     };
 
     const key =
@@ -853,8 +943,10 @@ export default function RotationGameManager() {
             </div>
           </div>
 
+          {/* Enhanced save status with session error handling */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
+            saveStatus.sessionError ||
             saveStatus.isSuccess) && (
             <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
               {saveStatus.isLoading && (
@@ -892,6 +984,24 @@ export default function RotationGameManager() {
                 </div>
               )}
 
+              {/* Session error display */}
+              {saveStatus.sessionError && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-orange-400" size={16} />
+                    <span className="text-sm text-orange-400">
+                      Session Security Error
+                    </span>
+                  </div>
+                  <div className="text-orange-400/60 text-xs mb-3">
+                    {saveStatus.sessionError}
+                  </div>
+                  <div className="text-white/60 text-xs">
+                    Game may not be saved due to session validation failure
+                  </div>
+                </div>
+              )}
+
               {saveStatus.isSuccess && !saveStatus.isLoading && (
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
@@ -920,7 +1030,7 @@ export default function RotationGameManager() {
                   </div>
                   <button
                     className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
+                    onClick={() => gameResult && handleSaveGameResult(gameResult)}
                   >
                     {t("save.retrySave")}
                   </button>
@@ -933,8 +1043,14 @@ export default function RotationGameManager() {
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">
                 <div className="flex items-center justify-center space-x-2 mb-2">
-                  <AlertTriangle className="text-red-400" size={16} />
-                  <span className="text-red-400 text-sm font-bold">
+                  {playAgainError.isSessionError ? (
+                    <ShieldAlert className="text-orange-400" size={16} />
+                  ) : (
+                    <AlertTriangle className="text-red-400" size={16} />
+                  )}
+                  <span className={`text-sm font-bold ${
+                    playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
+                  }`}>
                     {t("game.modes.rotation.playAgain.cannotPlay")}
                   </span>
                 </div>
