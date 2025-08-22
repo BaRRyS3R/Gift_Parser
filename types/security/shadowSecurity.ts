@@ -248,46 +248,74 @@ export function hasGyroscopeMonitoring(data: SuspiciousActivityData): boolean {
 
 /**
  * Enhanced type guard to check if activity is suspicious
- * Now includes detection of ultra-short gaming sessions as potentially suspicious
- * UPDATED: Includes ultra-short session detection for bot identification
+ * FIXED: More strict validation to prevent database division by zero scenarios
+ * @param data - The suspicious activity data to check
+ * @returns true if there is meaningful suspicious activity worth recording
  */
 export function hasAnySuspiciousActivity(
   data: SuspiciousActivityData,
 ): boolean {
-  // Проверка подозрительных кликов
+  // Check for suspicious clicks
   const hasSuspiciousClicks = data.suspiciousClicksCount > 0;
 
-  // Проверка подозрительной активности гироскопа
+  // Check for suspicious gyroscope activity (only if gyroscope was actually used)
   const hasSuspiciousGyroscope =
-    data.gyroscopeEnabled && data.gyroscopeSuspicious;
+    data.gyroscopeEnabled &&
+    data.totalGyroscopeChecks > 0 &&
+    data.gyroscopeSuspicious;
 
-  // Проверка недоступности гироскопа (исключая iOS оптимизацию)
-  const hasGyroscopeUnavailability =
+  // Check for gyroscope unavailability BUT only if we have some clicks to make it meaningful
+  // This prevents recording empty sessions just because gyroscope is unavailable
+  const hasGyroscopeUnavailabilityWithClicks =
+    data.totalClicks > 0 &&
     !data.gyroscopeEnabled &&
     data.gyroscopeErrorReason !== null &&
     data.gyroscopeErrorReason !== "ios_optimization_disabled";
 
-  // НОВОЕ: Проверка ультракоротких сессий (менее 3 секунд)
+  // Check for ultra-short sessions with clicks (potential bot behavior)
   const gameDuration = data.gameEndTime - data.gameStartTime;
-  const isUltraShortSession = gameDuration < 3000;
+  const isUltraShortSessionWithClicks =
+    gameDuration < 3000 &&
+    data.totalClicks > 0;
 
-  // Считаем ультракороткие сессии подозрительными только если есть клики
-  // Это помогает выявлять ботов, которые быстро кликают и выходят
-  const suspiciousShortSession = isUltraShortSession && data.totalClicks > 0;
+  // CRITICAL: Only record if we have meaningful activity
+  // Don't record sessions with zero clicks and zero gyroscope checks
+  const hasMeaningfulActivity =
+    data.totalClicks > 0 ||
+    (data.gyroscopeEnabled && data.totalGyroscopeChecks > 0);
 
-  // Логирование для мониторинга ультракоротких сессий
-  if (suspiciousShortSession) {
+  if (!hasMeaningfulActivity) {
     console.log(
-      `Shadow Security: Ultra-short session detected - Duration: ${gameDuration}ms, Clicks: ${data.totalClicks}`,
+      `Shadow Security: No meaningful activity detected - ` +
+      `clicks: ${data.totalClicks}, gyroscope checks: ${data.totalGyroscopeChecks}`
+    );
+    return false;
+  }
+
+  const result = (
+    hasSuspiciousClicks ||
+    hasSuspiciousGyroscope ||
+    hasGyroscopeUnavailabilityWithClicks ||
+    isUltraShortSessionWithClicks
+  );
+
+  // Enhanced logging for debugging
+  if (result) {
+    const reasons = [];
+    if (hasSuspiciousClicks) reasons.push("suspicious clicks");
+    if (hasSuspiciousGyroscope) reasons.push("suspicious gyroscope");
+    if (hasGyroscopeUnavailabilityWithClicks) reasons.push("gyroscope unavailable with clicks");
+    if (isUltraShortSessionWithClicks) reasons.push("ultra-short session with clicks");
+
+    console.log(
+      `Shadow Security: Suspicious activity detected for user ${data.telegramId} - ` +
+      `Reasons: ${reasons.join(", ")}. ` +
+      `Game duration: ${gameDuration}ms, Clicks: ${data.totalClicks}, ` +
+      `Gyroscope checks: ${data.totalGyroscopeChecks}`
     );
   }
 
-  return (
-    hasSuspiciousClicks ||
-    hasSuspiciousGyroscope ||
-    hasGyroscopeUnavailability ||
-    suspiciousShortSession
-  );
+  return result;
 }
 
 /**
@@ -402,7 +430,7 @@ export function formatSuspiciousActivitySummary(
     } else {
       details.push(
         `gyroscope movement: ${data.gyroscopeMovementPercentage.toFixed(1)}%` +
-          (data.gyroscopeSuspicious ? " [SUSPICIOUS]" : ""),
+        (data.gyroscopeSuspicious ? " [SUSPICIOUS]" : ""),
       );
     }
   } else if (data.gyroscopeErrorReason) {

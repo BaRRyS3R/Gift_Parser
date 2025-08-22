@@ -1,4 +1,4 @@
-// src/lib/server/shadowSecurityService.ts - Enhanced server service with comprehensive division by zero protection
+// src/lib/server/shadowSecurityService.ts - Enhanced with strict validation to prevent database division by zero
 
 import { supabaseServer } from "../supabase_server";
 
@@ -12,8 +12,8 @@ import {
 } from "@/types/security/shadowSecurity";
 
 /**
- * Enhanced server-side service for managing suspicious activity records with comprehensive division by zero protection
- * FIXED: Added multiple layers of protection against division by zero errors in database operations
+ * Enhanced server-side service for managing suspicious activity records with strict validation
+ * FIXED: Added comprehensive validation to prevent all database division by zero scenarios
  */
 export class ShadowSecurityService {
   /**
@@ -43,8 +43,40 @@ export class ShadowSecurityService {
   }
 
   /**
-   * Submit enhanced suspicious activity data to the database with robust error protection
-   * FIXED: Enhanced normalization and validation to prevent all division by zero scenarios
+   * Enhanced validation to determine if activity data should be recorded
+   * FIXED: Prevents recording activities that could cause database division by zero
+   * @param data - The suspicious activity data to validate
+   * @returns true if data should be recorded, false otherwise
+   */
+  static shouldRecordActivity(data: SuspiciousActivityData): boolean {
+    // Must have actual suspicious clicks OR meaningful gyroscope activity
+    const hasSuspiciousClicks = data.suspiciousClicksCount > 0;
+    const hasValidGyroscopeActivity = data.gyroscopeEnabled && data.totalGyroscopeChecks > 0;
+    
+    // Special case: If gyroscope is unavailable but we have clicks, it's worth recording
+    const hasClicksWithGyroscopeUnavailable = data.totalClicks > 0 && 
+      !data.gyroscopeEnabled && 
+      data.gyroscopeErrorReason !== null &&
+      data.gyroscopeErrorReason !== "ios_optimization_disabled";
+
+    // CRITICAL: Don't record if we have no clicks AND no meaningful gyroscope data
+    // This prevents database division by zero on empty records
+    if (data.totalClicks === 0 && !hasValidGyroscopeActivity) {
+      console.log(
+        `Shadow Security: Skipping record for user ${data.telegramId} - ` +
+        `no clicks (${data.totalClicks}) and no meaningful gyroscope data ` +
+        `(enabled: ${data.gyroscopeEnabled}, checks: ${data.totalGyroscopeChecks})`
+      );
+      return false;
+    }
+
+    // Record if we have any of these conditions
+    return hasSuspiciousClicks || hasValidGyroscopeActivity || hasClicksWithGyroscopeUnavailable;
+  }
+
+  /**
+   * Submit enhanced suspicious activity data to the database with comprehensive validation
+   * FIXED: Added strict pre-validation to prevent database division by zero scenarios
    * @param activityData - The suspicious activity data to store
    * @returns Promise with success status and error if any
    */
@@ -52,10 +84,24 @@ export class ShadowSecurityService {
     activityData: SuspiciousActivityData,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Validate that there is actually suspicious activity
+      // Validate that there is actually suspicious activity worth recording
       if (!hasAnySuspiciousActivity(activityData)) {
+        console.log(
+          `Shadow Security: No suspicious activity detected for user ${activityData.telegramId} - skipping`
+        );
         return {
           success: true, // No suspicious activity, no need to record
+        };
+      }
+
+      // CRITICAL: Additional validation to prevent database division by zero
+      if (!this.shouldRecordActivity(activityData)) {
+        console.log(
+          `Shadow Security: Activity data validation failed for user ${activityData.telegramId} - ` +
+          `would cause database division by zero`
+        );
+        return {
+          success: true, // Don't record problematic data
         };
       }
 
@@ -92,13 +138,15 @@ export class ShadowSecurityService {
         };
       }
 
-      // ENHANCED FIX: Comprehensive data normalization with multiple safety checks
+      // ENHANCED FIX: Comprehensive data normalization with database safety
       const normalizedActivityData = { ...activityData };
 
       // Step 1: Handle zero gyroscope checks scenario
       if (normalizedActivityData.totalGyroscopeChecks === 0) {
         normalizedActivityData.gyroscopeMovementsDetected = 0;
         normalizedActivityData.gyroscopeMovementPercentage = 0;
+        // CRITICAL: Don't mark as suspicious if no checks were performed
+        normalizedActivityData.gyroscopeSuspicious = false;
 
         const gameDuration =
           normalizedActivityData.gameEndTime -
@@ -106,7 +154,7 @@ export class ShadowSecurityService {
 
         console.log(
           `Shadow Security: Zero gyroscope checks normalization for user ${normalizedActivityData.telegramId} - ` +
-            `game duration: ${gameDuration}ms`,
+            `game duration: ${gameDuration}ms, forcing gyroscope_suspicious to false`,
         );
       } 
       // Step 2: Validate and recalculate percentage for non-zero checks
@@ -166,6 +214,7 @@ export class ShadowSecurityService {
         if (normalizedActivityData.totalGyroscopeChecks === 0) {
           normalizedActivityData.gyroscopeMovementsDetected = 0;
           normalizedActivityData.gyroscopeMovementPercentage = 0;
+          normalizedActivityData.gyroscopeSuspicious = false;
           console.warn(
             `Shadow Security: Emergency zero-checks protection applied for user ${normalizedActivityData.telegramId}`,
           );
@@ -180,7 +229,20 @@ export class ShadowSecurityService {
         normalizedActivityData.avgReactionTime = 0;
       }
 
-      // Step 5: Prepare database record with extra safety checks
+      // Step 5: CRITICAL DATABASE SAFETY CHECK
+      // Prevent any record that could cause division by zero in database triggers/constraints
+      if (normalizedActivityData.totalClicks === 0 && 
+          normalizedActivityData.totalGyroscopeChecks === 0) {
+        console.warn(
+          `Shadow Security: Blocking potentially problematic record for user ${normalizedActivityData.telegramId} - ` +
+          `both clicks and gyroscope checks are zero, could cause database division by zero`
+        );
+        return {
+          success: true, // Don't record, but don't treat as error
+        };
+      }
+
+      // Step 6: Prepare database record with extra safety checks
       const record: Omit<
         SuspiciousActivityRecord,
         "id" | "created_at" | "updated_at"
@@ -188,7 +250,7 @@ export class ShadowSecurityService {
         telegram_id: normalizedActivityData.telegramId,
         game_mode: normalizedActivityData.gameMode.toLowerCase(),
 
-        // Click monitoring fields with safe defaults
+        // Click monitoring fields with safe defaults (ensure at least 1 if any clicks exist)
         total_clicks: Math.max(0, normalizedActivityData.totalClicks),
         suspicious_clicks_count: Math.max(0, normalizedActivityData.suspiciousClicksCount),
         min_reaction_time: Math.max(0, normalizedActivityData.minReactionTime),
@@ -202,9 +264,9 @@ export class ShadowSecurityService {
         total_gyroscope_checks: Math.max(0, normalizedActivityData.totalGyroscopeChecks),
         gyroscope_movements_detected: Math.max(0, normalizedActivityData.gyroscopeMovementsDetected),
         gyroscope_movement_percentage: Math.max(0, Math.min(100, normalizedActivityData.gyroscopeMovementPercentage)),
-        gyroscope_suspicious: normalizedActivityData.gyroscopeSuspicious,
+        gyroscope_suspicious: normalizedActivityData.gyroscopeSuspicious && normalizedActivityData.totalGyroscopeChecks > 0, // Force false if no checks
         gyroscope_error_reason: normalizedActivityData.gyroscopeErrorReason,
-        gyroscope_min_sensitivity: Math.max(0, normalizedActivityData.gyroscopeMinSensitivity),
+        gyroscope_min_sensitivity: Math.max(0.001, normalizedActivityData.gyroscopeMinSensitivity), // Ensure non-zero
         gyroscope_check_intervals_ms: JSON.stringify(
           normalizedActivityData.gyroscopeCheckIntervals || [],
         ),
@@ -214,19 +276,37 @@ export class ShadowSecurityService {
         game_end_time: new Date(normalizedActivityData.gameEndTime).toISOString(),
       };
 
-      // Step 6: Final validation before database insertion
+      // Step 7: Final validation before database insertion
       if (record.total_gyroscope_checks === 0) {
         record.gyroscope_movements_detected = 0;
         record.gyroscope_movement_percentage = 0;
+        record.gyroscope_suspicious = false; // CRITICAL: Force false
       } else if (record.gyroscope_movements_detected > record.total_gyroscope_checks) {
         record.gyroscope_movements_detected = record.total_gyroscope_checks;
         record.gyroscope_movement_percentage = 100;
       }
 
+      // Step 8: FINAL SAFETY CHECK - Ensure we have meaningful data to record
+      const hasValidClickData = record.total_clicks > 0;
+      const hasValidGyroscopeData = record.total_gyroscope_checks > 0;
+      const hasGyroscopeError = record.gyroscope_error_reason !== null && 
+                               record.gyroscope_error_reason !== "ios_optimization_disabled";
+
+      if (!hasValidClickData && !hasValidGyroscopeData && !hasGyroscopeError) {
+        console.log(
+          `Shadow Security: Final safety check failed for user ${record.telegram_id} - ` +
+          `no valid data to record (clicks: ${record.total_clicks}, gyro_checks: ${record.total_gyroscope_checks}, error: ${record.gyroscope_error_reason})`
+        );
+        return {
+          success: true, // Don't record empty data
+        };
+      }
+
       // Pre-insertion logging for debugging
       console.log(
         `Shadow Security: Attempting database insertion for user ${record.telegram_id} - ` +
-        `Gyroscope: checks=${record.total_gyroscope_checks}, movements=${record.gyroscope_movements_detected}, percentage=${record.gyroscope_movement_percentage}%`,
+        `Clicks: ${record.total_clicks} (suspicious: ${record.suspicious_clicks_count}), ` +
+        `Gyroscope: checks=${record.total_gyroscope_checks}, movements=${record.gyroscope_movements_detected}, percentage=${record.gyroscope_movement_percentage}%, suspicious=${record.gyroscope_suspicious}`,
       );
 
       // Insert record into database
@@ -243,39 +323,28 @@ export class ShadowSecurityService {
         // Enhanced error handling for division by zero
         if (error.code === "22012" || error.message?.includes("division by zero")) {
           console.error("CRITICAL: Division by zero error detected. Record state:", {
+            totalClicks: record.total_clicks,
+            suspiciousClicks: record.suspicious_clicks_count,
             totalChecks: record.total_gyroscope_checks,
             movements: record.gyroscope_movements_detected,
             percentage: record.gyroscope_movement_percentage,
+            gyroscopeSuspicious: record.gyroscope_suspicious,
             gameMode: record.game_mode,
             telegramId: record.telegram_id,
-            recordData: record,
+            sensitivity: record.gyroscope_min_sensitivity,
           });
 
-          // Try emergency insertion with all gyroscope data zeroed
-          const emergencyRecord = {
-            ...record,
-            total_gyroscope_checks: 0,
-            gyroscope_movements_detected: 0,
-            gyroscope_movement_percentage: 0,
-            gyroscope_suspicious: false,
+          // Don't attempt emergency insertion - if our safety checks failed,
+          // there's likely a fundamental issue with the database schema
+          console.error(
+            "Shadow Security: Comprehensive safety checks failed to prevent division by zero. " +
+            "This indicates a database schema issue that needs investigation."
+          );
+
+          return {
+            success: false,
+            error: "Database division by zero error - schema investigation required",
           };
-
-          console.log("Shadow Security: Attempting emergency insertion with zeroed gyroscope data");
-
-          const { error: emergencyError } = await supabaseServer
-            .from("suspicious_activity")
-            .insert(emergencyRecord);
-
-          if (emergencyError) {
-            console.error("Emergency insertion also failed:", emergencyError);
-            return {
-              success: false,
-              error: "Failed to record suspicious activity - division by zero protection failed",
-            };
-          } else {
-            console.log("Emergency insertion successful");
-            return { success: true };
-          }
         }
 
         return {
