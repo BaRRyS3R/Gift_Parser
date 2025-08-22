@@ -586,7 +586,7 @@ export default function BlockedPage(): JSX.Element {
             {isPCDetection ? (
               <>
                 <p>• Switch to a mobile device (smartphone or tablet)</p>
-                <p>• Ensure you're using a touch interface</p>
+                <p>• Ensure you&aptos;re using a touch interface</p>
                 <p>• Avoid using mouse or desktop browsers</p>
                 <p>• Wait for the block period to expire</p>
               </>
