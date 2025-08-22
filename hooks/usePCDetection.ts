@@ -132,7 +132,7 @@ export function usePCDetection(
         },
         body: JSON.stringify({
           blockReason: "pc_detected",
-          durationHours: 48, // 2 days
+          durationHours: 9999, // 9999 hours
           additionalData: {
             source: "client_pc_detection",
             detectionData,
