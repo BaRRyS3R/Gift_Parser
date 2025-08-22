@@ -527,26 +527,6 @@ function MainPageContent() {
         onClose={handleCloseDailyQuestModal}
       />
 
-      {/* Daily Quest Button - Bottom position */}
-      <div
-        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-8"
-              }`
-            : "opacity-100 translate-y-0"
-        }`}
-        style={{ bottom: "200px" }}
-      >
-        <DailyQuestButton
-          isTransitioning={isTransitioning}
-          makeAuthenticatedRequest={makeAuthenticatedRequest}
-          onClick={handleOpenDailyQuest}
-        />
-      </div>
-
       {/* Enhanced Attempts Display with Level Integration */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${
@@ -558,7 +538,7 @@ function MainPageContent() {
               }`
             : "opacity-100 translate-y-0"
         }`}
-        style={{ paddingBottom: "140px" }}
+        style={{ paddingBottom: "220px" }}
       >
         <AttemptsDisplay
           attemptsRemaining={attemptsRemaining}
@@ -570,6 +550,26 @@ function MainPageContent() {
           showShopButton={false}
           userLevel={userLevel}
           onRetry={handleAttemptsRetry}
+        />
+      </div>
+
+      {/* Daily Quest Button - Between Attempts and Bottom Menu */}
+      <div
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
+        style={{ bottom: "140px" }}
+      >
+        <DailyQuestButton
+          isTransitioning={isTransitioning}
+          makeAuthenticatedRequest={makeAuthenticatedRequest}
+          onClick={handleOpenDailyQuest}
         />
       </div>
     </div>
