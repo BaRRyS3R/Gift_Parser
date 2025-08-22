@@ -538,7 +538,7 @@ function MainPageContent() {
               }`
             : "opacity-100 translate-y-0"
         }`}
-        style={{ paddingBottom: "220px" }}
+        style={{ paddingBottom: "180px" }}
       >
         <AttemptsDisplay
           attemptsRemaining={attemptsRemaining}
@@ -564,7 +564,7 @@ function MainPageContent() {
               }`
             : "opacity-100 translate-y-0"
         }`}
-        style={{ bottom: "140px" }}
+        style={{ bottom: "100px" }}
       >
         <DailyQuestButton
           isTransitioning={isTransitioning}
