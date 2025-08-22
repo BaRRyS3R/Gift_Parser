@@ -568,7 +568,7 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* Enhanced horizontal scrolling cards with animated borders */}
+      {/* Enhanced horizontal scrolling cards with bottom glow effect */}
       <div className="mb-8 animate-fade-in">
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex space-x-6 px-4" style={{ width: "max-content" }}>
@@ -673,19 +673,22 @@ function GamePageContent() {
                       </div>
                     </CardFooter>
 
-                    {/* Animated border pulse effect */}
+                    {/* Bottom glow highlight effect */}
                     <div 
-                      className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`}
-                      style={{
-                        background: `linear-gradient(45deg, transparent, ${
-                          mode.id === 'reaction' ? '#3b82f640' :
-                          mode.id === 'survival' ? '#ef444440' :
-                          mode.id === 'physics' ? '#a855f740' :
-                          '#f59e0b40'
-                        }, transparent)`,
-                        animation: 'border-pulse 2s ease-in-out infinite',
-                      }}
-                    />
+                      className={`absolute inset-x-0 bottom-0 h-1/3 rounded-b-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none overflow-hidden`}
+                    >
+                      <div 
+                        className="absolute inset-0 animate-bottom-glow"
+                        style={{
+                          background: `linear-gradient(to top, ${
+                            mode.id === 'reaction' ? '#3b82f680' :
+                            mode.id === 'survival' ? '#ef444480' :
+                            mode.id === 'physics' ? '#a855f780' :
+                            '#f59e0b80'
+                          }, transparent 70%)`,
+                        }}
+                      />
+                    </div>
 
                     {/* Enhanced glow effect overlay */}
                     <div 
@@ -718,17 +721,25 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* CSS Animation for border pulse */}
+      {/* CSS Animation for bottom glow effect */}
       <style jsx global>{`
-        @keyframes border-pulse {
-          0%, 100% {
+        @keyframes bottom-glow {
+          0% {
+            transform: translateY(100%);
             opacity: 0;
-            transform: scale(1);
           }
           50% {
-            opacity: 0.3;
-            transform: scale(1.02);
+            transform: translateY(0%);
+            opacity: 1;
           }
+          100% {
+            transform: translateY(-20%);
+            opacity: 0.8;
+          }
+        }
+        
+        .animate-bottom-glow {
+          animation: bottom-glow 2s ease-in-out infinite;
         }
       `}</style>
     </div>
