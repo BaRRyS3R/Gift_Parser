@@ -1,4 +1,4 @@
-// src/app/api/auth/register/route.ts - Updated to use server league service
+// src/app/api/auth/register/route.ts - ИСПРАВЛЕННАЯ ВЕРСИЯ с усиленной безопасностью
 
 import type { TelegramUser } from "@/lib/supabase";
 
@@ -9,6 +9,7 @@ import {
   validateTelegramData,
   extractReferralCode,
   createInitDataHash,
+  quickAuthDateCheck,
 } from "@/lib/telegram-auth";
 import { createJWT, createRefreshToken } from "@/lib/jwt";
 
@@ -49,62 +50,189 @@ interface RegisterResponse {
   error?: string;
 }
 
+// 🚨 НОВАЯ ФУНКЦИЯ: Логирование событий безопасности
+function logSecurityEvent(type: string, data: any, request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") || 
+            request.headers.get("x-real-ip") || 
+            "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    type,
+    ip,
+    userAgent: userAgent.substring(0, 200),
+    endpoint: "/api/auth/register",
+    data
+  };
+  
+  console.error(`[REGISTER SECURITY] ${type}:`, JSON.stringify(logEntry, null, 2));
+}
+
+// 🚨 НОВАЯ ФУНКЦИЯ: Проверка подозрительного поведения при регистрации
+function detectSuspiciousRegistration(telegramUser: TelegramUser, request: NextRequest): {
+  isSuspicious: boolean;
+  reasons: string[];
+} {
+  const reasons: string[] = [];
+  
+  // Проверка на подозрительные имена
+  if (telegramUser.first_name.length < 2) {
+    reasons.push("name_too_short");
+  }
+  
+  if (/^[a-zA-Z0-9_]+$/.test(telegramUser.first_name) && telegramUser.first_name.length > 20) {
+    reasons.push("suspicious_name_pattern");
+  }
+  
+  // Проверка на очень новые аккаунты (по ID)
+  // Telegram user IDs растут со временем, очень большие ID = очень новые аккаунты
+  if (telegramUser.id > 8000000000) { // Примерная граница для очень новых аккаунтов
+    reasons.push("very_new_account");
+  }
+  
+  // Проверка отсутствия username у не-премиум пользователей (подозрительно)
+  if (!telegramUser.username && !telegramUser.is_premium) {
+    reasons.push("no_username_non_premium");
+  }
+  
+  return {
+    isSuspicious: reasons.length > 0,
+    reasons
+  };
+}
+
 /**
  * POST /api/auth/register
  * Registers a new user with Telegram WebApp data validation
+ * 🚨 УСИЛЕННАЯ ВЕРСИЯ с многоуровневой защитой и анти-фрод проверками
  */
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<RegisterResponse>> {
+  const startTime = Date.now();
+  
   try {
+    console.log("[REGISTER] Starting registration process");
+    
     // Parse request body
     const body: RegisterRequest = await request.json();
     const { initData, referralCode } = body;
 
     if (!initData) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Missing initData parameter",
-        },
-        { status: 400 },
-      );
+      console.error("[REGISTER] Missing initData parameter");
+      logSecurityEvent('MISSING_INIT_DATA', {}, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "Missing initData parameter",
+      }, { status: 400 });
     }
 
-    // Validate Telegram WebApp data
+    // 🚨 БЫСТРАЯ ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА AUTH_DATE
+    const quickCheck = quickAuthDateCheck(initData);
+    if (!quickCheck.isValid) {
+      console.error(`[REGISTER] Quick auth_date check failed: ${quickCheck.error}`);
+      logSecurityEvent('QUICK_AUTH_DATE_CHECK_FAILED', {
+        error: quickCheck.error,
+        authDate: quickCheck.authDate
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "Invalid authentication data",
+      }, { status: 400 });
+    }
+
+    console.log(`[REGISTER] Quick check passed, auth_date: ${quickCheck.authDate}`);
+
+    // 🚨 ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ БЕЗОПАСНОСТИ
+    
+    // Проверка размера initData
+    if (initData.length > 5000) {
+      console.error(`[REGISTER] InitData too large: ${initData.length} characters`);
+      logSecurityEvent('INIT_DATA_TOO_LARGE', { 
+        length: initData.length 
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "Invalid request format",
+      }, { status: 400 });
+    }
+
+    // Проверка формата referralCode если предоставлен
+    if (referralCode && !/^[A-Z0-9]{8}$/.test(referralCode)) {
+      console.error(`[REGISTER] Invalid referral code format: ${referralCode}`);
+      logSecurityEvent('INVALID_REFERRAL_FORMAT', { 
+        referralCode 
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "Invalid referral code format",
+      }, { status: 400 });
+    }
+
+    // Validate Telegram WebApp data with full cryptographic verification
+    console.log("[REGISTER] Starting full Telegram data validation");
     const validation = validateTelegramData(initData);
 
     if (!validation.isValid || !validation.user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: validation.error || "Invalid Telegram data",
-        },
-        { status: 400 },
-      );
+      console.error(`[REGISTER] Telegram validation failed: ${validation.error}`);
+      logSecurityEvent('TELEGRAM_VALIDATION_FAILED', {
+        error: validation.error,
+        hasUser: !!validation.user
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: validation.error || "Invalid Telegram data",
+      }, { status: 400 });
     }
 
     const telegramUser: TelegramUser = validation.user;
+    console.log(`[REGISTER] Validation successful for user ${telegramUser.id} (${telegramUser.first_name})`);
+
+    // 🚨 ПРОВЕРКА НА ПОДОЗРИТЕЛЬНУЮ РЕГИСТРАЦИЮ
+    const suspiciousCheck = detectSuspiciousRegistration(telegramUser, request);
+    if (suspiciousCheck.isSuspicious) {
+      console.warn(`[REGISTER] Suspicious registration detected for user ${telegramUser.id}: ${suspiciousCheck.reasons.join(', ')}`);
+      logSecurityEvent('SUSPICIOUS_REGISTRATION', {
+        telegramId: telegramUser.id,
+        firstName: telegramUser.first_name,
+        reasons: suspiciousCheck.reasons,
+        username: telegramUser.username,
+        isPremium: telegramUser.is_premium
+      }, request);
+      
+      // Не блокируем, но логируем для мониторинга
+      // В будущем можно добавить дополнительную верификацию для подозрительных регистраций
+    }
 
     // Check if user already exists
-    const existingUser = await serverUserService.findByTelegramId(
-      telegramUser.id,
-    );
+    console.log("[REGISTER] Checking if user already exists");
+    const existingUser = await serverUserService.findByTelegramId(telegramUser.id);
 
     if (existingUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User already exists",
-        },
-        { status: 409 },
-      );
+      console.log(`[REGISTER] User ${telegramUser.id} already exists`);
+      logSecurityEvent('DUPLICATE_REGISTRATION', {
+        telegramId: telegramUser.id,
+        firstName: telegramUser.first_name,
+        existingUserId: existingUser.id
+      }, request);
+      
+      return NextResponse.json({
+        success: false,
+        error: "User already exists",
+      }, { status: 409 });
     }
 
     // Extract referral code from initData if not provided
     const extractedReferralCode = extractReferralCode(initData);
-    const finalReferralCode =
-      referralCode || extractedReferralCode || undefined;
+    const finalReferralCode = referralCode || extractedReferralCode || undefined;
+
+    console.log(`[REGISTER] Final referral code: ${finalReferralCode || 'none'}`);
 
     // Validate referral code and get referrer info
     let referralBonusInfo:
@@ -116,29 +244,64 @@ export async function POST(
       | undefined;
 
     if (finalReferralCode) {
-      const referralValidation =
-        await serverUserService.validateReferralCodeAndGetReferrer(
-          finalReferralCode,
-        );
+      console.log(`[REGISTER] Validating referral code: ${finalReferralCode}`);
+      
+      const referralValidation = await serverUserService.validateReferralCodeAndGetReferrer(
+        finalReferralCode,
+      );
 
       if (referralValidation.isValid) {
+        console.log(`[REGISTER] Valid referral code, bonus: ${referralValidation.bonus}`);
         referralBonusInfo = {
           received: referralValidation.bonus,
           referrerName: referralValidation.referrerName,
           referrerUsername: referralValidation.referrerUsername,
         };
+        
+        logSecurityEvent('REFERRAL_USED', {
+          telegramId: telegramUser.id,
+          referralCode: finalReferralCode,
+          bonus: referralValidation.bonus,
+          referrerName: referralValidation.referrerName
+        }, request);
+      } else {
+        console.warn(`[REGISTER] Invalid referral code: ${finalReferralCode}`);
+        logSecurityEvent('INVALID_REFERRAL_CODE', {
+          telegramId: telegramUser.id,
+          referralCode: finalReferralCode
+        }, request);
+        
+        // Не блокируем регистрацию из-за неправильного реферального кода
+        // Просто игнорируем его
       }
     }
 
+    // 🚨 ДОПОЛНИТЕЛЬНАЯ АНТИ-ФРОД ПРОВЕРКА
+    // Проверяем количество регистраций с одного IP за последний час
+    const ip = request.headers.get("x-forwarded-for") || 
+              request.headers.get("x-real-ip") || 
+              "unknown";
+    
+    // Здесь можно добавить проверку в Redis или базе данных
+    // Пока логируем для мониторинга
+    logSecurityEvent('REGISTRATION_ATTEMPT', {
+      telegramId: telegramUser.id,
+      firstName: telegramUser.first_name,
+      ip,
+      hasReferral: !!finalReferralCode,
+      suspiciousReasons: suspiciousCheck.reasons
+    }, request);
+
     // Create new user
-    const newUser = await serverUserService.create(
-      telegramUser,
-      finalReferralCode,
-    );
+    console.log("[REGISTER] Creating new user in database");
+    const newUser = await serverUserService.create(telegramUser, finalReferralCode);
+
+    console.log(`[REGISTER] User created successfully: ${newUser.id}`);
 
     // Create JWT tokens
     const initDataHash = createInitDataHash(initData);
 
+    console.log("[REGISTER] Creating authentication tokens");
     const accessToken = await createJWT({
       userId: newUser.id,
       telegramId: newUser.telegram_id,
@@ -185,6 +348,20 @@ export async function POST(
       created_at: newUser.created_at,
     };
 
+    const processingTime = Date.now() - startTime;
+    console.log(`[REGISTER] Registration successful for user ${telegramUser.id} in ${processingTime}ms`);
+    
+    // Логируем успешную регистрацию
+    logSecurityEvent('REGISTRATION_SUCCESS', {
+      telegramId: telegramUser.id,
+      firstName: telegramUser.first_name,
+      userId: newUser.id,
+      processingTime,
+      trustScore: newUser.trust_score,
+      hasReferral: !!referralBonusInfo,
+      referralBonus: referralBonusInfo?.received
+    }, request);
+
     return NextResponse.json({
       success: true,
       user: userData,
@@ -194,38 +371,53 @@ export async function POST(
       },
       referralBonus: referralBonusInfo,
     });
+    
   } catch (error) {
+    const processingTime = Date.now() - startTime;
     console.error("Registration error:", error);
+
+    // Логируем ошибку
+    logSecurityEvent('REGISTRATION_ERROR', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+      processingTime
+    }, request);
 
     // Handle specific error types
     if (error instanceof Error) {
       if (error.message.includes("duplicate key")) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "User already exists",
-          },
-          { status: 409 },
-        );
+        return NextResponse.json({
+          success: false,
+          error: "User already exists",
+        }, { status: 409 });
       }
 
       if (error.message.includes("referral")) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Invalid referral code",
-          },
-          { status: 400 },
-        );
+        return NextResponse.json({
+          success: false,
+          error: "Invalid referral code",
+        }, { status: 400 });
+      }
+      
+      if (error.message.includes("Invalid") || error.message.includes("validation")) {
+        return NextResponse.json({
+          success: false,
+          error: "Invalid authentication data",
+        }, { status: 400 });
+      }
+      
+      if (error.message.includes("Bot token") || error.message.includes("TELEGRAM_BOT_API")) {
+        console.error("[REGISTER] Bot token error:", error.message);
+        return NextResponse.json({
+          success: false,
+          error: "Authentication service unavailable",
+        }, { status: 503 });
       }
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Registration failed. Please try again.",
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({
+      success: false,
+      error: "Registration failed. Please try again.",
+    }, { status: 500 });
   }
 }

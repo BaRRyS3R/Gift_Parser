@@ -1,4 +1,4 @@
-// src/app/page.tsx - Simplified authentication page with single initialization button
+// src/app/page.tsx - ИСПРАВЛЕННАЯ ВЕРСИЯ с усиленной безопасностью
 
 "use client";
 
@@ -8,7 +8,7 @@ import type { RegistrationResult, LoginResult } from "@/hooks/modules/useAuth";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Zap, Gift, AlertTriangle } from "lucide-react";
+import { Zap, Gift, AlertTriangle, Shield } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -16,17 +16,20 @@ import {
   extractReferralCode,
   parseTelegramInitData,
   getTelegramInitData,
+  quickAuthDateCheck, // 🚨 НОВЫЙ ИМПОРТ
 } from "@/lib/telegram-auth";
 
 interface PageState {
   isInitializing: boolean;
   needsAuthentication: boolean;
+  securityBlocked: boolean; // 🚨 НОВОЕ ПОЛЕ
   referralInfo?: {
     code: string;
     bonus: number;
     referrerName?: string;
     referrerUsername?: string;
   };
+  securityError?: string; // 🚨 НОВОЕ ПОЛЕ
 }
 
 export default function IntroPage(): JSX.Element {
@@ -44,10 +47,12 @@ export default function IntroPage(): JSX.Element {
 
   const authInitializedRef = useRef<boolean>(false);
   const operationInProgressRef = useRef<boolean>(false);
+  const securityCheckPerformedRef = useRef<boolean>(false); // 🚨 НОВЫЙ REF
 
   const [pageState, setPageState] = useState<PageState>({
     isInitializing: true,
     needsAuthentication: false,
+    securityBlocked: false, // 🚨 НОВОЕ ПОЛЕ
   });
 
   const [fontLoaded, setFontLoaded] = useState<boolean>(false);
@@ -59,33 +64,147 @@ export default function IntroPage(): JSX.Element {
   }, [authState]);
 
   /**
-   * Extract Telegram user data from WebApp API
+   * 🚨 НОВАЯ ФУНКЦИЯ: Комплексная проверка безопасности initData
+   */
+  const performSecurityChecks = useCallback((initData: string): {
+    passed: boolean;
+    error?: string;
+    warnings: string[];
+  } => {
+    const warnings: string[] = [];
+    
+    if (!initData) {
+      return {
+        passed: false,
+        error: "No authentication data available",
+        warnings
+      };
+    }
+
+    // Проверка 1: Быстрая проверка auth_date
+    const quickCheck = quickAuthDateCheck(initData);
+    if (!quickCheck.isValid) {
+      console.error(`[CLIENT SECURITY] Quick auth_date check failed: ${quickCheck.error}`);
+      return {
+        passed: false,
+        error: quickCheck.error,
+        warnings
+      };
+    }
+
+    // Проверка 2: Размер данных
+    if (initData.length > 5000) {
+      console.error(`[CLIENT SECURITY] InitData too large: ${initData.length} characters`);
+      return {
+        passed: false,
+        error: "Authentication data format invalid",
+        warnings
+      };
+    }
+
+    // Проверка 3: Подозрительные символы
+    if (!/^[a-zA-Z0-9=&%\-_{}:"',\s\/.\\]+$/.test(initData)) {
+      console.error("[CLIENT SECURITY] Suspicious characters in initData");
+      return {
+        passed: false,
+        error: "Authentication data contains invalid characters",
+        warnings
+      };
+    }
+
+    // Проверка 4: Возраст данных (предупреждения)
+    if (quickCheck.authDate) {
+      const currentTime = Math.floor(Date.now() / 1000);
+      const age = currentTime - quickCheck.authDate;
+      
+      if (age > 1800) { // Старше 30 минут
+        warnings.push(`Authentication data is ${Math.round(age / 60)} minutes old`);
+      }
+      
+      if (age > 3600) { // Старше 1 часа
+        console.warn(`[CLIENT SECURITY] Old auth data: ${age} seconds`);
+        warnings.push("Authentication data may be expired");
+      }
+    }
+
+    console.log(`[CLIENT SECURITY] Security checks passed. Warnings: ${warnings.length}`);
+    return {
+      passed: true,
+      warnings
+    };
+  }, []);
+
+  /**
+   * Extract Telegram user data from WebApp API with enhanced security
+   * 🚨 ОБНОВЛЕННАЯ ВЕРСИЯ с дополнительными проверками
    */
   const getTelegramUserData = useCallback((): {
     user: TelegramUser | null;
     initData: string;
+    securityWarnings: string[];
   } => {
     const initData = getTelegramInitData();
 
     if (!initData) {
-      console.warn("No Telegram initData available");
-
-      return { user: null, initData: "" };
+      console.warn("[CLIENT] No Telegram initData available");
+      return { user: null, initData: "", securityWarnings: [] };
     }
 
+    // 🚨 ВЫПОЛНИТЬ ПРОВЕРКИ БЕЗОПАСНОСТИ
+    if (!securityCheckPerformedRef.current) {
+      const securityCheck = performSecurityChecks(initData);
+      securityCheckPerformedRef.current = true;
+      
+      if (!securityCheck.passed) {
+        console.error(`[CLIENT] Security check failed: ${securityCheck.error}`);
+        setPageState(prev => ({
+          ...prev,
+          securityBlocked: true,
+          securityError: securityCheck.error
+        }));
+        return { user: null, initData: "", securityWarnings: [] };
+      }
+      
+      if (securityCheck.warnings.length > 0) {
+        console.warn(`[CLIENT] Security warnings:`, securityCheck.warnings);
+      }
+    }
+
+    // Парсинг данных с исправленной валидацией
     const parseResult = parseTelegramInitData(initData);
 
     if (!parseResult.success || !parseResult.user) {
       console.error("Failed to parse Telegram data:", parseResult.error);
-
-      return { user: null, initData };
+      return { user: null, initData, securityWarnings: [] };
     }
 
-    return { user: parseResult.user, initData };
-  }, []);
+    // 🚨 ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ ПОЛЬЗОВАТЕЛЯ
+    const user = parseResult.user;
+    const userWarnings: string[] = [];
+    
+    // Проверка разумности данных пользователя
+    if (user.id <= 0 || user.id > 9999999999) {
+      console.error(`[CLIENT] Suspicious user ID: ${user.id}`);
+      setPageState(prev => ({
+        ...prev,
+        securityBlocked: true,
+        securityError: "Invalid user data detected"
+      }));
+      return { user: null, initData, securityWarnings: [] };
+    }
+    
+    if (user.first_name.length < 1 || user.first_name.length > 64) {
+      console.error(`[CLIENT] Suspicious first name length: ${user.first_name.length}`);
+      userWarnings.push("Unusual name format detected");
+    }
+
+    console.log(`[CLIENT] Successfully extracted user data: ${user.id} (${user.first_name})`);
+    return { user, initData, securityWarnings: userWarnings };
+  }, [performSecurityChecks]);
 
   /**
-   * Validate referral code
+   * Validate referral code with enhanced checks
+   * 🚨 ОБНОВЛЕННАЯ ВЕРСИЯ с дополнительной валидацией
    */
   const validateReferralCode = useCallback(
     async (
@@ -98,6 +217,21 @@ export default function IntroPage(): JSX.Element {
       referrerUsername?: string;
     }> => {
       try {
+        // Проверка формата реферального кода
+        if (!/^[A-Z0-9]{8}$/.test(code)) {
+          console.warn(`[CLIENT] Invalid referral code format: ${code}`);
+          return { isValid: false, code, bonus: 0 };
+        }
+
+        // Здесь можно добавить дополнительные проверки
+        // Например, проверку на известные запрещенные коды
+        const bannedCodes = ['TESTTEST', '00000000', 'AAAAAAAA'];
+        if (bannedCodes.includes(code)) {
+          console.warn(`[CLIENT] Banned referral code: ${code}`);
+          return { isValid: false, code, bonus: 0 };
+        }
+
+        console.log(`[CLIENT] Referral code appears valid: ${code}`);
         return {
           isValid: true,
           code,
@@ -105,7 +239,6 @@ export default function IntroPage(): JSX.Element {
         };
       } catch (error) {
         console.error("Error validating referral code:", error);
-
         return { isValid: false, code, bonus: 0 };
       }
     },
@@ -113,24 +246,29 @@ export default function IntroPage(): JSX.Element {
   );
 
   /**
-   * Attempt user authentication with comprehensive Nebula security integration
+   * Attempt user authentication with enhanced error handling
+   * 🚨 ОБНОВЛЕННАЯ ВЕРСИЯ с улучшенной обработкой ошибок
    */
   const attemptAuthentication = useCallback(
     async (initData: string): Promise<LoginResult> => {
       try {
+        console.log("[CLIENT] Attempting authentication...");
         const result = await login(initData);
 
         if (!result.success && result.error === "USER_NOT_FOUND") {
+          console.log("[CLIENT] User not found - new user registration needed");
           return result;
         }
 
         if (result.success && result.user) {
+          console.log(`[CLIENT] Authentication successful for ${result.user.first_name}`);
+          
           if (result.security) {
             if (result.security.blocked) {
+              console.log("[CLIENT] User is blocked - redirecting to blocked page");
               setTimeout(() => {
                 router.push("/blocked");
               }, 1000);
-
               return result;
             }
 
@@ -138,15 +276,15 @@ export default function IntroPage(): JSX.Element {
               result.security.verificationRequired &&
               result.security.verificationType
             ) {
+              console.log(`[CLIENT] Verification required: ${result.security.verificationType}`);
               setTimeout(() => {
                 router.push("/nebula");
               }, 1000);
-
               return result;
             }
-          } else {
           }
 
+          console.log("[CLIENT] Full access granted - redirecting to main page");
           setTimeout(() => {
             router.push("/main");
           }, 1000);
@@ -160,8 +298,7 @@ export default function IntroPage(): JSX.Element {
 
         return {
           success: false,
-          error:
-            error instanceof Error ? error.message : "Authentication failed",
+          error: error instanceof Error ? error.message : "Authentication failed",
         };
       }
     },
@@ -170,6 +307,7 @@ export default function IntroPage(): JSX.Element {
 
   /**
    * Register new user and redirect to main page
+   * 🚨 ОБНОВЛЕННАЯ ВЕРСИЯ с дополнительными проверками
    */
   const registerNewUser = useCallback(
     async (
@@ -177,15 +315,27 @@ export default function IntroPage(): JSX.Element {
       referralCode?: string,
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
+        console.warn("[CLIENT] Registration already in progress");
         return { success: false, error: "Registration already in progress" };
       }
 
       operationInProgressRef.current = true;
 
       try {
+        console.log("[CLIENT] Starting user registration...");
+        
+        // Дополнительная проверка перед регистрацией
+        const securityCheck = performSecurityChecks(initData);
+        if (!securityCheck.passed) {
+          console.error(`[CLIENT] Final security check failed: ${securityCheck.error}`);
+          return { success: false, error: "Security validation failed" };
+        }
+
         const result = await register(initData, referralCode);
 
         if (result.success && result.user) {
+          console.log(`[CLIENT] Registration successful for ${result.user.first_name}`);
+          
           setPageState((prev) => ({
             ...prev,
             isInitializing: false,
@@ -195,6 +345,8 @@ export default function IntroPage(): JSX.Element {
           setTimeout(() => {
             router.push("/main");
           }, 1000);
+        } else {
+          console.error(`[CLIENT] Registration failed: ${result.error}`);
         }
 
         return result;
@@ -209,11 +361,12 @@ export default function IntroPage(): JSX.Element {
         operationInProgressRef.current = false;
       }
     },
-    [register, router],
+    [register, router, performSecurityChecks],
   );
 
   /**
-   * Initialize authentication flow with proper handling for existing and new users
+   * Initialize authentication flow with enhanced security
+   * 🚨 ОБНОВЛЕННАЯ ВЕРСИЯ с улучшенной безопасностью
    */
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
@@ -223,15 +376,22 @@ export default function IntroPage(): JSX.Element {
     authInitializedRef.current = true;
 
     try {
-      const { user: telegramUserData, initData } = getTelegramUserData();
+      console.log("[CLIENT] Initializing authentication flow...");
+      
+      const { user: telegramUserData, initData, securityWarnings } = getTelegramUserData();
+
+      if (securityWarnings.length > 0) {
+        console.warn("[CLIENT] Security warnings detected:", securityWarnings);
+        // Показываем предупреждения пользователю, но не блокируем
+      }
 
       if (!telegramUserData || !initData) {
-        console.error("Telegram data unavailable");
+        console.error("Telegram data unavailable or security blocked");
         setPageState((prev) => ({
           ...prev,
           isInitializing: false,
+          securityBlocked: !telegramUserData && !initData,
         }));
-
         return;
       }
 
@@ -248,6 +408,7 @@ export default function IntroPage(): JSX.Element {
         | undefined;
 
       if (referralCode) {
+        console.log(`[CLIENT] Processing referral code: ${referralCode}`);
         const validation = await validateReferralCode(referralCode);
 
         if (validation.isValid) {
@@ -257,6 +418,9 @@ export default function IntroPage(): JSX.Element {
             referrerName: validation.referrerName,
             referrerUsername: validation.referrerUsername,
           };
+          console.log(`[CLIENT] Referral code validated, bonus: ${validation.bonus}`);
+        } else {
+          console.warn(`[CLIENT] Invalid referral code: ${referralCode}`);
         }
       }
 
@@ -268,12 +432,12 @@ export default function IntroPage(): JSX.Element {
       const authResult = await attemptAuthentication(initData);
 
       if (!authResult.success && authResult.error === "USER_NOT_FOUND") {
+        console.log("[CLIENT] New user detected - showing registration");
         setPageState((prev) => ({
           ...prev,
           isInitializing: false,
           needsAuthentication: true,
         }));
-
         return;
       }
 
@@ -282,8 +446,9 @@ export default function IntroPage(): JSX.Element {
         setPageState((prev) => ({
           ...prev,
           isInitializing: false,
+          securityBlocked: Boolean(authResult.error?.includes("security") || authResult.error?.includes("invalid")),
+          securityError: authResult.error,
         }));
-
         return;
       }
     } catch (error) {
@@ -291,6 +456,8 @@ export default function IntroPage(): JSX.Element {
       setPageState((prev) => ({
         ...prev,
         isInitializing: false,
+        securityBlocked: true,
+        securityError: error instanceof Error ? error.message : "Authentication failed",
       }));
     }
   }, [
@@ -301,16 +468,26 @@ export default function IntroPage(): JSX.Element {
   ]);
 
   /**
-   * Handle initialization button click
+   * Handle initialization button click with security checks
+   * 🚨 ОБНОВЛЕННАЯ ВЕРСИЯ с дополнительными проверками
    */
   const handleInitialization = useCallback(async () => {
     const initData = getTelegramInitData();
 
-    if (
-      !initData ||
-      authState.isRegistering ||
-      operationInProgressRef.current
-    ) {
+    if (!initData || authState.isRegistering || operationInProgressRef.current) {
+      console.warn("[CLIENT] Cannot proceed with initialization");
+      return;
+    }
+
+    // Финальная проверка безопасности перед регистрацией
+    const securityCheck = performSecurityChecks(initData);
+    if (!securityCheck.passed) {
+      console.error(`[CLIENT] Security check failed during initialization: ${securityCheck.error}`);
+      setPageState(prev => ({
+        ...prev,
+        securityBlocked: true,
+        securityError: securityCheck.error
+      }));
       return;
     }
 
@@ -321,8 +498,19 @@ export default function IntroPage(): JSX.Element {
 
     if (!registrationResult.success) {
       console.error("Initialization failed:", registrationResult.error);
+      
+      // Проверка на security-related ошибки
+      if (Boolean(registrationResult.error?.includes("security") || 
+          registrationResult.error?.includes("invalid") ||
+          registrationResult.error?.includes("blocked"))) {
+        setPageState(prev => ({
+          ...prev,
+          securityBlocked: true,
+          securityError: registrationResult.error
+        }));
+      }
     }
-  }, [authState.isRegistering, registerNewUser, pageState.referralInfo?.code]);
+  }, [authState.isRegistering, registerNewUser, pageState.referralInfo?.code, performSecurityChecks]);
 
   // Initialize Service Worker and font loading
   useEffect(() => {
@@ -358,7 +546,7 @@ export default function IntroPage(): JSX.Element {
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
       {/* Loading Screen */}
-      {isInitialLoading && (
+      {isInitialLoading && !pageState.securityBlocked && (
         <div className="loader-container">
           <div className="progress-bar">
             <div className="progress-bar-fill" style={{ width: "100%" }} />
@@ -371,8 +559,50 @@ export default function IntroPage(): JSX.Element {
         </div>
       )}
 
+      {/* 🚨 НОВЫЙ ЭКРАН: Security Block Screen */}
+      {pageState.securityBlocked && !isInitialLoading && (
+        <div className="loader-container">
+          <div className="flex items-center justify-center mb-4">
+            <Shield className="text-red-400" size={48} />
+          </div>
+          <p className="text-white text-center mb-4 font-bold text-lg">
+            Security Check Failed
+          </p>
+          <p className="text-red-400 text-center mb-6 text-sm max-w-md">
+            {pageState.securityError || "Authentication data appears to be invalid or compromised"}
+          </p>
+          <p className="text-gray-400 text-center text-xs mb-4">
+            This may be due to:
+            <br />• Expired authentication data
+            <br />• Tampered authentication data
+            <br />• System clock issues
+          </p>
+          <button
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            onClick={() => {
+              // Сброс состояния и попытка заново
+              authInitializedRef.current = false;
+              operationInProgressRef.current = false;
+              securityCheckPerformedRef.current = false;
+              setPageState({
+                isInitializing: true,
+                needsAuthentication: false,
+                securityBlocked: false,
+              });
+              
+              // Перезагрузка страницы для получения свежих данных
+              setTimeout(() => {
+                window.location.reload();
+              }, 500);
+            }}
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
       {/* Authentication Error Screen */}
-      {authState.error && !isInitialLoading && (
+      {authState.error && !isInitialLoading && !pageState.securityBlocked && (
         <div className="loader-container">
           <div className="flex items-center justify-center mb-4">
             <AlertTriangle className="text-red-400" size={48} />
@@ -383,9 +613,11 @@ export default function IntroPage(): JSX.Element {
             onClick={() => {
               authInitializedRef.current = false;
               operationInProgressRef.current = false;
+              securityCheckPerformedRef.current = false;
               setPageState((prev) => ({
                 ...prev,
                 isInitializing: true,
+                securityBlocked: false,
               }));
               initializeAuthentication();
             }}
@@ -399,7 +631,8 @@ export default function IntroPage(): JSX.Element {
       {pageState.needsAuthentication &&
         !pageState.isInitializing &&
         !authState.error &&
-        !isInitialLoading && (
+        !isInitialLoading &&
+        !pageState.securityBlocked && (
           <div className="min-h-screen bg-black flex items-center justify-center p-6 fixed inset-0 z-50">
             <div className="w-full max-w-md space-y-8">
               {authState.isRegistering ? (
