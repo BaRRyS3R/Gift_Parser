@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Обновленная главная страница с перемещенной кнопкой турниров
+// src/app/main/page.tsx - Updated main page with integrated PC detection
 
 "use client";
 
@@ -10,6 +10,7 @@ import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
+import { usePCDetection } from "@/hooks/usePCDetection"; // NEW: PC Detection
 import AuthGuard from "@/components/Auth/AuthGuard";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
@@ -17,11 +18,8 @@ import AttemptsDisplay from "@/components/AttemptsDisplay/AttemptsDisplay";
 import SeasonButton from "@/components/SeasonButton/SeasonButton";
 import SeasonInfoModal from "@/components/SeasonInfoModal/SeasonInfoModal";
 import TournamentButton from "@/components/Tournaments/TournamentButton";
-
-// NEW: Import Daily Quest components
 import DailyQuestButton from "@/components/DailyQuestButton/DailyQuestButton";
 import DailyQuestModal from "@/components/DailyQuestModal/DailyQuestModal";
-
 
 // Utility function to format time remaining
 const formatTimeRemaining = (milliseconds: number): string => {
@@ -34,15 +32,12 @@ const formatTimeRemaining = (milliseconds: number): string => {
 
   if (days > 0) {
     const hours = totalHours % 24;
-
     return `${days}d ${hours}h`;
   } else if (totalHours > 0) {
     const minutes = totalMinutes % 60;
-
     return `${totalHours}h ${minutes}m`;
   } else if (totalMinutes > 0) {
     const seconds = totalSeconds % 60;
-
     return `${totalMinutes}m ${seconds}s`;
   } else {
     return `${totalSeconds}s`;
@@ -60,7 +55,7 @@ function MainPageContent() {
   } = useUser();
   const {
     attemptsStatus,
-    userLevel, // Level information from enhanced hook
+    userLevel,
     isLoading: attemptsLoading,
     error: attemptsError,
     canPlay,
@@ -71,12 +66,19 @@ function MainPageContent() {
   const { settings } = useSettings();
   const t = useT();
 
+  // NEW: PC Detection with production configuration
+  const pcDetection = usePCDetection(makeAuthenticatedRequest, {
+    enabled: true,
+    sensitivityThreshold: 2, // Lower threshold for main page (more sensitive)
+    detectionTimeWindow: 3000, // 3 seconds window
+    excludePointerEvents: true, // Exclude pointer events to avoid false positives
+  });
+
   /* -------------------------------------------------
    * Animation control - First visit detection
    * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
-
     return !sessionStorage.getItem("mainPageVisited");
   };
 
@@ -107,7 +109,6 @@ function MainPageContent() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
-
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
@@ -124,7 +125,6 @@ function MainPageContent() {
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
-
       setGreetingText(fullGreeting);
     }
   }, [isFirstVisit, user?.first_name, t]);
@@ -178,7 +178,6 @@ function MainPageContent() {
 
   useEffect(() => {
     const video = videoRef.current;
-
     if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
@@ -275,7 +274,6 @@ function MainPageContent() {
     setIsSeasonModalOpen(false);
   };
 
-  // NEW: Daily Quest handlers
   const handleOpenDailyQuest = () => {
     setIsDailyQuestModalOpen(true);
   };
@@ -290,16 +288,47 @@ function MainPageContent() {
   };
 
   /* -------------------------------------------------
+   * Development PC Detection Test (only in development)
+   * -------------------------------------------------*/
+  useEffect(() => {
+    // Only enable in development mode
+    if (process.env.NODE_ENV === 'development') {
+      const handleKeyPress = (event: KeyboardEvent) => {
+        if (event.key === 'F12' || (event.ctrlKey && event.shiftKey && event.key === 'I')) {
+          console.log("🧪 Development: Testing PC detection");
+          pcDetection.triggerManualDetection();
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyPress);
+      return () => window.removeEventListener('keydown', handleKeyPress);
+    }
+  }, [pcDetection]);
+
+  /* -------------------------------------------------
+   * Console logging for PC detection status (development only)
+   * -------------------------------------------------*/
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🔍 PC Detection Status:", {
+        active: pcDetection.isDetectionActive,
+        deviceInfo: pcDetection.deviceInfo,
+      });
+    }
+  }, [pcDetection.isDetectionActive, pcDetection.deviceInfo]);
+
+  /* -------------------------------------------------
    * Render
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0"
-        }`}
+      }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -325,15 +354,27 @@ function MainPageContent() {
         </div>
       )}
 
+      {/* Development PC Detection Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-2 right-2 z-50 bg-black/80 text-white text-xs p-2 rounded border border-gray-600">
+          <div>PC Detection: {pcDetection.isDetectionActive ? '🟢 Active' : '🔴 Inactive'}</div>
+          <div>Device: {pcDetection.deviceInfo.isMobile ? '📱 Mobile' : '🖥️ Desktop'}</div>
+          <div>Touch: {pcDetection.deviceInfo.hasTouch ? '✅ Yes' : '❌ No'}</div>
+          <div className="text-xs opacity-60 mt-1">F12 = Test Detection</div>
+        </div>
+      )}
+
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
+        className={`fixed left-0 right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-          }`}
+        }`}
         style={{ top: headerOffset }}
       >
         <div className="flex flex-col gap-3">
@@ -345,29 +386,20 @@ function MainPageContent() {
               disabled={isTransitioning}
               onClick={handleOpenAbout}
             >
-              {/* Градиентный фон */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-              {/* Основная иконка */}
               <div className="relative z-10 flex items-center justify-center w-full h-full">
                 <Info
                   className="text-blue-400 group-hover:text-white group-hover:rotate-12 transition-all duration-300"
                   size={18}
                 />
               </div>
-
-              {/* Hover эффект свечения */}
               <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <div className="absolute inset-0 bg-blue-500/20 rounded-lg blur-sm" />
               </div>
-
-              {/* Внешнее свечение при hover */}
               <div
                 className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-blue-500/40 to-blue-600/20"
                 style={{ zIndex: -1 }}
               />
-
-              {/* Сканирующая линия для Future Tech эффекта */}
               <div
                 className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-blue-400 to-transparent"
                 style={{ animation: "shimmer 2s ease-in-out infinite" }}
@@ -388,29 +420,20 @@ function MainPageContent() {
               disabled={isTransitioning}
               onClick={handleOpenSettings}
             >
-              {/* Градиентный фон */}
               <div className="absolute inset-0 bg-gradient-to-br from-slate-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-              {/* Основная иконка */}
               <div className="relative z-10 flex items-center justify-center w-full h-full">
                 <SettingsIcon
                   className="text-slate-400 group-hover:text-white group-hover:rotate-90 transition-all duration-300"
                   size={18}
                 />
               </div>
-
-              {/* Hover эффект свечения */}
               <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <div className="absolute inset-0 bg-slate-500/20 rounded-lg blur-sm" />
               </div>
-
-              {/* Внешнее свечение при hover */}
               <div
                 className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-slate-500/40 to-slate-600/20"
                 style={{ zIndex: -1 }}
               />
-
-              {/* Сканирующая линия для Future Tech эффекта */}
               <div
                 className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-slate-400 to-transparent"
                 style={{ animation: "shimmer 2s ease-in-out infinite" }}
@@ -420,15 +443,17 @@ function MainPageContent() {
         </div>
       </div>
 
-      {/* Season Button - Центральная позиция */}
+      {/* Season Button - Central position */}
       <div
-        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-          }`}
+        }`}
         style={{ top: "50px" }}
       >
         <SeasonButton
@@ -439,15 +464,17 @@ function MainPageContent() {
 
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
-        {/* NEW: Daily Quest Button - Above title */}
+        {/* Daily Quest Button - Above title */}
         <div
-          className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showTopButtons
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 -translate-y-8"
-              }`
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showTopButtons
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-8"
+                }`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
         >
           <DailyQuestButton
             isTransitioning={isTransitioning}
@@ -463,12 +490,15 @@ function MainPageContent() {
           </h1>
         </div>
 
-        {/* Action Buttons Container - Убрана кнопка турниров */}
+        {/* Action Buttons Container */}
         <div
-          className={`space-y-4 ${isFirstVisit
-              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+          className={`space-y-4 ${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+                }`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
         >
           {/* Main Play Button */}
           <div className="relative group">
@@ -494,13 +524,15 @@ function MainPageContent() {
 
         {/* User Greeting */}
         <div
-          className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showGreeting
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-              }`
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showGreeting
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -538,22 +570,24 @@ function MainPageContent() {
         onClose={handleCloseSeasonModal}
       />
 
-      {/* NEW: Daily Quest Modal */}
+      {/* Daily Quest Modal */}
       <DailyQuestModal
         isOpen={isDailyQuestModalOpen}
         makeAuthenticatedRequest={makeAuthenticatedRequest}
         onClose={handleCloseDailyQuestModal}
       />
-      
+
       {/* Enhanced Attempts Display with Level Integration */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
+        className={`fixed bottom-0 left-0 right-0 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-          }`}
+        }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay

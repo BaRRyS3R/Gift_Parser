@@ -1,8 +1,8 @@
-// src/lib/server/blockService.ts - Updated with corrected expiration times for verification attempts
+// src/lib/server/blockService.ts - Complete version with PC detection support
 
 import { supabaseServer } from "@/lib/supabase_server";
 
-// Updated block reason enum to match database with new permission-related reasons
+// Updated block reason enum to match database with PC detection
 export type BlockReason =
   | "failed_captcha"
   | "failed_biometric"
@@ -15,7 +15,8 @@ export type BlockReason =
   | "gyroscope_permission_denied"
   | "manual_block"
   | "suspicious_activity"
-  | "abandoned_verification";
+  | "abandoned_verification"
+  | "pc_detected"; // NEW: PC/Desktop detection
 
 // Verification type for Nebula system
 export type VerificationType = "captcha" | "biometric" | "gyroscope";
@@ -27,7 +28,7 @@ export const TRUST_THRESHOLDS = {
   GYROSCOPE: 10,
 } as const;
 
-// Updated block durations in hours with new permission-related blocks
+// Updated block durations in hours with PC detection
 export const BLOCK_DURATIONS = {
   FAILED_CAPTCHA: 2, // 2 hours
   FAILED_BIOMETRIC: 48, // 2 days
@@ -41,6 +42,7 @@ export const BLOCK_DURATIONS = {
   MANUAL_BLOCK: 24, // 1 day (default)
   SUSPICIOUS_ACTIVITY: 168, // 1 week
   ABANDONED_VERIFICATION: 2, // 2 hours for abandoned attempts
+  PC_DETECTED: 48, // NEW: 2 days for PC/Desktop detection
 } as const;
 
 // Verification attempt timeout durations in milliseconds
@@ -100,7 +102,7 @@ export interface UnblockServiceResponse extends BlockServiceResponse {
 
 /**
  * Nebula Security System Block Service
- * Enhanced with permission-related blocking and device availability checks
+ * Enhanced with PC detection and permission-related blocking
  */
 export const serverBlockService = {
   /**
@@ -374,6 +376,9 @@ export const serverBlockService = {
         case "abandoned_verification":
           durationHours = BLOCK_DURATIONS.ABANDONED_VERIFICATION;
           break;
+        case "pc_detected":
+          durationHours = BLOCK_DURATIONS.PC_DETECTED;
+          break;
         default:
           durationHours = BLOCK_DURATIONS.MANUAL_BLOCK;
       }
@@ -414,6 +419,38 @@ export const serverBlockService = {
         error: error instanceof Error ? error.message : "Failed to block user",
       };
     }
+  },
+
+  /**
+   * NEW: Block user specifically for PC detection
+   */
+  async blockUserForPCDetection(
+    userId: string,
+    telegramId: number,
+    detectionData: {
+      userAgent: string;
+      mouseEvents: string[];
+      timestamp: string;
+      pageUrl?: string;
+      deviceInfo?: any;
+    }
+  ): Promise<BlockServiceResponse> {
+    return await this.blockUser(
+      userId,
+      telegramId,
+      "pc_detected",
+      undefined, // No verification type for PC detection
+      {
+        detectedAt: new Date().toISOString(),
+        userAgent: detectionData.userAgent,
+        mouseEvents: detectionData.mouseEvents,
+        detectionTimestamp: detectionData.timestamp,
+        pageUrl: detectionData.pageUrl,
+        deviceInfo: detectionData.deviceInfo,
+        reason: "Desktop/PC usage detected in mobile-only application",
+        source: "client_detection",
+      }
+    );
   },
 
   /**

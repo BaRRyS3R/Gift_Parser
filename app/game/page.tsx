@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Fixed version without double consume calls
+// src/app/game/page.tsx - Updated game page with integrated PC detection
 
 "use client";
 
@@ -18,6 +18,7 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
+import { usePCDetection } from "@/hooks/usePCDetection"; // NEW: PC Detection
 import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
@@ -30,7 +31,7 @@ interface GameMode {
   descriptionKey: string;
   icon: React.ComponentType<any>;
   route: string;
-  difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
+  difficulty: "🤡" | "👋😈" | "👉👌" | "🌀";
   durationKey: string;
   imageUrl: string;
   color: {
@@ -77,7 +78,7 @@ const GAME_MODES: GameMode[] = [
     descriptionKey: "game.modes.survival.description",
     icon: Crosshair,
     route: "/game/survival",
-    difficulty: "💋😈",
+    difficulty: "👋😈",
     durationKey: "game.modes.survival.duration",
     imageUrl: "https://notfren.com/circusle/survival.jpg",
     color: {
@@ -164,10 +165,18 @@ function GamePageContent() {
     canPlay,
     attemptsRemaining,
     fetchAttemptsStatus,
-    canPlayFast, // Use fast check instead of consuming attempt
+    canPlayFast,
     clearError,
   } = useAttempts(makeAuthenticatedRequest);
   const t = useT();
+
+  // NEW: PC Detection with game-specific configuration (more aggressive)
+  const pcDetection = usePCDetection(makeAuthenticatedRequest, {
+    enabled: true,
+    sensitivityThreshold: 1, // Very sensitive for game page (single mouse event triggers)
+    detectionTimeWindow: 2000, // 2 seconds window
+    excludePointerEvents: true, // Exclude pointer events to avoid false positives
+  });
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
@@ -281,6 +290,37 @@ function GamePageContent() {
     }
   }, [router]);
 
+  /* -------------------------------------------------
+   * Development PC Detection Test (only in development)
+   * -------------------------------------------------*/
+  useEffect(() => {
+    // Only enable in development mode
+    if (process.env.NODE_ENV === 'development') {
+      const handleKeyPress = (event: KeyboardEvent) => {
+        if (event.key === 'F11' || (event.ctrlKey && event.shiftKey && event.key === 'T')) {
+          console.log("🧪 Development: Testing PC detection on game page");
+          pcDetection.triggerManualDetection();
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyPress);
+      return () => window.removeEventListener('keydown', handleKeyPress);
+    }
+  }, [pcDetection]);
+
+  /* -------------------------------------------------
+   * Console logging for PC detection status (development only)
+   * -------------------------------------------------*/
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🎮 Game Page PC Detection Status:", {
+        active: pcDetection.isDetectionActive,
+        deviceInfo: pcDetection.deviceInfo,
+        sensitivityLevel: "HIGH",
+      });
+    }
+  }, [pcDetection.isDetectionActive, pcDetection.deviceInfo]);
+
   return (
     <div
       className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
@@ -289,6 +329,17 @@ function GamePageContent() {
           : "opacity-100 transition-opacity duration-1000 ease-out"
       }`}
     >
+      {/* Development PC Detection Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-2 left-2 z-50 bg-black/80 text-white text-xs p-2 rounded border border-red-600">
+          <div>🎮 Game PC Detection: {pcDetection.isDetectionActive ? '🟢 ACTIVE' : '🔴 Inactive'}</div>
+          <div>Sensitivity: 🔥 HIGH (1 event = block)</div>
+          <div>Device: {pcDetection.deviceInfo.isMobile ? '📱 Mobile' : '🖥️ Desktop'}</div>
+          <div>Touch: {pcDetection.deviceInfo.hasTouch ? '✅ Yes' : '❌ No'}</div>
+          <div className="text-xs opacity-60 mt-1">F11 = Test Detection</div>
+        </div>
+      )}
+
       {/* Easter Egg Modal with authentication */}
       <WinxEasterEggModal
         chance={EASTER_EGG_CHANCE * 100} // Convert to percentage
