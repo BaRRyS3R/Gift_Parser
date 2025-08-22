@@ -1,4 +1,4 @@
-// src/middleware.ts - УПРОЩЕННАЯ ВЕРСИЯ с фокусом на качественные проверки
+// src/middleware.ts - ИСПРАВЛЕННАЯ ВЕРСИЯ с упрощенной обработкой CRON
 
 import type { NextRequest } from "next/server";
 
@@ -15,6 +15,21 @@ import {
 export const config = {
   matcher: "/api/:path*",
 };
+
+// ✅ ВАРИАНТ 1: Полное исключение CRON из middleware
+const CRON_PATHS = [
+  "/api/cron/restore-attempts",
+  "/api/cron/cleanup-sessions",
+  "/api/cron/cleanup-tournaments",
+  // Добавьте другие CRON пути здесь
+];
+
+// User-Agent'ы от cron-job.org для дополнительной проверки
+const CRON_USER_AGENTS = [
+  "cron-job.org",
+  "CronJob.org",
+  "Mozilla/5.0 (compatible; CronJob.org)", 
+];
 
 // 🚨 НОВАЯ ФУНКЦИЯ: Только качественная валидация auth_date (без rate limiting)
 function validateAuthDateInMiddleware(initData: string): {
@@ -96,7 +111,33 @@ function logSecurityEvent(type: string, data: any, request: NextRequest) {
 }
 
 /**
- * Упрощенная middleware функция с фокусом на качество, а не количество
+ * Проверка, является ли запрос CRON запросом
+ */
+function isCronRequest(request: NextRequest): boolean {
+  const { pathname } = request.nextUrl;
+  const userAgent = request.headers.get("user-agent") || "";
+  
+  // Проверяем точное совпадение пути
+  if (CRON_PATHS.includes(pathname)) {
+    return true;
+  }
+  
+  // Проверяем префикс /api/cron/
+  if (pathname.startsWith("/api/cron/")) {
+    return true;
+  }
+  
+  // Дополнительная проверка по User-Agent
+  if (CRON_USER_AGENTS.some(agent => userAgent.includes(agent))) {
+    console.log(`[Middleware] CRON User-Agent detected: ${userAgent}`);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Упрощенная middleware функция с полным исключением CRON
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -106,6 +147,21 @@ export async function middleware(request: NextRequest) {
             "unknown";
 
   console.log(`[Middleware] ${method} ${pathname} from ${ip}`);
+
+  // ✅ ПОЛНОЕ ИСКЛЮЧЕНИЕ CRON ЗАПРОСОВ (ВАРИАНТ 1)
+  if (isCronRequest(request)) {
+    console.log(`🚀 [Middleware] CRON request detected, skipping all middleware checks: ${pathname}`);
+    
+    // Просто пропускаем без ЛЮБЫХ проверок
+    const response = NextResponse.next();
+    
+    // Добавляем только базовые CORS заголовки
+    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    response.headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    
+    return response;
+  }
 
   // 1. Обрабатываем OPTIONS (preflight) запросы первыми
   if (method === "OPTIONS") {
@@ -269,32 +325,7 @@ export async function middleware(request: NextRequest) {
   // 3. Проверяем, является ли путь публичным
   const isPublic = isPublicPath(pathname);
 
-  // 4. Специальная обработка для CRON задач
-  if (pathname.startsWith("/api/cron")) {
-    const authHeader = request.headers.get("Authorization");
-    const apiKey = authHeader?.replace("Bearer ", "");
-    const cronApiKey = process.env.CRON_API_KEY;
-
-    if (!apiKey || !cronApiKey || apiKey !== cronApiKey) {
-      console.warn(`[Middleware] Unauthorized CRON access attempt for ${pathname} from ${ip}`);
-      
-      logSecurityEvent('CRON_AUTH_FAILED', { ip }, request);
-
-      const response = NextResponse.json({
-        error: "Unauthorized access",
-        code: "CRON_AUTH_FAILED",
-      }, { status: 401 });
-
-      return applyCorsHeaders(request, response);
-    }
-
-    console.log(`[Middleware] CRON authentication successful for ${pathname}`);
-    const response = NextResponse.next();
-
-    return applyCorsHeaders(request, response);
-  }
-
-  // 5. Для публичных путей - пропускаем без проверки токена
+  // 4. Для публичных путей - пропускаем без проверки токена
   if (isPublic) {
     console.log(`[Middleware] Public endpoint accessed: ${pathname}`);
     const response = NextResponse.next();
@@ -302,7 +333,7 @@ export async function middleware(request: NextRequest) {
     return applyCorsHeaders(request, response);
   }
 
-  // 6. Для защищенных путей - проверяем JWT токен
+  // 5. Для защищенных путей - проверяем JWT токен
   try {
     const authHeader = request.headers.get("Authorization");
     const token = extractTokenFromHeader(authHeader);
