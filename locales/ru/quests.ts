@@ -6,7 +6,8 @@ export const quests = {
     loading: "ЗАГРУЗКА...",
     error: "ОШИБКА",
     noQuest: "НЕТ КВЕСТА",
-    noQuestDescription: "Сегодня нет доступных квестов. Заходи завтра за новыми испытаниями!",
+    noQuestDescription:
+      "Сегодня нет доступных квестов. Заходи завтра за новыми испытаниями!",
     questCompleted: "КВЕСТ ЗАВЕРШЁН!",
     attemptsAwarded: "+{attempts} попыток начислено",
     gameMode: "РЕЖИМ:",
@@ -40,7 +41,7 @@ export const quests = {
   },
 
   button: {
-    active: "ДНЕВНОЙ КВЕСТ", 
+    active: "ДНЕВНОЙ КВЕСТ",
     completed: "ЗАВЕРШЁН",
     aria: "Открыть дневной квест",
   },
@@ -98,6 +99,6 @@ export const quests = {
     current: "{current}/{target}",
     completed: "ЗАВЕРШЕНО",
   },
-  
+
   reward: "+{attempts} попыток за выполнение",
 } as const;

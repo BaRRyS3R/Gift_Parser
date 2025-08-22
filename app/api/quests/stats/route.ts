@@ -1,15 +1,14 @@
 // src/app/api/quests/stats/route.ts - Get quest statistics (admin)
 
 import { NextRequest, NextResponse } from "next/server";
+
 import { serverDailyQuestsService } from "@/lib/server/dailyQuestsService";
 
 /**
  * GET /api/quests/stats?questId=xxx
  * Get quest statistics (for admin purposes)
  */
-export async function GET(
-  request: NextRequest,
-): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // Extract quest ID from query parameters
     const url = new URL(request.url);
@@ -32,7 +31,6 @@ export async function GET(
       success: true,
       stats,
     });
-
   } catch (error) {
     console.error("Error fetching quest statistics:", error);
 

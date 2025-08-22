@@ -144,24 +144,27 @@ export async function POST(
     }
 
     // CRITICAL: Validate and finish the game session
-    console.log(`[GameSave] Validating session ${sessionId} for user ${telegramIdNumber}`);
-    
-    const sessionValidation = await serverGameSessionService.validateAndFinishSession(
-      sessionId,
-      telegramIdNumber
+    console.log(
+      `[GameSave] Validating session ${sessionId} for user ${telegramIdNumber}`,
     );
+
+    const sessionValidation =
+      await serverGameSessionService.validateAndFinishSession(
+        sessionId,
+        telegramIdNumber,
+      );
 
     if (!sessionValidation.success) {
       console.warn(`[GameSave] Session validation failed:`, {
         sessionId,
         telegramId: telegramIdNumber,
         error: sessionValidation.error,
-        wasValid: sessionValidation.was_valid
+        wasValid: sessionValidation.was_valid,
       });
 
       // Return specific session error
       const statusCode = sessionValidation.was_valid ? 410 : 400; // 410 = Gone (expired), 400 = Bad Request (invalid)
-      
+
       return NextResponse.json(
         {
           success: false,
@@ -180,13 +183,14 @@ export async function POST(
       gameResult,
     );
 
-    console.log(`[GameSave] Game result saved successfully for session ${sessionId}`);
+    console.log(
+      `[GameSave] Game result saved successfully for session ${sessionId}`,
+    );
 
     return NextResponse.json({
       success: true,
       data: saveResult,
     });
-
   } catch (error) {
     console.error("Error saving game result:", error);
 
@@ -241,9 +245,10 @@ export async function OPTIONS(): Promise<NextResponse> {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Telegram-ID, X-User-ID',
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers":
+        "Content-Type, Authorization, X-Telegram-ID, X-User-ID",
     },
   });
 }

@@ -1,6 +1,7 @@
 // src/hooks/modules/useAttempts.ts - Cleaned version without legacy methods
 
 import { useState, useCallback, useRef, useEffect } from "react";
+
 import { GameMode } from "@/types/game-modes/common";
 
 // Enhanced attempts status interface with session data
@@ -84,7 +85,10 @@ export function useAttempts(
 
   const fetchingRef = useRef<boolean>(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const fastCheckCacheRef = useRef<{ canPlay: boolean; timestamp: number } | null>(null);
+  const fastCheckCacheRef = useRef<{
+    canPlay: boolean;
+    timestamp: number;
+  } | null>(null);
 
   /**
    * Fast check if user can play (cached)
@@ -93,15 +97,21 @@ export function useAttempts(
     const now = Date.now();
 
     // Check fast cache
-    if (fastCheckCacheRef.current &&
-      (now - fastCheckCacheRef.current.timestamp) < CACHE_CONFIG.FAST_CHECK_CACHE_MS) {
+    if (
+      fastCheckCacheRef.current &&
+      now - fastCheckCacheRef.current.timestamp <
+        CACHE_CONFIG.FAST_CHECK_CACHE_MS
+    ) {
       return fastCheckCacheRef.current.canPlay;
     }
 
     try {
-      const response = await makeAuthenticatedRequest("/api/user/attempts/status", {
-        method: "HEAD",
-      });
+      const response = await makeAuthenticatedRequest(
+        "/api/user/attempts/status",
+        {
+          method: "HEAD",
+        },
+      );
 
       const canPlay = response.status === 200;
 
@@ -114,6 +124,7 @@ export function useAttempts(
       return canPlay;
     } catch (error) {
       console.warn("Fast can play check failed:", error);
+
       return false;
     }
   }, [makeAuthenticatedRequest]);
@@ -126,10 +137,12 @@ export function useAttempts(
       const now = Date.now();
 
       // Check cache if not forced
-      if (!force &&
+      if (
+        !force &&
         state.status &&
         state.lastFetch > 0 &&
-        (now - state.lastFetch) < CACHE_CONFIG.STATUS_CACHE_MS) {
+        now - state.lastFetch < CACHE_CONFIG.STATUS_CACHE_MS
+      ) {
         return state.status;
       }
 
@@ -142,11 +155,16 @@ export function useAttempts(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        const response = await makeAuthenticatedRequest("/api/user/attempts/status");
+        const response = await makeAuthenticatedRequest(
+          "/api/user/attempts/status",
+        );
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Server error: ${response.status}`);
+
+          throw new Error(
+            errorData.error || `Server error: ${response.status}`,
+          );
         }
 
         const result = await response.json();
@@ -165,6 +183,7 @@ export function useAttempts(
 
         // Parse level information
         let userLevel: UserLevelInfo | null = null;
+
         if (result.userLevel) {
           userLevel = calculateLevelProgress(
             result.userLevel.currentLevel,
@@ -191,7 +210,8 @@ export function useAttempts(
         return attemptsStatus;
       } catch (error) {
         console.error("Error fetching attempts status:", error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
 
         setState((prev) => ({
           ...prev,
@@ -204,7 +224,13 @@ export function useAttempts(
         fetchingRef.current = false;
       }
     },
-    [makeAuthenticatedRequest, state.status, state.lastFetch, state.currentSessionId, state.currentGameMode],
+    [
+      makeAuthenticatedRequest,
+      state.status,
+      state.lastFetch,
+      state.currentSessionId,
+      state.currentGameMode,
+    ],
   );
 
   /**
@@ -222,17 +248,23 @@ export function useAttempts(
           setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
           try {
-            const response = await makeAuthenticatedRequest("/api/user/attempts/consume", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
+            const response = await makeAuthenticatedRequest(
+              "/api/user/attempts/consume",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ gameMode }),
               },
-              body: JSON.stringify({ gameMode }),
-            });
+            );
 
             if (!response.ok) {
               const errorData = await response.json().catch(() => ({}));
-              throw new Error(errorData.error || `Server error: ${response.status}`);
+
+              throw new Error(
+                errorData.error || `Server error: ${response.status}`,
+              );
             }
 
             const result = await response.json();
@@ -245,10 +277,14 @@ export function useAttempts(
             const attemptsStatus: AttemptsStatus = {
               canPlay: result.canPlay,
               attemptsRemaining: result.attemptsRemaining,
-              resetTime: result.resetTime ? new Date(result.resetTime) : undefined,
+              resetTime: result.resetTime
+                ? new Date(result.resetTime)
+                : undefined,
               timeUntilReset: result.timeUntilReset,
               sessionId: result.sessionId,
-              sessionExpiresAt: result.sessionExpiresAt ? new Date(result.sessionExpiresAt) : undefined,
+              sessionExpiresAt: result.sessionExpiresAt
+                ? new Date(result.sessionExpiresAt)
+                : undefined,
             };
 
             setState((prev) => ({
@@ -269,7 +305,8 @@ export function useAttempts(
             resolve(attemptsStatus);
           } catch (error) {
             console.error("Error consuming attempt:", error);
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
 
             setState((prev) => ({
               ...prev,
@@ -390,6 +427,8 @@ export function useAttempts(
     currentGameMode: state.currentGameMode,
 
     // Utility
-    isCacheValid: state.lastFetch > 0 && (Date.now() - state.lastFetch) < CACHE_CONFIG.STATUS_CACHE_MS,
+    isCacheValid:
+      state.lastFetch > 0 &&
+      Date.now() - state.lastFetch < CACHE_CONFIG.STATUS_CACHE_MS,
   };
 }

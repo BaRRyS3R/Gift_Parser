@@ -32,12 +32,15 @@ const formatTimeRemaining = (milliseconds: number): string => {
 
   if (days > 0) {
     const hours = totalHours % 24;
+
     return `${days}d ${hours}h`;
   } else if (totalHours > 0) {
     const minutes = totalMinutes % 60;
+
     return `${totalHours}h ${minutes}m`;
   } else if (totalMinutes > 0) {
     const seconds = totalSeconds % 60;
+
     return `${totalMinutes}m ${seconds}s`;
   } else {
     return `${totalSeconds}s`;
@@ -79,6 +82,7 @@ function MainPageContent() {
    * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
+
     return !sessionStorage.getItem("mainPageVisited");
   };
 
@@ -109,6 +113,7 @@ function MainPageContent() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
@@ -125,6 +130,7 @@ function MainPageContent() {
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
+
       setGreetingText(fullGreeting);
     }
   }, [isFirstVisit, user?.first_name, t]);
@@ -178,6 +184,7 @@ function MainPageContent() {
 
   useEffect(() => {
     const video = videoRef.current;
+
     if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
@@ -455,7 +462,9 @@ function MainPageContent() {
           className={`space-y-4 ${
             isFirstVisit
               ? `transition-all duration-1000 transform ${
-                  showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+                  showButton
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
                 }`
               : "opacity-100 translate-y-0"
           }`}

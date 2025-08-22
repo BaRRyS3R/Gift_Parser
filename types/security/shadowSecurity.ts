@@ -275,8 +275,7 @@ export function hasAnySuspiciousActivity(
   // Check for ultra-short sessions with clicks (potential bot behavior)
   const gameDuration = data.gameEndTime - data.gameStartTime;
   const isUltraShortSessionWithClicks =
-    gameDuration < 3000 &&
-    data.totalClicks > 0;
+    gameDuration < 3000 && data.totalClicks > 0;
 
   // CRITICAL: Only record if we have meaningful activity
   // Don't record sessions with zero clicks and zero gyroscope checks
@@ -287,31 +286,34 @@ export function hasAnySuspiciousActivity(
   if (!hasMeaningfulActivity) {
     console.log(
       `Shadow Security: No meaningful activity detected - ` +
-      `clicks: ${data.totalClicks}, gyroscope checks: ${data.totalGyroscopeChecks}`
+        `clicks: ${data.totalClicks}, gyroscope checks: ${data.totalGyroscopeChecks}`,
     );
+
     return false;
   }
 
-  const result = (
+  const result =
     hasSuspiciousClicks ||
     hasSuspiciousGyroscope ||
     hasGyroscopeUnavailabilityWithClicks ||
-    isUltraShortSessionWithClicks
-  );
+    isUltraShortSessionWithClicks;
 
   // Enhanced logging for debugging
   if (result) {
     const reasons = [];
+
     if (hasSuspiciousClicks) reasons.push("suspicious clicks");
     if (hasSuspiciousGyroscope) reasons.push("suspicious gyroscope");
-    if (hasGyroscopeUnavailabilityWithClicks) reasons.push("gyroscope unavailable with clicks");
-    if (isUltraShortSessionWithClicks) reasons.push("ultra-short session with clicks");
+    if (hasGyroscopeUnavailabilityWithClicks)
+      reasons.push("gyroscope unavailable with clicks");
+    if (isUltraShortSessionWithClicks)
+      reasons.push("ultra-short session with clicks");
 
     console.log(
       `Shadow Security: Suspicious activity detected for user ${data.telegramId} - ` +
-      `Reasons: ${reasons.join(", ")}. ` +
-      `Game duration: ${gameDuration}ms, Clicks: ${data.totalClicks}, ` +
-      `Gyroscope checks: ${data.totalGyroscopeChecks}`
+        `Reasons: ${reasons.join(", ")}. ` +
+        `Game duration: ${gameDuration}ms, Clicks: ${data.totalClicks}, ` +
+        `Gyroscope checks: ${data.totalGyroscopeChecks}`,
     );
   }
 
@@ -430,7 +432,7 @@ export function formatSuspiciousActivitySummary(
     } else {
       details.push(
         `gyroscope movement: ${data.gyroscopeMovementPercentage.toFixed(1)}%` +
-        (data.gyroscopeSuspicious ? " [SUSPICIOUS]" : ""),
+          (data.gyroscopeSuspicious ? " [SUSPICIOUS]" : ""),
       );
     }
   } else if (data.gyroscopeErrorReason) {

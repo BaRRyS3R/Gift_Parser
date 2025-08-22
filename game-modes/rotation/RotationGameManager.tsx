@@ -109,7 +109,8 @@ export default function RotationGameManager() {
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   // NEW: Session management state
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
+  const [sessionStatus, setSessionStatus] =
+    useState<SessionStatus>(initialSessionStatus);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
@@ -131,19 +132,26 @@ export default function RotationGameManager() {
 
   // NEW: Local session timer (no visual display)
   useEffect(() => {
-    if (sessionStatus.sessionId && sessionStatus.isValid && sessionStatus.expiresAt) {
+    if (
+      sessionStatus.sessionId &&
+      sessionStatus.isValid &&
+      sessionStatus.expiresAt
+    ) {
       sessionTimerRef.current = setInterval(() => {
         const now = Date.now();
         const timeRemaining = sessionStatus.expiresAt!.getTime() - now;
 
-        setSessionStatus(prev => ({
+        setSessionStatus((prev) => ({
           ...prev,
           timeRemaining,
           isValid: timeRemaining > 0,
         }));
 
         // End game when session expires
-        if (timeRemaining <= 0 && gameStateRef.current.gameState === GameState.PLAYING) {
+        if (
+          timeRemaining <= 0 &&
+          gameStateRef.current.gameState === GameState.PLAYING
+        ) {
           endGame("session_expired");
         }
       }, 1000);
@@ -237,7 +245,7 @@ export default function RotationGameManager() {
         };
       }
 
-      return () => { };
+      return () => {};
     };
 
     // Subscribe to events
@@ -300,7 +308,7 @@ export default function RotationGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -346,6 +354,7 @@ export default function RotationGameManager() {
           sessionError: "No valid session found",
           isLoading: false,
         }));
+
         return;
       }
 
@@ -391,7 +400,7 @@ export default function RotationGameManager() {
                 .catch(() => ({}));
             }
           }
-        } catch (error) { }
+        } catch (error) {}
       };
 
       let attemptCount = 1;
@@ -427,6 +436,7 @@ export default function RotationGameManager() {
               sessionError: error.message,
               error: null,
             }));
+
             return; // Don't retry session errors
           }
 
@@ -434,6 +444,7 @@ export default function RotationGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
+
             return attemptSave();
           } else {
             throw error;
@@ -444,7 +455,8 @@ export default function RotationGameManager() {
       try {
         await attemptSave();
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : t("errors.saveGameResult");
+        const errorMessage =
+          error instanceof Error ? error.message : t("errors.saveGameResult");
 
         setSaveStatus((prev) => ({
           ...prev,
@@ -455,11 +467,24 @@ export default function RotationGameManager() {
         }));
       }
     },
-    [makeAuthenticatedRequest, t, user, sessionStatus.sessionId, saveGameResult],
+    [
+      makeAuthenticatedRequest,
+      t,
+      user,
+      sessionStatus.sessionId,
+      saveGameResult,
+    ],
   );
 
   const endGame = useCallback(
-    (cause: "miss" | "wrong_click" | "decoy_hit" | "app_minimized" | "session_expired") => {
+    (
+      cause:
+        | "miss"
+        | "wrong_click"
+        | "decoy_hit"
+        | "app_minimized"
+        | "session_expired",
+    ) => {
       if (isGameEndingRef.current) {
         return;
       }
@@ -542,7 +567,7 @@ export default function RotationGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -714,6 +739,7 @@ export default function RotationGameManager() {
           redirecting: false,
           isSessionError: false,
         });
+
         return;
       }
 
@@ -733,6 +759,7 @@ export default function RotationGameManager() {
           redirecting: false,
           isSessionError: true,
         });
+
         return;
       }
 
@@ -793,7 +820,6 @@ export default function RotationGameManager() {
           levelUpdateInterval: levelInterval,
         }));
       }, 800);
-
     } catch (error) {
       console.error("Failed to start game:", error);
       setPlayAgainError({
@@ -821,6 +847,7 @@ export default function RotationGameManager() {
           isSessionError: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -948,96 +975,98 @@ export default function RotationGameManager() {
             saveStatus.error ||
             saveStatus.sessionError ||
             saveStatus.isSuccess) && (
-              <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
-                      <span className="text-sm text-orange-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+            <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                    <span className="text-sm text-orange-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recordingRotation")}
-                      </span>
-                    </div>
+                        : t("save.recordingRotation")}
+                    </span>
+                  </div>
 
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-orange-400/60" size={14} />
-                          <span className="text-xs text-orange-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-orange-400/20 rounded-full h-1">
-                          <div
-                            className="bg-orange-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-orange-400/60" size={14} />
+                        <span className="text-xs text-orange-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                )}
+                      <div className="w-full bg-orange-400/20 rounded-full h-1">
+                        <div
+                          className="bg-orange-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                {/* Session error display */}
-                {saveStatus.sessionError && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <ShieldAlert className="text-orange-400" size={16} />
-                      <span className="text-sm text-orange-400">
-                        Session Security Error
-                      </span>
-                    </div>
-                    <div className="text-orange-400/60 text-xs mb-3">
-                      {saveStatus.sessionError}
-                    </div>
-                    <div className="text-white/60 text-xs">
-                      Game may not be saved due to session validation failure
-                    </div>
+              {/* Session error display */}
+              {saveStatus.sessionError && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-orange-400" size={16} />
+                    <span className="text-sm text-orange-400">
+                      Session Security Error
+                    </span>
                   </div>
-                )}
+                  <div className="text-orange-400/60 text-xs mb-3">
+                    {saveStatus.sessionError}
+                  </div>
+                  <div className="text-white/60 text-xs">
+                    Game may not be saved due to session validation failure
+                  </div>
+                </div>
+              )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.rotationRecordedSuccessfully")}
-                      </span>
-                    </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.rotationRecordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-orange-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                      onClick={() => gameResult && handleSaveGameResult(gameResult)}
-                    >
-                      {t("save.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-orange-400 text-sm">
+                      {t("save.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <button
+                    className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                    onClick={() =>
+                      gameResult && handleSaveGameResult(gameResult)
+                    }
+                  >
+                    {t("save.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
@@ -1048,8 +1077,13 @@ export default function RotationGameManager() {
                   ) : (
                     <AlertTriangle className="text-red-400" size={16} />
                   )}
-                  <span className={`text-sm font-bold ${playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
-                    }`}>
+                  <span
+                    className={`text-sm font-bold ${
+                      playAgainError.isSessionError
+                        ? "text-orange-400"
+                        : "text-red-400"
+                    }`}
+                  >
                     {t("game.modes.rotation.playAgain.cannotPlay")}
                   </span>
                 </div>
@@ -1074,11 +1108,14 @@ export default function RotationGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                isPlayingAgain || playAgainError.show || saveStatus.isLoading
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-                }`}
-              disabled={isPlayingAgain || playAgainError.show || saveStatus.isLoading}
+              }`}
+              disabled={
+                isPlayingAgain || playAgainError.show || saveStatus.isLoading
+              }
               onClick={handlePlayAgain}
             >
               {isPlayingAgain ? (

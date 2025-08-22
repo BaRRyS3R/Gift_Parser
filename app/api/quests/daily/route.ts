@@ -1,8 +1,10 @@
 // src/app/api/quests/daily/route.ts - Fixed type issues
 
-import { NextRequest, NextResponse } from "next/server";
-import { serverDailyQuestsService } from "@/lib/server/dailyQuestsService";
 import type { DailyQuestResponse } from "@/types/daily-quests";
+
+import { NextRequest, NextResponse } from "next/server";
+
+import { serverDailyQuestsService } from "@/lib/server/dailyQuestsService";
 
 /**
  * GET /api/quests/daily
@@ -27,14 +29,13 @@ export async function GET(
     }
 
     // Get current daily quest with user progress
-    const questWithProgress = await serverDailyQuestsService
-      .getCurrentDailyQuestWithProgress(userId);
+    const questWithProgress =
+      await serverDailyQuestsService.getCurrentDailyQuestWithProgress(userId);
 
     return NextResponse.json({
       success: true,
       quest: questWithProgress || undefined, // Convert null to undefined
     });
-
   } catch (error) {
     console.error("Error fetching daily quest:", error);
 

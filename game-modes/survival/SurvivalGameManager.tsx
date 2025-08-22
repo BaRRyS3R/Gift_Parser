@@ -3,7 +3,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Crosshair, AlertTriangle, RotateCcw, EyeOff, Shield, ShieldAlert } from "lucide-react";
+import {
+  Crosshair,
+  AlertTriangle,
+  RotateCcw,
+  EyeOff,
+  Shield,
+  ShieldAlert,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -100,7 +107,8 @@ export default function SurvivalGameManager() {
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   // NEW: Session management state
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
+  const [sessionStatus, setSessionStatus] =
+    useState<SessionStatus>(initialSessionStatus);
   const [sessionWarningShown, setSessionWarningShown] = useState(false);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -122,26 +130,37 @@ export default function SurvivalGameManager() {
 
   // NEW: Local session timer (no server calls)
   useEffect(() => {
-    if (sessionStatus.sessionId && sessionStatus.isValid && sessionStatus.expiresAt) {
+    if (
+      sessionStatus.sessionId &&
+      sessionStatus.isValid &&
+      sessionStatus.expiresAt
+    ) {
       // Start local session timer
       sessionTimerRef.current = setInterval(() => {
         const now = Date.now();
         const timeRemaining = sessionStatus.expiresAt!.getTime() - now;
 
-        setSessionStatus(prev => ({
+        setSessionStatus((prev) => ({
           ...prev,
           timeRemaining,
           isValid: timeRemaining > 0,
         }));
 
         // Show warning when 30 seconds remain
-        if (timeRemaining <= 30000 && timeRemaining > 0 && !sessionWarningShown) {
+        if (
+          timeRemaining <= 30000 &&
+          timeRemaining > 0 &&
+          !sessionWarningShown
+        ) {
           setSessionWarningShown(true);
           console.warn("Game session expires in 30 seconds");
         }
 
         // End game when session expires
-        if (timeRemaining <= 0 && gameStateRef.current.gameState === GameState.PLAYING) {
+        if (
+          timeRemaining <= 0 &&
+          gameStateRef.current.gameState === GameState.PLAYING
+        ) {
           endGame("session_expired");
         }
       }, 1000); // Local check every second
@@ -152,7 +171,12 @@ export default function SurvivalGameManager() {
         }
       };
     }
-  }, [sessionStatus.sessionId, sessionStatus.isValid, sessionStatus.expiresAt, sessionWarningShown]);
+  }, [
+    sessionStatus.sessionId,
+    sessionStatus.isValid,
+    sessionStatus.expiresAt,
+    sessionWarningShown,
+  ]);
 
   // App visibility monitoring (existing code with session context)
   useEffect(() => {
@@ -235,7 +259,7 @@ export default function SurvivalGameManager() {
         };
       }
 
-      return () => { };
+      return () => {};
     };
 
     // Event listeners
@@ -263,11 +287,17 @@ export default function SurvivalGameManager() {
       window.addEventListener("orientationchange", handleOrientationChange);
 
       return () => {
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
         window.removeEventListener("blur", handleWindowBlur);
         window.removeEventListener("beforeunload", handleBeforeUnload);
         window.removeEventListener("pagehide", handlePageHide);
-        window.removeEventListener("orientationchange", handleOrientationChange);
+        window.removeEventListener(
+          "orientationchange",
+          handleOrientationChange,
+        );
         cleanupTelegram();
       };
     }
@@ -293,7 +323,7 @@ export default function SurvivalGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -327,6 +357,7 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -336,6 +367,7 @@ export default function SurvivalGameManager() {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
         const isNewBest = newScore > previousBest;
+
         setIsNewBestScore(isNewBest);
       }
     },
@@ -351,6 +383,7 @@ export default function SurvivalGameManager() {
           sessionError: "No valid session found",
           isLoading: false,
         }));
+
         return;
       }
 
@@ -454,14 +487,19 @@ export default function SurvivalGameManager() {
           }));
         } catch (error) {
           // Handle session errors specially (don't retry)
-          if (error instanceof Error && error.message.includes("SESSION_ERROR:")) {
+          if (
+            error instanceof Error &&
+            error.message.includes("SESSION_ERROR:")
+          ) {
             const sessionError = error.message.replace("SESSION_ERROR: ", "");
+
             setSaveStatus((prev) => ({
               ...prev,
               isLoading: false,
               sessionError,
               error: null,
             }));
+
             return; // Don't retry session errors
           }
 
@@ -469,6 +507,7 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
+
             return attemptSave();
           } else {
             throw error;
@@ -479,15 +518,17 @@ export default function SurvivalGameManager() {
       try {
         await attemptSave();
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : t("errors.saveGameResult");
+        const errorMessage =
+          error instanceof Error ? error.message : t("errors.saveGameResult");
 
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
           isSuccess: false,
           error: errorMessage.includes("SESSION_ERROR:") ? null : errorMessage,
-          sessionError: errorMessage.includes("SESSION_ERROR:") ?
-            errorMessage.replace("SESSION_ERROR: ", "") : null,
+          sessionError: errorMessage.includes("SESSION_ERROR:")
+            ? errorMessage.replace("SESSION_ERROR: ", "")
+            : null,
         }));
       }
     },
@@ -495,7 +536,14 @@ export default function SurvivalGameManager() {
   );
 
   const endGame = useCallback(
-    (cause: "miss" | "wrong_click" | "decoy_hit" | "app_minimized" | "session_expired") => {
+    (
+      cause:
+        | "miss"
+        | "wrong_click"
+        | "decoy_hit"
+        | "app_minimized"
+        | "session_expired",
+    ) => {
       if (isGameEndingRef.current) {
         return;
       }
@@ -580,7 +628,7 @@ export default function SurvivalGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -752,6 +800,7 @@ export default function SurvivalGameManager() {
           redirecting: false,
           isSessionError: false,
         });
+
         return;
       }
 
@@ -771,6 +820,7 @@ export default function SurvivalGameManager() {
           redirecting: false,
           isSessionError: true,
         });
+
         return;
       }
 
@@ -807,6 +857,7 @@ export default function SurvivalGameManager() {
       setTimeout(() => {
         setGameState((prev) => {
           const updatedState = { ...prev, gameState: GameState.PLAYING };
+
           return updatedState;
         });
 
@@ -819,6 +870,7 @@ export default function SurvivalGameManager() {
               isGameEndingRef.current
             ) {
               clearInterval(levelInterval);
+
               return current;
             }
 
@@ -835,7 +887,6 @@ export default function SurvivalGameManager() {
           levelUpdateInterval: levelInterval,
         }));
       }, 800);
-
     } catch (error) {
       console.error("Failed to start game:", error);
       setPlayAgainError({
@@ -863,6 +914,7 @@ export default function SurvivalGameManager() {
           isSessionError: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -959,9 +1011,7 @@ export default function SurvivalGameManager() {
               <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-3">
                 <div className="flex items-center justify-center space-x-2">
                   <Shield className="text-blue-400" size={16} />
-                  <span className="text-xs text-blue-300">
-                    Session Secured
-                  </span>
+                  <span className="text-xs text-blue-300">Session Secured</span>
                 </div>
               </div>
             )}
@@ -1014,99 +1064,101 @@ export default function SurvivalGameManager() {
             saveStatus.error ||
             saveStatus.sessionError ||
             saveStatus.isSuccess) && (
-              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                      <span className="text-sm text-red-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                    <span className="text-sm text-red-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recording")}
-                      </span>
-                    </div>
+                        : t("save.recording")}
+                    </span>
+                  </div>
 
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-red-400/60" size={14} />
-                          <span className="text-xs text-red-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-red-400/20 rounded-full h-1">
-                          <div
-                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-red-400/60" size={14} />
+                        <span className="text-xs text-red-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                )}
+                      <div className="w-full bg-red-400/20 rounded-full h-1">
+                        <div
+                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                {/* Session error display */}
-                {saveStatus.sessionError && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <ShieldAlert className="text-orange-400" size={16} />
-                      <span className="text-sm text-orange-400">
-                        Session Security Error
-                      </span>
-                    </div>
-                    <div className="text-orange-400/60 text-xs mb-3">
-                      {saveStatus.sessionError}
-                    </div>
-                    <div className="text-white/60 text-xs">
-                      Game may not be saved due to session validation failure
-                    </div>
+              {/* Session error display */}
+              {saveStatus.sessionError && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-orange-400" size={16} />
+                    <span className="text-sm text-orange-400">
+                      Session Security Error
+                    </span>
                   </div>
-                )}
+                  <div className="text-orange-400/60 text-xs mb-3">
+                    {saveStatus.sessionError}
+                  </div>
+                  <div className="text-white/60 text-xs">
+                    Game may not be saved due to session validation failure
+                  </div>
+                </div>
+              )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.recordedSuccessfully")}
-                      </span>
-                    </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.recordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("save.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => gameResult && handleSaveGameResult(gameResult)}
-                    >
-                      {t("save.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      {t("save.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-red-400/60 text-xs mb-3">
+                    {t("save.recordedLocally")}
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() =>
+                      gameResult && handleSaveGameResult(gameResult)
+                    }
+                  >
+                    {t("save.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
@@ -1117,8 +1169,13 @@ export default function SurvivalGameManager() {
                   ) : (
                     <AlertTriangle className="text-red-400" size={16} />
                   )}
-                  <span className={`text-sm font-bold ${playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
-                    }`}>
+                  <span
+                    className={`text-sm font-bold ${
+                      playAgainError.isSessionError
+                        ? "text-orange-400"
+                        : "text-red-400"
+                    }`}
+                  >
                     {t("game.modes.survival.playAgain.cannotPlay")}
                   </span>
                 </div>
@@ -1143,11 +1200,14 @@ export default function SurvivalGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                isPlayingAgain || playAgainError.show || saveStatus.isLoading
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-                }`}
-              disabled={isPlayingAgain || playAgainError.show || saveStatus.isLoading}
+              }`}
+              disabled={
+                isPlayingAgain || playAgainError.show || saveStatus.isLoading
+              }
               onClick={handlePlayAgain}
             >
               {isPlayingAgain ? (
@@ -1186,22 +1246,29 @@ export default function SurvivalGameManager() {
           {/* NEW: Session status indicator */}
           {sessionStatus.isValid && sessionStatus.timeRemaining !== null && (
             <div className="fixed top-20 left-4 z-10 pointer-events-none">
-              <div className={`bg-black/50 backdrop-blur-sm px-3 py-1 rounded-lg border ${sessionStatus.timeRemaining <= 30000
-                  ? "border-orange-400/50"
-                  : "border-blue-400/30"
-                }`}>
+              <div
+                className={`bg-black/50 backdrop-blur-sm px-3 py-1 rounded-lg border ${
+                  sessionStatus.timeRemaining <= 30000
+                    ? "border-orange-400/50"
+                    : "border-blue-400/30"
+                }`}
+              >
                 <div className="flex items-center space-x-2">
                   <Shield
-                    className={`${sessionStatus.timeRemaining <= 30000
+                    className={`${
+                      sessionStatus.timeRemaining <= 30000
                         ? "text-orange-400"
                         : "text-blue-400"
-                      }`}
+                    }`}
                     size={12}
                   />
-                  <span className={`text-xs font-mono ${sessionStatus.timeRemaining <= 30000
-                      ? "text-orange-400"
-                      : "text-blue-400"
-                    }`}>
+                  <span
+                    className={`text-xs font-mono ${
+                      sessionStatus.timeRemaining <= 30000
+                        ? "text-orange-400"
+                        : "text-blue-400"
+                    }`}
+                  >
                     {Math.ceil(sessionStatus.timeRemaining / 1000)}s
                   </span>
                 </div>

@@ -1,7 +1,11 @@
 // src/app/api/nebula/manual-block/route.ts - Manual blocking API for PC detection
 
 import { NextRequest, NextResponse } from "next/server";
-import { serverBlockService, type BlockReason } from "@/lib/server/blockService";
+
+import {
+  serverBlockService,
+  type BlockReason,
+} from "@/lib/server/blockService";
 
 interface ManualBlockRequest {
   blockReason: BlockReason;
@@ -42,6 +46,7 @@ export async function POST(
     }
 
     const telegramIdNumber = parseInt(telegramId);
+
     if (isNaN(telegramIdNumber)) {
       return NextResponse.json(
         {
@@ -54,10 +59,12 @@ export async function POST(
 
     // Parse request body
     let body: ManualBlockRequest;
+
     try {
       body = await request.json();
     } catch (parseError) {
       console.error("Failed to parse manual block request body:", parseError);
+
       return NextResponse.json(
         {
           success: false,
@@ -67,7 +74,8 @@ export async function POST(
       );
     }
 
-    const { blockReason, durationHours, additionalData, verificationType } = body;
+    const { blockReason, durationHours, additionalData, verificationType } =
+      body;
 
     // Validate block reason
     if (!blockReason || typeof blockReason !== "string") {
@@ -81,7 +89,9 @@ export async function POST(
     }
 
     // Check if user is already blocked
-    const existingBlock = await serverBlockService.checkUserBlock(telegramIdNumber);
+    const existingBlock =
+      await serverBlockService.checkUserBlock(telegramIdNumber);
+
     if (existingBlock && existingBlock.isActive) {
       return NextResponse.json({
         success: true,
@@ -108,11 +118,12 @@ export async function POST(
 
     // For PC detection, use the specialized method
     let blockResult;
+
     if (blockReason === "pc_detected" && additionalData?.detectionData) {
       blockResult = await serverBlockService.blockUserForPCDetection(
         userId,
         telegramIdNumber,
-        additionalData.detectionData
+        additionalData.detectionData,
       );
     } else {
       // Use regular blocking method
@@ -121,13 +132,13 @@ export async function POST(
         telegramIdNumber,
         blockReason,
         verificationType as any,
-        enhancedAdditionalData
+        enhancedAdditionalData,
       );
     }
 
     if (blockResult.success) {
       const blockData = blockResult.data;
-      
+
       console.log(`✅ Manual block created successfully:`, {
         blockId: blockData?.blockId,
         blockReason,
@@ -140,10 +151,13 @@ export async function POST(
         blocked: true,
         blockId: blockData?.blockId,
         blockReason: blockReason,
-        blockDuration: durationHours ? `${durationHours} hours` : `${blockData?.durationHours} hours`,
+        blockDuration: durationHours
+          ? `${durationHours} hours`
+          : `${blockData?.durationHours} hours`,
       });
     } else {
       console.error("Failed to create manual block:", blockResult.error);
+
       return NextResponse.json(
         {
           success: false,
@@ -154,6 +168,7 @@ export async function POST(
     }
   } catch (error) {
     console.error("Unexpected error in manual block API:", error);
+
     return NextResponse.json(
       {
         success: false,
@@ -171,17 +186,17 @@ export async function POST(
 export async function GET(request: NextRequest) {
   try {
     const telegramId = request.headers.get("X-Telegram-ID");
-    
+
     if (!telegramId) {
       return NextResponse.json(
         { error: "Authentication required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const telegramIdNumber = parseInt(telegramId);
     const blockInfo = await serverBlockService.checkUserBlock(telegramIdNumber);
-    
+
     return NextResponse.json({
       success: true,
       isBlocked: !!blockInfo?.isActive,
@@ -190,9 +205,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error checking manual block status:", error);
+
     return NextResponse.json(
       { success: false, error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

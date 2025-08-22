@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Gift, Trophy } from "lucide-react";
+
 import { useT } from "@/contexts/LocalizationContext";
 
 interface CatEasterEggProps {
@@ -31,18 +32,24 @@ export default function CatEasterEgg({
   // Award Easter Egg achievement
   const awardEasterEggAchievement = async () => {
     if (!makeAuthenticatedRequest) {
-      console.warn("No authenticated request function provided to CatEasterEgg");
+      console.warn(
+        "No authenticated request function provided to CatEasterEgg",
+      );
+
       return null;
     }
 
     try {
-      const response = await makeAuthenticatedRequest("/api/easter-egg/reward", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await makeAuthenticatedRequest(
+        "/api/easter-egg/reward",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ easterEggType: "cat" }),
         },
-        body: JSON.stringify({ easterEggType: "cat" }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
@@ -58,11 +65,16 @@ export default function CatEasterEgg({
 
         return data;
       } else {
-        console.error("Failed to award Cat Easter Egg achievement:", data.error);
+        console.error(
+          "Failed to award Cat Easter Egg achievement:",
+          data.error,
+        );
+
         return null;
       }
     } catch (error) {
       console.error("Error awarding Cat Easter Egg achievement:", error);
+
       return null;
     }
   };
@@ -143,7 +155,7 @@ export default function CatEasterEgg({
               className="fixed inset-x-0 pointer-events-none z-60 flex justify-center"
               style={{
                 bottom: "420px", // Position above the cat
-                padding: "0 16px" // Side padding to prevent overflow
+                padding: "0 16px", // Side padding to prevent overflow
               }}
             >
               <div className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border border-yellow-500/40 rounded-lg p-4 backdrop-blur-sm pointer-events-auto animate-fade-in-up max-w-sm">
@@ -155,9 +167,10 @@ export default function CatEasterEgg({
                   )}
                   <span className="text-yellow-400 font-bold text-sm">
                     {rewardInfo.alreadyUnlocked
-                      ? t("profile.achievements.achievementAlreadyUnlocked" as any)
-                      : t("profile.achievements.achievementUnlocked" as any)
-                    }
+                      ? t(
+                          "profile.achievements.achievementAlreadyUnlocked" as any,
+                        )
+                      : t("profile.achievements.achievementUnlocked" as any)}
                   </span>
                 </div>
 
@@ -167,10 +180,16 @@ export default function CatEasterEgg({
                       🐱 {t("profile.achievements.catEasterEgg" as any)}
                     </div>
                     <div className="text-yellow-300/80 text-xs">
-                      {t("profile.achievements.attemptsAwarded" as any, { count: rewardInfo.attemptsAwarded })}
+                      {t("profile.achievements.attemptsAwarded" as any, {
+                        count: rewardInfo.attemptsAwarded,
+                      })}
                     </div>
                     <div className="text-yellow-300/60 text-xs italic">
-                      &quot;{t("profile.achievements.descriptions.catEasterEgg" as any)}&quot;
+                      &quot;
+                      {t(
+                        "profile.achievements.descriptions.catEasterEgg" as any,
+                      )}
+                      &quot;
                     </div>
                   </div>
                 )}

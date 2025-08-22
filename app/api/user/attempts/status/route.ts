@@ -1,6 +1,7 @@
 // src/app/api/user/attempts/status/route.ts - ОПТИМИЗИРОВАННАЯ версия
 
 import { NextRequest, NextResponse } from "next/server";
+
 import { serverAttemptsService } from "@/lib/server/attemptsService";
 
 // Enhanced response interface
@@ -58,7 +59,8 @@ export async function GET(
     // ОПТИМИЗАЦИЯ: Один RPC call получает все данные включая level
     // Было: serverUserService.checkAndUpdateAttempts + serverUserService.findByTelegramId
     // Стало: serverAttemptsService.checkAndUpdateAttempts (с level данными)
-    const attemptsStatus = await serverAttemptsService.checkAndUpdateAttempts(telegramIdNumber);
+    const attemptsStatus =
+      await serverAttemptsService.checkAndUpdateAttempts(telegramIdNumber);
 
     return NextResponse.json({
       success: true,
@@ -68,7 +70,6 @@ export async function GET(
       timeUntilReset: attemptsStatus.timeUntilReset,
       userLevel: attemptsStatus.userLevel,
     });
-
   } catch (error) {
     console.error("Error getting attempts and level status:", error);
 
@@ -124,6 +125,7 @@ export async function HEAD(request: NextRequest): Promise<NextResponse> {
     }
 
     const telegramIdNumber = parseInt(telegramId);
+
     if (isNaN(telegramIdNumber)) {
       return new NextResponse(null, { status: 400 });
     }
@@ -134,13 +136,13 @@ export async function HEAD(request: NextRequest): Promise<NextResponse> {
     return new NextResponse(null, {
       status: canPlay ? 200 : 423, // 423 = Locked
       headers: {
-        'X-Can-Play': canPlay.toString(),
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-      }
+        "X-Can-Play": canPlay.toString(),
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
     });
-
   } catch (error) {
     console.error("Error in HEAD attempts check:", error);
+
     return new NextResponse(null, { status: 500 });
   }
 }

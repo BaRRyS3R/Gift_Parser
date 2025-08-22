@@ -433,7 +433,7 @@ export const serverBlockService = {
       timestamp: string;
       pageUrl?: string;
       deviceInfo?: any;
-    }
+    },
   ): Promise<BlockServiceResponse> {
     return await this.blockUser(
       userId,
@@ -449,7 +449,7 @@ export const serverBlockService = {
         deviceInfo: detectionData.deviceInfo,
         reason: "Desktop/PC usage detected in mobile-only application",
         source: "client_detection",
-      }
+      },
     );
   },
 

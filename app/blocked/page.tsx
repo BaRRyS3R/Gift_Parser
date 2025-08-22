@@ -248,19 +248,28 @@ export default function BlockedPage(): JSX.Element {
    */
   const getBlockReasonDescription = (reason: string): string => {
     const reasonKey = `nebula.blocked.reasons.${reason}` as any;
-    
+
     // Fallback descriptions for PC detection and other reasons
     const fallbackDescriptions: Record<string, string> = {
-      pc_detected: "Desktop/PC usage detected. This application is designed exclusively for mobile devices.",
-      failed_captcha: "CAPTCHA verification failed or was not completed in time.",
+      pc_detected:
+        "Desktop/PC usage detected. This application is designed exclusively for mobile devices.",
+      failed_captcha:
+        "CAPTCHA verification failed or was not completed in time.",
       failed_biometric: "Biometric authentication failed or was rejected.",
-      failed_gyroscope: "Gyroscope verification failed or device movement was insufficient.",
-      abandoned_verification: "Verification process was abandoned or timed out.",
-      suspicious_activity: "Suspicious activity detected that violates platform security policies.",
+      failed_gyroscope:
+        "Gyroscope verification failed or device movement was insufficient.",
+      abandoned_verification:
+        "Verification process was abandoned or timed out.",
+      suspicious_activity:
+        "Suspicious activity detected that violates platform security policies.",
       manual_block: "Account manually restricted by security system.",
     };
 
-    return t(reasonKey) || fallbackDescriptions[reason] || t("nebula.blocked.reasons.default");
+    return (
+      t(reasonKey) ||
+      fallbackDescriptions[reason] ||
+      t("nebula.blocked.reasons.default")
+    );
   };
 
   /**
@@ -355,16 +364,19 @@ export default function BlockedPage(): JSX.Element {
         </div>
         <div className="text-red-200 text-xs space-y-2">
           <p>
-            Our security system detected mouse usage or desktop environment access. 
-            This application is exclusively designed for mobile devices and touch interfaces.
+            Our security system detected mouse usage or desktop environment
+            access. This application is exclusively designed for mobile devices
+            and touch interfaces.
           </p>
           <p>
-            <strong>Detected activities may include:</strong> Mouse clicks, mouse movements, 
-            desktop user agent, or non-touch device characteristics.
+            <strong>Detected activities may include:</strong> Mouse clicks,
+            mouse movements, desktop user agent, or non-touch device
+            characteristics.
           </p>
           <p>
-            <strong>Resolution:</strong> Please access this application only from a mobile 
-            device (smartphone or tablet) with touch interface support.
+            <strong>Resolution:</strong> Please access this application only
+            from a mobile device (smartphone or tablet) with touch interface
+            support.
           </p>
         </div>
       </div>
@@ -466,9 +478,11 @@ export default function BlockedPage(): JSX.Element {
       <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-            isPCDetection ? 'bg-red-600/30' : 'bg-red-500/20'
-          }`}>
+          <div
+            className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              isPCDetection ? "bg-red-600/30" : "bg-red-500/20"
+            }`}
+          >
             {isPCDetection ? (
               <Monitor className="text-red-400" size={32} />
             ) : (
@@ -479,7 +493,9 @@ export default function BlockedPage(): JSX.Element {
             {isPCDetection ? "Access Restricted" : t("nebula.blocked.title")}
           </h1>
           <p className="text-gray-400 text-sm">
-            {isPCDetection ? "Mobile-Only Application" : t("nebula.blocked.subtitle")}
+            {isPCDetection
+              ? "Mobile-Only Application"
+              : t("nebula.blocked.subtitle")}
           </p>
         </div>
 
@@ -492,7 +508,9 @@ export default function BlockedPage(): JSX.Element {
             {getBlockReasonIcon(blockInfo.blockReason)}
             <div className="flex-1">
               <h3 className="font-semibold capitalize">
-                {isPCDetection ? "Block Reason" : t("nebula.blocked.blockReason")}
+                {isPCDetection
+                  ? "Block Reason"
+                  : t("nebula.blocked.blockReason")}
               </h3>
               <div className="flex items-center space-x-2 mt-1">
                 <span className="text-xs px-2 py-1 rounded-full bg-gray-700 text-gray-300">
@@ -523,7 +541,11 @@ export default function BlockedPage(): JSX.Element {
           <div className="flex items-center justify-between mb-2">
             <span className="text-gray-300 text-sm flex items-center space-x-2">
               <Clock size={16} />
-              <span>{isPCDetection ? "Block Duration" : t("nebula.blocked.timeRemaining")}</span>
+              <span>
+                {isPCDetection
+                  ? "Block Duration"
+                  : t("nebula.blocked.timeRemaining")}
+              </span>
             </span>
             {pageState.isCheckingUnblock && (
               <RotateCcw className="text-blue-400 animate-spin" size={16} />
@@ -572,17 +594,25 @@ export default function BlockedPage(): JSX.Element {
         </div>
 
         {/* What happens next */}
-        <div className={`border rounded-lg p-4 mb-6 ${
-          isPCDetection ? 'bg-orange-500/10 border-orange-500/30' : 'bg-blue-500/10 border-blue-500/30'
-        }`}>
-          <h4 className={`font-semibold mb-2 text-sm ${
-            isPCDetection ? 'text-orange-300' : 'text-blue-300'
-          }`}>
+        <div
+          className={`border rounded-lg p-4 mb-6 ${
+            isPCDetection
+              ? "bg-orange-500/10 border-orange-500/30"
+              : "bg-blue-500/10 border-blue-500/30"
+          }`}
+        >
+          <h4
+            className={`font-semibold mb-2 text-sm ${
+              isPCDetection ? "text-orange-300" : "text-blue-300"
+            }`}
+          >
             {isPCDetection ? "How to Resolve" : t("nebula.blocked.whatNext")}
           </h4>
-          <div className={`text-xs space-y-1 ${
-            isPCDetection ? 'text-orange-200' : 'text-blue-200'
-          }`}>
+          <div
+            className={`text-xs space-y-1 ${
+              isPCDetection ? "text-orange-200" : "text-blue-200"
+            }`}
+          >
             {isPCDetection ? (
               <>
                 <p>• Switch to a mobile device (smartphone or tablet)</p>
@@ -606,10 +636,9 @@ export default function BlockedPage(): JSX.Element {
             {isPCDetection ? "Need Help?" : t("nebula.blocked.appeal.title")}
           </h4>
           <p className="text-yellow-200 text-xs mb-2">
-            {isPCDetection 
+            {isPCDetection
               ? "If you believe this detection was in error, contact support."
-              : t("nebula.blocked.appeal.subtitle")
-            }
+              : t("nebula.blocked.appeal.subtitle")}
           </p>
           <div className="flex items-center space-x-2 mb-2">
             <span className="text-yellow-200 text-xs">
@@ -626,10 +655,9 @@ export default function BlockedPage(): JSX.Element {
             </a>
           </div>
           <p className="text-yellow-200 text-xs opacity-80">
-            {isPCDetection 
+            {isPCDetection
               ? "Include block ID and detection timestamp when contacting support."
-              : t("nebula.blocked.appeal.note")
-            }
+              : t("nebula.blocked.appeal.note")}
           </p>
         </div>
 
@@ -642,22 +670,27 @@ export default function BlockedPage(): JSX.Element {
           {pageState.isCheckingUnblock ? (
             <>
               <RotateCcw className="animate-spin" size={16} />
-              <span>{isPCDetection ? "Checking..." : t("nebula.blocked.checking")}</span>
+              <span>
+                {isPCDetection ? "Checking..." : t("nebula.blocked.checking")}
+              </span>
             </>
           ) : (
             <>
               <RotateCcw size={16} />
-              <span>{isPCDetection ? "Check Status" : t("nebula.blocked.checkStatus")}</span>
+              <span>
+                {isPCDetection
+                  ? "Check Status"
+                  : t("nebula.blocked.checkStatus")}
+              </span>
             </>
           )}
         </button>
 
         {/* Auto-refresh notice */}
         <p className="text-gray-500 text-xs text-center">
-          {isPCDetection 
+          {isPCDetection
             ? "Status automatically updates when block expires"
-            : t("nebula.blocked.autoRefresh")
-          }
+            : t("nebula.blocked.autoRefresh")}
         </p>
       </div>
     </div>

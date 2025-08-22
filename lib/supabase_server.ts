@@ -324,16 +324,15 @@ export const serverUserService = {
   },
 
   // NEW: Game session management methods
-  async createGameSession(
-    userId: string,
-    telegramId: number,
-    gameMode: any
-  ) {
+  async createGameSession(userId: string, telegramId: number, gameMode: any) {
     return serverGameSessionService.createSession(userId, telegramId, gameMode);
   },
 
   async validateGameSession(sessionId: string, telegramId: number) {
-    return serverGameSessionService.validateAndFinishSession(sessionId, telegramId);
+    return serverGameSessionService.validateAndFinishSession(
+      sessionId,
+      telegramId,
+    );
   },
 
   async getActiveGameSessions(telegramId: number) {

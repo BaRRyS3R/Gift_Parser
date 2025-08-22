@@ -36,13 +36,16 @@ interface PCDetectionHookReturn {
 }
 
 export function usePCDetection(
-  makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>,
+  makeAuthenticatedRequest: (
+    endpoint: string,
+    options?: RequestInit,
+  ) => Promise<Response>,
   config: DetectionConfig = {
     enabled: true,
     sensitivityThreshold: 3,
     detectionTimeWindow: 5000,
     excludePointerEvents: true,
-  }
+  },
 ): PCDetectionHookReturn {
   const router = useRouter();
   const mouseEventsRef = useRef<string[]>([]);
@@ -53,8 +56,8 @@ export function usePCDetection(
     mouseMovements: 0,
     mouseClicks: 0,
     detectionDurationMs: 0,
-    firstDetectedEvent: '',
-    lastDetectedEvent: '',
+    firstDetectedEvent: "",
+    lastDetectedEvent: "",
   });
   const detectionStartTimeRef = useRef<number>(0);
 
@@ -76,9 +79,10 @@ export function usePCDetection(
     const userAgent = navigator.userAgent;
     const screenWidth = window.screen.width;
     const screenHeight = window.screen.height;
-    
+
     // Enhanced mobile detection
-    const mobileUserAgents = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+    const mobileUserAgents =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
     const isMobileUA = mobileUserAgents.test(userAgent);
     const isMobile = hasTouch && (maxTouchPoints > 0 || isMobileUA);
 
@@ -125,31 +129,38 @@ export function usePCDetection(
 
       // Use existing Nebula manual block endpoint to create a PC detection block
       // We'll create a manual block with PC detection data in additional_data
-      const response = await makeAuthenticatedRequest("/api/nebula/manual-block", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          blockReason: "pc_detected",
-          durationHours: 9999, // 9999 hours
-          additionalData: {
-            source: "client_pc_detection",
-            detectionData,
-            automatedBlock: true,
-            detectedAt: new Date().toISOString(),
+      const response = await makeAuthenticatedRequest(
+        "/api/nebula/manual-block",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            blockReason: "pc_detected",
+            durationHours: 9999, // 9999 hours
+            additionalData: {
+              source: "client_pc_detection",
+              detectionData,
+              automatedBlock: true,
+              detectedAt: new Date().toISOString(),
+            },
+          }),
+        },
+      );
 
       if (response.ok) {
         const result = await response.json();
+
         console.log("PC detection block successful:", result);
-        
+
         // Immediate redirect to blocked page
         router.push("/blocked");
       } else {
-        console.error("Failed to block user for PC detection:", response.status);
+        console.error(
+          "Failed to block user for PC detection:",
+          response.status,
+        );
         // Fallback: still redirect to show blocked page
         router.push("/blocked");
       }
@@ -167,8 +178,8 @@ export function usePCDetection(
       mouseMovements: 0,
       mouseClicks: 0,
       detectionDurationMs: 0,
-      firstDetectedEvent: '',
-      lastDetectedEvent: '',
+      firstDetectedEvent: "",
+      lastDetectedEvent: "",
     };
     if (detectionTimeoutRef.current) {
       clearTimeout(detectionTimeoutRef.current);
@@ -177,92 +188,124 @@ export function usePCDetection(
   }, []);
 
   // Add mouse event to tracking
-  const addMouseEvent = useCallback((eventType: string, event?: MouseEvent) => {
-    if (!config.enabled || hasTriggeredRef.current) {
-      return;
-    }
+  const addMouseEvent = useCallback(
+    (eventType: string, event?: MouseEvent) => {
+      if (!config.enabled || hasTriggeredRef.current) {
+        return;
+      }
 
-    const eventString = `${eventType}:${Date.now()}`;
-    mouseEventsRef.current.push(eventString);
+      const eventString = `${eventType}:${Date.now()}`;
 
-    // Update metrics
-    if (eventType === 'mousemove') {
-      detectionMetricsRef.current.mouseMovements++;
-    } else if (eventType === 'mousedown' || eventType === 'click') {
-      detectionMetricsRef.current.mouseClicks++;
-    }
+      mouseEventsRef.current.push(eventString);
 
-    if (!detectionMetricsRef.current.firstDetectedEvent) {
-      detectionMetricsRef.current.firstDetectedEvent = eventString;
-      detectionStartTimeRef.current = Date.now();
-    }
-    detectionMetricsRef.current.lastDetectedEvent = eventString;
+      // Update metrics
+      if (eventType === "mousemove") {
+        detectionMetricsRef.current.mouseMovements++;
+      } else if (eventType === "mousedown" || eventType === "click") {
+        detectionMetricsRef.current.mouseClicks++;
+      }
 
-    console.log(`🖱️ Mouse event detected: ${eventType}`, {
-      totalEvents: mouseEventsRef.current.length,
-      movements: detectionMetricsRef.current.mouseMovements,
-      clicks: detectionMetricsRef.current.mouseClicks,
-    });
+      if (!detectionMetricsRef.current.firstDetectedEvent) {
+        detectionMetricsRef.current.firstDetectedEvent = eventString;
+        detectionStartTimeRef.current = Date.now();
+      }
+      detectionMetricsRef.current.lastDetectedEvent = eventString;
 
-    // Check if we've reached threshold
-    if (mouseEventsRef.current.length >= config.sensitivityThreshold) {
-      console.warn(`🚨 PC Detection threshold reached! Events: ${mouseEventsRef.current.length}`);
-      blockUserForPCDetection();
-      return;
-    }
+      console.log(`🖱️ Mouse event detected: ${eventType}`, {
+        totalEvents: mouseEventsRef.current.length,
+        movements: detectionMetricsRef.current.mouseMovements,
+        clicks: detectionMetricsRef.current.mouseClicks,
+      });
 
-    // Set timeout to reset detection window
-    if (detectionTimeoutRef.current) {
-      clearTimeout(detectionTimeoutRef.current);
-    }
+      // Check if we've reached threshold
+      if (mouseEventsRef.current.length >= config.sensitivityThreshold) {
+        console.warn(
+          `🚨 PC Detection threshold reached! Events: ${mouseEventsRef.current.length}`,
+        );
+        blockUserForPCDetection();
 
-    detectionTimeoutRef.current = setTimeout(() => {
-      resetDetection();
-    }, config.detectionTimeWindow);
-  }, [config.enabled, config.sensitivityThreshold, config.detectionTimeWindow, blockUserForPCDetection, resetDetection]);
+        return;
+      }
+
+      // Set timeout to reset detection window
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
+      }
+
+      detectionTimeoutRef.current = setTimeout(() => {
+        resetDetection();
+      }, config.detectionTimeWindow);
+    },
+    [
+      config.enabled,
+      config.sensitivityThreshold,
+      config.detectionTimeWindow,
+      blockUserForPCDetection,
+      resetDetection,
+    ],
+  );
 
   // Mouse event handlers with strict filtering
-  const handleMouseDown = useCallback((event: MouseEvent) => {
-    // Only trigger on actual mouse events, not simulated ones from touch
-    // event.detail === 0 usually indicates programmatic event
-    if (event.isTrusted && event.detail !== 0) {
-      addMouseEvent("mousedown", event);
-    }
-  }, [addMouseEvent]);
+  const handleMouseDown = useCallback(
+    (event: MouseEvent) => {
+      // Only trigger on actual mouse events, not simulated ones from touch
+      // event.detail === 0 usually indicates programmatic event
+      if (event.isTrusted && event.detail !== 0) {
+        addMouseEvent("mousedown", event);
+      }
+    },
+    [addMouseEvent],
+  );
 
-  const handleMouseMove = useCallback((event: MouseEvent) => {
-    // Detect mouse movement (more reliable than clicks for detection)
-    // Only count movements with actual mouse delta values
-    if (event.isTrusted && 
-        event.movementX !== undefined && 
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      // Detect mouse movement (more reliable than clicks for detection)
+      // Only count movements with actual mouse delta values
+      if (
+        event.isTrusted &&
+        event.movementX !== undefined &&
         event.movementY !== undefined &&
-        (Math.abs(event.movementX) > 1 || Math.abs(event.movementY) > 1)) {
-      addMouseEvent("mousemove", event);
-    }
-  }, [addMouseEvent]);
+        (Math.abs(event.movementX) > 1 || Math.abs(event.movementY) > 1)
+      ) {
+        addMouseEvent("mousemove", event);
+      }
+    },
+    [addMouseEvent],
+  );
 
-  const handleMouseClick = useCallback((event: MouseEvent) => {
-    // Additional click detection
-    if (event.isTrusted && event.detail > 0) {
-      addMouseEvent("click", event);
-    }
-  }, [addMouseEvent]);
+  const handleMouseClick = useCallback(
+    (event: MouseEvent) => {
+      // Additional click detection
+      if (event.isTrusted && event.detail > 0) {
+        addMouseEvent("click", event);
+      }
+    },
+    [addMouseEvent],
+  );
 
-  const handlePointerDown = useCallback((event: PointerEvent) => {
-    // Detect pointer events that are clearly from mouse
-    if (!config.excludePointerEvents && 
-        event.isTrusted && 
-        event.pointerType === "mouse") {
-      addMouseEvent("pointer-mouse");
-    }
-  }, [config.excludePointerEvents, addMouseEvent]);
+  const handlePointerDown = useCallback(
+    (event: PointerEvent) => {
+      // Detect pointer events that are clearly from mouse
+      if (
+        !config.excludePointerEvents &&
+        event.isTrusted &&
+        event.pointerType === "mouse"
+      ) {
+        addMouseEvent("pointer-mouse");
+      }
+    },
+    [config.excludePointerEvents, addMouseEvent],
+  );
 
-  const handleContextMenu = useCallback((event: MouseEvent) => {
-    // Right-click detection (very strong indicator of mouse usage)
-    if (event.isTrusted) {
-      addMouseEvent("contextmenu", event);
-    }
-  }, [addMouseEvent]);
+  const handleContextMenu = useCallback(
+    (event: MouseEvent) => {
+      // Right-click detection (very strong indicator of mouse usage)
+      if (event.isTrusted) {
+        addMouseEvent("contextmenu", event);
+      }
+    },
+    [addMouseEvent],
+  );
 
   // Manual detection trigger (for testing or immediate checking)
   const triggerManualDetection = useCallback(() => {
@@ -282,13 +325,18 @@ export function usePCDetection(
 
     // Only setup detection if device characteristics suggest possible PC usage
     // Don't detect on clearly mobile devices, but be suspicious of ambiguous cases
-    const shouldSkipDetection = deviceInfo.isMobile && 
-                               deviceInfo.hasTouch && 
-                               deviceInfo.maxTouchPoints > 1 &&
-                               deviceInfo.screenWidth < 1024;
+    const shouldSkipDetection =
+      deviceInfo.isMobile &&
+      deviceInfo.hasTouch &&
+      deviceInfo.maxTouchPoints > 1 &&
+      deviceInfo.screenWidth < 1024;
 
     if (shouldSkipDetection) {
-      console.log("📱 Skipping PC detection on clearly mobile device", deviceInfo);
+      console.log(
+        "📱 Skipping PC detection on clearly mobile device",
+        deviceInfo,
+      );
+
       return;
     }
 
@@ -302,24 +350,24 @@ export function usePCDetection(
 
     // Add event listeners with passive: false to ensure we can detect them properly
     const options = { passive: true, capture: true };
-    
+
     document.addEventListener("mousedown", handleMouseDown, options);
     document.addEventListener("mousemove", handleMouseMove, options);
     document.addEventListener("click", handleMouseClick, options);
     document.addEventListener("contextmenu", handleContextMenu, options);
-    
+
     if (!config.excludePointerEvents) {
       document.addEventListener("pointerdown", handlePointerDown, options);
     }
 
     return () => {
       isDetectionActiveRef.current = false;
-      
+
       document.removeEventListener("mousedown", handleMouseDown);
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("click", handleMouseClick);
       document.removeEventListener("contextmenu", handleContextMenu);
-      
+
       if (!config.excludePointerEvents) {
         document.removeEventListener("pointerdown", handlePointerDown);
       }

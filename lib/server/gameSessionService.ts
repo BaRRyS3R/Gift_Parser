@@ -5,9 +5,9 @@ import { GameMode } from "@/types/game-modes/common";
 
 // Session status enum
 export enum SessionStatus {
-  ACTIVE = 'active',
-  FINISHED = 'finished',
-  EXPIRED = 'expired'
+  ACTIVE = "active",
+  FINISHED = "finished",
+  EXPIRED = "expired",
 }
 
 // Game session interface
@@ -54,28 +54,29 @@ export const serverGameSessionService = {
   async createSession(
     userId: string,
     telegramId: number,
-    gameMode: GameMode
+    gameMode: GameMode,
   ): Promise<CreateSessionResult> {
     try {
-      const { data, error } = await supabaseServer.rpc('create_game_session', {
+      const { data, error } = await supabaseServer.rpc("create_game_session", {
         p_user_id: userId,
         p_telegram_id: telegramId,
         p_game_mode: gameMode,
-        p_session_duration_minutes: SESSION_CONFIG.DURATION_MINUTES
+        p_session_duration_minutes: SESSION_CONFIG.DURATION_MINUTES,
       });
 
       if (error) {
-        console.error('Error creating game session:', error);
+        console.error("Error creating game session:", error);
+
         return {
           success: false,
-          error: 'Failed to create game session'
+          error: "Failed to create game session",
         };
       }
 
       if (!data || data.length === 0) {
         return {
           success: false,
-          error: 'No session data returned'
+          error: "No session data returned",
         };
       }
 
@@ -84,13 +85,14 @@ export const serverGameSessionService = {
       return {
         success: true,
         session_id: sessionData.session_id,
-        expires_at: new Date(sessionData.expires_at)
+        expires_at: new Date(sessionData.expires_at),
       };
     } catch (error) {
-      console.error('Error in createSession:', error);
+      console.error("Error in createSession:", error);
+
       return {
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       };
     }
   },
@@ -100,20 +102,21 @@ export const serverGameSessionService = {
    */
   async validateAndFinishSession(
     sessionId: string,
-    telegramId: number
+    telegramId: number,
   ): Promise<ValidateSessionResult> {
     try {
-      const { data, error } = await supabaseServer.rpc('finish_game_session', {
+      const { data, error } = await supabaseServer.rpc("finish_game_session", {
         p_session_id: sessionId,
-        p_telegram_id: telegramId
+        p_telegram_id: telegramId,
       });
 
       if (error) {
-        console.error('Error validating session:', error);
+        console.error("Error validating session:", error);
+
         return {
           success: false,
           was_valid: false,
-          error: 'Failed to validate session'
+          error: "Failed to validate session",
         };
       }
 
@@ -121,7 +124,7 @@ export const serverGameSessionService = {
         return {
           success: false,
           was_valid: false,
-          error: 'No session validation data returned'
+          error: "No session validation data returned",
         };
       }
 
@@ -130,14 +133,15 @@ export const serverGameSessionService = {
       return {
         success: result.success,
         was_valid: result.was_valid,
-        error: result.error_message || undefined
+        error: result.error_message || undefined,
       };
     } catch (error) {
-      console.error('Error in validateAndFinishSession:', error);
+      console.error("Error in validateAndFinishSession:", error);
+
       return {
         success: false,
         was_valid: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       };
     }
   },
@@ -148,19 +152,21 @@ export const serverGameSessionService = {
   async getSession(sessionId: string): Promise<GameSession | null> {
     try {
       const { data, error } = await supabaseServer
-        .from('game_sessions')
-        .select('*')
-        .eq('session_id', sessionId)
+        .from("game_sessions")
+        .select("*")
+        .eq("session_id", sessionId)
         .single();
 
       if (error) {
-        console.error('Error getting session:', error);
+        console.error("Error getting session:", error);
+
         return null;
       }
 
       return data as GameSession;
     } catch (error) {
-      console.error('Error in getSession:', error);
+      console.error("Error in getSession:", error);
+
       return null;
     }
   },
@@ -171,20 +177,22 @@ export const serverGameSessionService = {
   async getActiveSessions(telegramId: number): Promise<GameSession[]> {
     try {
       const { data, error } = await supabaseServer
-        .from('game_sessions')
-        .select('*')
-        .eq('telegram_id', telegramId)
-        .eq('status', SessionStatus.ACTIVE)
-        .order('created_at', { ascending: false });
+        .from("game_sessions")
+        .select("*")
+        .eq("telegram_id", telegramId)
+        .eq("status", SessionStatus.ACTIVE)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error getting active sessions:', error);
+        console.error("Error getting active sessions:", error);
+
         return [];
       }
 
       return data as GameSession[];
     } catch (error) {
-      console.error('Error in getActiveSessions:', error);
+      console.error("Error in getActiveSessions:", error);
+
       return [];
     }
   },
@@ -195,23 +203,25 @@ export const serverGameSessionService = {
   async expireSession(sessionId: string, telegramId: number): Promise<boolean> {
     try {
       const { error } = await supabaseServer
-        .from('game_sessions')
+        .from("game_sessions")
         .update({
           status: SessionStatus.EXPIRED,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('session_id', sessionId)
-        .eq('telegram_id', telegramId)
-        .eq('status', SessionStatus.ACTIVE);
+        .eq("session_id", sessionId)
+        .eq("telegram_id", telegramId)
+        .eq("status", SessionStatus.ACTIVE);
 
       if (error) {
-        console.error('Error expiring session:', error);
+        console.error("Error expiring session:", error);
+
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in expireSession:', error);
+      console.error("Error in expireSession:", error);
+
       return false;
     }
   },
@@ -224,20 +234,23 @@ export const serverGameSessionService = {
     cleanup_timestamp: Date;
   }> {
     try {
-      const { data, error } = await supabaseServer.rpc('cleanup_expired_game_sessions');
+      const { data, error } = await supabaseServer.rpc(
+        "cleanup_expired_game_sessions",
+      );
 
       if (error) {
-        console.error('Error cleaning up sessions:', error);
+        console.error("Error cleaning up sessions:", error);
+
         return {
           cleaned_count: 0,
-          cleanup_timestamp: new Date()
+          cleanup_timestamp: new Date(),
         };
       }
 
       if (!data || data.length === 0) {
         return {
           cleaned_count: 0,
-          cleanup_timestamp: new Date()
+          cleanup_timestamp: new Date(),
         };
       }
 
@@ -245,13 +258,14 @@ export const serverGameSessionService = {
 
       return {
         cleaned_count: result.cleaned_count,
-        cleanup_timestamp: new Date(result.cleanup_timestamp)
+        cleanup_timestamp: new Date(result.cleanup_timestamp),
       };
     } catch (error) {
-      console.error('Error in cleanupExpiredSessions:', error);
+      console.error("Error in cleanupExpiredSessions:", error);
+
       return {
         cleaned_count: 0,
-        cleanup_timestamp: new Date()
+        cleanup_timestamp: new Date(),
       };
     }
   },
@@ -266,38 +280,43 @@ export const serverGameSessionService = {
   }> {
     try {
       const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfDay = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+      );
 
       const [activeResult, finishedResult, expiredResult] = await Promise.all([
         supabaseServer
-          .from('game_sessions')
-          .select('session_id', { count: 'exact' })
-          .eq('status', SessionStatus.ACTIVE),
-        
+          .from("game_sessions")
+          .select("session_id", { count: "exact" })
+          .eq("status", SessionStatus.ACTIVE),
+
         supabaseServer
-          .from('game_sessions')
-          .select('session_id', { count: 'exact' })
-          .eq('status', SessionStatus.FINISHED)
-          .gte('updated_at', startOfDay.toISOString()),
-        
+          .from("game_sessions")
+          .select("session_id", { count: "exact" })
+          .eq("status", SessionStatus.FINISHED)
+          .gte("updated_at", startOfDay.toISOString()),
+
         supabaseServer
-          .from('game_sessions')
-          .select('session_id', { count: 'exact' })
-          .eq('status', SessionStatus.EXPIRED)
-          .gte('updated_at', startOfDay.toISOString())
+          .from("game_sessions")
+          .select("session_id", { count: "exact" })
+          .eq("status", SessionStatus.EXPIRED)
+          .gte("updated_at", startOfDay.toISOString()),
       ]);
 
       return {
         active_sessions: activeResult.count || 0,
         finished_sessions_today: finishedResult.count || 0,
-        expired_sessions_today: expiredResult.count || 0
+        expired_sessions_today: expiredResult.count || 0,
       };
     } catch (error) {
-      console.error('Error getting session stats:', error);
+      console.error("Error getting session stats:", error);
+
       return {
         active_sessions: 0,
         finished_sessions_today: 0,
-        expired_sessions_today: 0
+        expired_sessions_today: 0,
       };
     }
   },
@@ -314,5 +333,5 @@ export const serverGameSessionService = {
    */
   generateSessionId(): string {
     return crypto.randomUUID();
-  }
+  },
 };

@@ -5,7 +5,7 @@ import { GameMode } from "./game-modes/common";
 // Quest type enumeration
 export enum QuestType {
   PLAY_GAMES = "play_games",
-  SCORE_POINTS = "score_points", 
+  SCORE_POINTS = "score_points",
   HIT_CIRCLES = "hit_circles",
 }
 

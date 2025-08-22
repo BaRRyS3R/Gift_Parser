@@ -54,10 +54,14 @@ export function useGame(
    * Save game result with session validation
    */
   const saveGameResult = useCallback(
-    async (gameResult: GameResult, sessionId: string): Promise<GameSaveResult> => {
+    async (
+      gameResult: GameResult,
+      sessionId: string,
+    ): Promise<GameSaveResult> => {
       // Validate session ID is provided
       if (!sessionId || typeof sessionId !== "string") {
         const error = "Session ID is required for game result validation";
+
         setState((prev) => ({
           ...prev,
           sessionError: error,
@@ -127,7 +131,8 @@ export function useGame(
           error instanceof Error ? error.message : "Failed to save game result";
 
         // Distinguish between session errors and general errors
-        const isSessionError = errorMessage.includes("session") ||
+        const isSessionError =
+          errorMessage.includes("session") ||
           errorMessage.includes("Session") ||
           errorMessage.includes("expired") ||
           errorMessage.includes("invalid");
@@ -150,10 +155,14 @@ export function useGame(
    */
   const saveGameResultLegacy = useCallback(
     async (gameResult: GameResult): Promise<GameSaveResult> => {
-      console.warn("saveGameResultLegacy is deprecated. Use saveGameResult with sessionId instead.");
-      
+      console.warn(
+        "saveGameResultLegacy is deprecated. Use saveGameResult with sessionId instead.",
+      );
+
       // This should not be used anymore, but for safety we'll throw an error
-      throw new Error("Session validation is required. Please use the updated game flow.");
+      throw new Error(
+        "Session validation is required. Please use the updated game flow.",
+      );
     },
     [],
   );
@@ -162,9 +171,15 @@ export function useGame(
    * Check if error is session-related
    */
   const isSessionError = useCallback((error: string): boolean => {
-    const sessionKeywords = ['session', 'expired', 'invalid session', 'Session'];
-    return sessionKeywords.some(keyword => 
-      error.toLowerCase().includes(keyword.toLowerCase())
+    const sessionKeywords = [
+      "session",
+      "expired",
+      "invalid session",
+      "Session",
+    ];
+
+    return sessionKeywords.some((keyword) =>
+      error.toLowerCase().includes(keyword.toLowerCase()),
     );
   }, []);
 
@@ -194,25 +209,25 @@ export function useGame(
    */
   const getErrorSummary = useCallback(() => {
     const { error, sessionError } = state;
-    
+
     if (sessionError) {
       return {
         hasError: true,
-        errorType: 'session' as const,
+        errorType: "session" as const,
         message: sessionError,
         isRecoverable: false, // Session errors usually require restarting the game
       };
     }
-    
+
     if (error) {
       return {
         hasError: true,
-        errorType: 'general' as const,
+        errorType: "general" as const,
         message: error,
         isRecoverable: true, // General errors might be retryable
       };
     }
-    
+
     return {
       hasError: false,
       errorType: null,
@@ -230,7 +245,7 @@ export function useGame(
     // Enhanced actions
     saveGameResult, // NEW: With session validation
     saveGameResultLegacy, // Deprecated method
-    
+
     // Error management
     clearError,
     clearSessionError, // NEW: Clear session errors

@@ -1,7 +1,5 @@
 // src/lib/server/dailyQuestsService.ts - Fixed imports and types
 
-import { supabaseServer } from "@/lib/supabase_server";
-import { serverAttemptsService } from "./attemptsService";
 import type {
   DailyQuest,
   UserDailyQuest,
@@ -9,6 +7,10 @@ import type {
   QuestProgressUpdate,
   QuestCompletionResult,
 } from "@/types/daily-quests";
+
+import { serverAttemptsService } from "./attemptsService";
+
+import { supabaseServer } from "@/lib/supabase_server";
 import { QuestType } from "@/types/daily-quests"; // Import as value
 import { GameMode } from "@/types/game-modes/common";
 
@@ -184,7 +186,10 @@ export const serverDailyQuestsService = {
           attemptsAwarded = quest.reward_attempts;
         }
       } catch (attemptsError) {
-        console.error("Error awarding quest completion attempts:", attemptsError);
+        console.error(
+          "Error awarding quest completion attempts:",
+          attemptsError,
+        );
         // Don't fail the quest update if attempts award fails
       }
     }
@@ -289,7 +294,7 @@ export const serverDailyQuestsService = {
     const results: QuestCompletionResult[] = [];
 
     // Set quest ID for all updates
-    updates.forEach(update => {
+    updates.forEach((update) => {
       update.questId = quest.id;
     });
 
@@ -325,16 +330,18 @@ export const serverDailyQuestsService = {
     }
 
     const totalParticipants = data.length;
-    const completedCount = data.filter(q => q.is_completed).length;
-    const averageProgress = data.length > 0 
-      ? data.reduce((sum, q) => sum + q.progress_value, 0) / data.length
-      : 0;
+    const completedCount = data.filter((q) => q.is_completed).length;
+    const averageProgress =
+      data.length > 0
+        ? data.reduce((sum, q) => sum + q.progress_value, 0) / data.length
+        : 0;
 
     return {
       questId,
       totalParticipants,
       completedCount,
-      completionRate: totalParticipants > 0 ? completedCount / totalParticipants : 0,
+      completionRate:
+        totalParticipants > 0 ? completedCount / totalParticipants : 0,
       averageProgress,
     };
   },

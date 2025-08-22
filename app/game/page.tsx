@@ -722,7 +722,7 @@ function GamePageContent() {
       </div>
 
       {/* CSS Animation for bottom glow effect */}
-      <style jsx global>{`
+      <style>{`
         @keyframes bottom-glow {
           0% {
             transform: translateY(100%);

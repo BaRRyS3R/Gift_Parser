@@ -234,9 +234,7 @@ export default function BinaryEasterEgg({
         <div className="space-y-4">
           {/* Title */}
           <div className="text-center mb-4">
-            <h3 className="text-lg font-bold text-white mb-1">
-              01
-            </h3>
+            <h3 className="text-lg font-bold text-white mb-1">01</h3>
             <p className="text-white/60 text-sm">10???????</p>
           </div>
 

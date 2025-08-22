@@ -110,7 +110,8 @@ export default function PhysicsGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
+  const [sessionStatus, setSessionStatus] =
+    useState<SessionStatus>(initialSessionStatus);
 
   // CRITICAL FIX: Store session ID in a ref to avoid race conditions
   const currentSessionRef = useRef<string | null>(null);
@@ -128,19 +129,26 @@ export default function PhysicsGameManager() {
 
   // Session timer for expiry tracking
   useEffect(() => {
-    if (sessionStatus.sessionId && sessionStatus.isValid && sessionStatus.expiresAt) {
+    if (
+      sessionStatus.sessionId &&
+      sessionStatus.isValid &&
+      sessionStatus.expiresAt
+    ) {
       sessionTimerRef.current = setInterval(() => {
         const now = Date.now();
         const timeRemaining = sessionStatus.expiresAt!.getTime() - now;
 
-        setSessionStatus(prev => ({
+        setSessionStatus((prev) => ({
           ...prev,
           timeRemaining,
           isValid: timeRemaining > 0,
         }));
 
         // End game when session expires
-        if (timeRemaining <= 0 && gameStateRef.current.gameState === GameState.PLAYING) {
+        if (
+          timeRemaining <= 0 &&
+          gameStateRef.current.gameState === GameState.PLAYING
+        ) {
           endGame("session_expired");
         }
       }, 1000);
@@ -244,7 +252,7 @@ export default function PhysicsGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -276,6 +284,7 @@ export default function PhysicsGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -293,6 +302,7 @@ export default function PhysicsGameManager() {
           sessionError: "No valid session found",
           isLoading: false,
         }));
+
         return;
       }
 
@@ -340,7 +350,7 @@ export default function PhysicsGameManager() {
                 .catch(() => ({}));
             }
           }
-        } catch (error) { }
+        } catch (error) {}
       };
 
       let attemptCount = 1;
@@ -376,6 +386,7 @@ export default function PhysicsGameManager() {
               sessionError: error.message,
               error: null,
             }));
+
             return; // Don't retry session errors
           }
 
@@ -383,6 +394,7 @@ export default function PhysicsGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
+
             return attemptSave();
           } else {
             throw error;
@@ -393,7 +405,8 @@ export default function PhysicsGameManager() {
       try {
         await attemptSave();
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : t("errors.saveGameResult");
+        const errorMessage =
+          error instanceof Error ? error.message : t("errors.saveGameResult");
 
         setSaveStatus((prev) => ({
           ...prev,
@@ -454,7 +467,14 @@ export default function PhysicsGameManager() {
   }, []);
 
   const endGame = useCallback(
-    (cause: "mistakes" | "escaped_circles" | "timeout" | "app_minimized" | "session_expired") => {
+    (
+      cause:
+        | "mistakes"
+        | "escaped_circles"
+        | "timeout"
+        | "app_minimized"
+        | "session_expired",
+    ) => {
       if (isGameEndingRef.current) {
         return;
       }
@@ -495,7 +515,7 @@ export default function PhysicsGameManager() {
     const delay =
       levelConfig.activationTimeMin +
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
 
     const timeout = setTimeout(() => {
       if (
@@ -627,6 +647,7 @@ export default function PhysicsGameManager() {
           redirecting: false,
           isSessionError: false,
         });
+
         return;
       }
 
@@ -652,6 +673,7 @@ export default function PhysicsGameManager() {
           redirecting: false,
           isSessionError: true,
         });
+
         return;
       }
 
@@ -691,7 +713,6 @@ export default function PhysicsGameManager() {
           scheduleNextActivation();
         }, 1000);
       }, 800);
-
     } catch (error) {
       console.error("Failed to start game:", error);
       setPlayAgainError({
@@ -701,7 +722,12 @@ export default function PhysicsGameManager() {
         isSessionError: false,
       });
     }
-  }, [scheduleNextActivation, updatePhysicsEngine, consumeAttemptWithSession, t]);
+  }, [
+    scheduleNextActivation,
+    updatePhysicsEngine,
+    consumeAttemptWithSession,
+    t,
+  ]);
 
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
@@ -719,6 +745,7 @@ export default function PhysicsGameManager() {
           isSessionError: false,
         });
         setIsPlayingAgain(false);
+
         return;
       }
 
@@ -861,99 +888,101 @@ export default function PhysicsGameManager() {
             saveStatus.error ||
             saveStatus.sessionError ||
             saveStatus.isSuccess) && (
-              <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-                      <span className="text-sm text-purple-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+            <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                    <span className="text-sm text-purple-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recordingPhysics")}
-                      </span>
-                    </div>
+                        : t("save.recordingPhysics")}
+                    </span>
+                  </div>
 
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-purple-400/60" size={14} />
-                          <span className="text-xs text-purple-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-purple-400/20 rounded-full h-1">
-                          <div
-                            className="bg-purple-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-purple-400/60" size={14} />
+                        <span className="text-xs text-purple-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                )}
+                      <div className="w-full bg-purple-400/20 rounded-full h-1">
+                        <div
+                          className="bg-purple-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                {/* Session error display */}
-                {saveStatus.sessionError && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <ShieldAlert className="text-orange-400" size={16} />
-                      <span className="text-sm text-orange-400">
-                        Session Security Error
-                      </span>
-                    </div>
-                    <div className="text-orange-400/60 text-xs mb-3">
-                      {saveStatus.sessionError}
-                    </div>
-                    <div className="text-white/60 text-xs">
-                      Game may not be saved due to session validation failure
-                    </div>
+              {/* Session error display */}
+              {saveStatus.sessionError && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-orange-400" size={16} />
+                    <span className="text-sm text-orange-400">
+                      Session Security Error
+                    </span>
                   </div>
-                )}
+                  <div className="text-orange-400/60 text-xs mb-3">
+                    {saveStatus.sessionError}
+                  </div>
+                  <div className="text-white/60 text-xs">
+                    Game may not be saved due to session validation failure
+                  </div>
+                </div>
+              )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.physicsRecordedSuccessfully")}
-                      </span>
-                    </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.physicsRecordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("save.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => gameResult && handleSaveGameResult(gameResult)}
-                    >
-                      {t("save.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      {t("save.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-red-400/60 text-xs mb-3">
+                    {t("save.recordedLocally")}
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() =>
+                      gameResult && handleSaveGameResult(gameResult)
+                    }
+                  >
+                    {t("save.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
@@ -964,8 +993,13 @@ export default function PhysicsGameManager() {
                   ) : (
                     <AlertTriangle className="text-red-400" size={16} />
                   )}
-                  <span className={`text-sm font-bold ${playAgainError.isSessionError ? "text-orange-400" : "text-red-400"
-                    }`}>
+                  <span
+                    className={`text-sm font-bold ${
+                      playAgainError.isSessionError
+                        ? "text-orange-400"
+                        : "text-red-400"
+                    }`}
+                  >
                     {t("game.modes.physics.playAgain.cannotPlay")}
                   </span>
                 </div>
@@ -990,11 +1024,14 @@ export default function PhysicsGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                isPlayingAgain || playAgainError.show || saveStatus.isLoading
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-                }`}
-              disabled={isPlayingAgain || playAgainError.show || saveStatus.isLoading}
+              }`}
+              disabled={
+                isPlayingAgain || playAgainError.show || saveStatus.isLoading
+              }
               onClick={handlePlayAgain}
             >
               {isPlayingAgain ? (

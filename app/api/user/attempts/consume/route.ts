@@ -1,6 +1,7 @@
 // src/app/api/user/attempts/consume/route.ts - Updated with game session creation
 
 import { NextRequest, NextResponse } from "next/server";
+
 import { serverAttemptsService } from "@/lib/server/attemptsService";
 import { serverGameSessionService } from "@/lib/server/gameSessionService";
 import { serverUserService } from "@/lib/supabase_server";
@@ -64,7 +65,7 @@ export async function POST(
 
     // Parse request body to get game mode
     let body: ConsumeAttemptRequest;
-    
+
     try {
       body = await request.json();
     } catch (error) {
@@ -94,6 +95,7 @@ export async function POST(
 
     // Verify user exists and get user data
     const user = await serverUserService.findByTelegramId(telegramIdNumber);
+
     if (!user) {
       return NextResponse.json(
         {
@@ -108,7 +110,8 @@ export async function POST(
 
     // ATOMIC OPERATION: Consume attempt with session creation
     // First, consume the attempt
-    const attemptsStatus = await serverAttemptsService.consumeAttempt(telegramIdNumber);
+    const attemptsStatus =
+      await serverAttemptsService.consumeAttempt(telegramIdNumber);
 
     if (!attemptsStatus.canPlay) {
       return NextResponse.json(
@@ -128,7 +131,7 @@ export async function POST(
     const sessionResult = await serverGameSessionService.createSession(
       user.id,
       telegramIdNumber,
-      body.gameMode
+      body.gameMode,
     );
 
     if (!sessionResult.success) {
@@ -138,7 +141,7 @@ export async function POST(
         userId: user.id,
         telegramId: telegramIdNumber,
         gameMode: body.gameMode,
-        error: sessionResult.error
+        error: sessionResult.error,
       });
 
       return NextResponse.json(
@@ -162,7 +165,6 @@ export async function POST(
       sessionId: sessionResult.session_id,
       sessionExpiresAt: sessionResult.expires_at?.toISOString(),
     });
-
   } catch (error) {
     console.error("Error consuming attempt and creating session:", error);
 
@@ -224,9 +226,10 @@ export async function OPTIONS(): Promise<NextResponse> {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Telegram-ID, X-User-ID',
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers":
+        "Content-Type, Authorization, X-Telegram-ID, X-User-ID",
     },
   });
 }

@@ -370,13 +370,14 @@ export const serverGameService = {
     let questAttemptsAwarded = 0;
 
     try {
-      const questResults = await serverDailyQuestsService.processGameQuestUpdates(
-        user.id,
-        gameResult.mode,
-        gameResult,
-      );
+      const questResults =
+        await serverDailyQuestsService.processGameQuestUpdates(
+          user.id,
+          gameResult.mode,
+          gameResult,
+        );
 
-      questCompletions = questResults.map(result => ({
+      questCompletions = questResults.map((result) => ({
         questId: result.questId,
         completed: result.completed,
         attemptsAwarded: result.attemptsAwarded,

@@ -6,7 +6,8 @@ export const quests = {
     loading: "LOADING...",
     error: "ERROR",
     noQuest: "NO QUEST TODAY",
-    noQuestDescription: "No daily quest is available today. Check back tomorrow for new challenges!",
+    noQuestDescription:
+      "No daily quest is available today. Check back tomorrow for new challenges!",
     questCompleted: "QUEST COMPLETED!",
     attemptsAwarded: "+{attempts} attempts awarded",
     gameMode: "MODE:",
@@ -28,12 +29,12 @@ export const quests = {
       description: "Play {targetValue} Reaction games",
     },
     survival: {
-      title: "Survivor's Challenge", 
+      title: "Survivor's Challenge",
       description: "Play {targetValue} Survival games",
     },
     physics: {
       title: "Physics Mastery",
-      description: "Play {targetValue} Physics games", 
+      description: "Play {targetValue} Physics games",
     },
     rotation: {
       title: "Spin Master",
@@ -56,7 +57,7 @@ export const quests = {
       description: "Score {targetValue} points in Survival mode",
     },
     physics: {
-      title: "Physics Genius", 
+      title: "Physics Genius",
       description: "Score {targetValue} points in Physics mode",
     },
     rotation: {
@@ -98,6 +99,6 @@ export const quests = {
     current: "{current}/{target}",
     completed: "COMPLETED",
   },
-  
+
   reward: "+{attempts} attempts on completion",
 } as const;

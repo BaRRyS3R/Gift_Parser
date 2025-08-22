@@ -1,9 +1,11 @@
 // src/app/api/quests/progress/route.ts - Update quest progress
 
+import type { QuestProgressResponse } from "@/types/daily-quests";
+
 import { NextRequest, NextResponse } from "next/server";
+
 import { serverDailyQuestsService } from "@/lib/server/dailyQuestsService";
 import { GameMode } from "@/types/game-modes/common";
-import type { QuestProgressResponse } from "@/types/daily-quests";
 
 // Request body interface
 interface UpdateProgressRequest {
@@ -35,6 +37,7 @@ export async function POST(
 
     // Parse request body
     let body: UpdateProgressRequest;
+
     try {
       body = await request.json();
     } catch (error) {
@@ -72,17 +75,20 @@ export async function POST(
     }
 
     // Process quest updates
-    const completionResults = await serverDailyQuestsService
-      .processGameQuestUpdates(userId, gameMode, gameResult);
+    const completionResults =
+      await serverDailyQuestsService.processGameQuestUpdates(
+        userId,
+        gameMode,
+        gameResult,
+      );
 
     // Return the first completion result (if any)
-    const completion = completionResults.find(result => result.completed);
+    const completion = completionResults.find((result) => result.completed);
 
     return NextResponse.json({
       success: true,
       completion,
     });
-
   } catch (error) {
     console.error("Error updating quest progress:", error);
 
