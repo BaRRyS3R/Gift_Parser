@@ -1,10 +1,10 @@
-// src/app/game/page.tsx - Enhanced with animated borders and info modal
+// src/app/game/page.tsx - Enhanced with video backgrounds and improved caching
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardHeader, CardFooter, Image, Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@nextui-org/react";
+import { Card, CardHeader, CardFooter, Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@nextui-org/react";
 import {
   Crosshair,
   Play,
@@ -38,7 +38,8 @@ interface GameMode {
   route: string;
   difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
   durationKey: string;
-  imageUrl: string;
+  videoUrl: string;
+  fallbackImageUrl: string; // Fallback на случай если видео не загрузится
   color: {
     primary: string;
     secondary: string;
@@ -65,7 +66,8 @@ const GAME_MODES: GameMode[] = [
     route: "/game/reaction",
     difficulty: "🤡",
     durationKey: "game.modes.reaction.duration",
-    imageUrl: "https://notfren.com/circusle/reaction.jpg",
+    videoUrl: "https://notfren.com/circusle/mode_reaction.mp4",
+    fallbackImageUrl: "https://notfren.com/circusle/reaction.jpg",
     color: {
       primary: "text-white",
       secondary: "text-white/90",
@@ -99,7 +101,8 @@ const GAME_MODES: GameMode[] = [
     route: "/game/survival",
     difficulty: "💋😈",
     durationKey: "game.modes.survival.duration",
-    imageUrl: "https://notfren.com/circusle/survival.jpg",
+    videoUrl: "https://notfren.com/circusle/mode_survival.mp4",
+    fallbackImageUrl: "https://notfren.com/circusle/survival.jpg",
     color: {
       primary: "text-red-100",
       secondary: "text-red-200",
@@ -133,7 +136,8 @@ const GAME_MODES: GameMode[] = [
     route: "/game/physics",
     difficulty: "👉👌",
     durationKey: "game.modes.physics.duration",
-    imageUrl: "https://notfren.com/circusle/physics.jpg",
+    videoUrl: "https://notfren.com/circusle/mode_physics.mp4",
+    fallbackImageUrl: "https://notfren.com/circusle/physics.jpg",
     color: {
       primary: "text-purple-100",
       secondary: "text-purple-200",
@@ -167,7 +171,8 @@ const GAME_MODES: GameMode[] = [
     route: "/game/rotation",
     difficulty: "🌀",
     durationKey: "game.modes.rotation.duration",
-    imageUrl: "https://notfren.com/circusle/rotation.jpg",
+    videoUrl: "https://notfren.com/circusle/mode_rotation.mp4",
+    fallbackImageUrl: "https://notfren.com/circusle/rotation.jpg",
     color: {
       primary: "text-orange-100",
       secondary: "text-orange-200",
@@ -193,6 +198,91 @@ const GAME_MODES: GameMode[] = [
     ],
   },
 ];
+
+// Компонент для видео с fallback
+interface GameModeVideoProps {
+  mode: GameMode;
+  className?: string;
+}
+
+function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasError, setHasError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  const handleVideoLoad = useCallback(() => {
+    setIsLoaded(true);
+    console.log(`[GameModeVideo] Video loaded successfully: ${mode.id}`);
+  }, [mode.id]);
+
+  const handleVideoError = useCallback((e: any) => {
+    console.warn(`[GameModeVideo] Video failed to load: ${mode.id}`, e);
+    setHasError(true);
+  }, [mode.id]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      // Пытаемся запустить воспроизведение когда видео загружено
+      const playVideo = async () => {
+        try {
+          await video.play();
+        } catch (error) {
+          console.log(`[GameModeVideo] Autoplay failed for ${mode.id}, which is expected`);
+        }
+      };
+
+      if (video.readyState >= 2) {
+        setIsLoaded(true);
+        playVideo();
+      }
+    }
+  }, [mode.id]);
+
+  if (hasError) {
+    // Fallback на картинку
+    return (
+      <img
+        src={mode.fallbackImageUrl}
+        alt={`${mode.id}_game_card_fallback`}
+        className={`z-0 w-full h-full object-cover transition-all duration-300 ${className}`}
+        onError={() => console.warn(`[GameModeVideo] Fallback image also failed: ${mode.id}`)}
+      />
+    );
+  }
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        className={`z-0 w-full h-full object-cover transition-all duration-300 ${className} ${
+          isLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onLoadedData={handleVideoLoad}
+        onError={handleVideoError}
+      >
+        <source src={mode.videoUrl} type="video/mp4" />
+        Ваш браузер не поддерживает видео.
+      </video>
+      
+      {/* Показываем fallback картинку пока видео не загрузилось */}
+      {!isLoaded && (
+        <img
+          src={mode.fallbackImageUrl}
+          alt={`${mode.id}_game_card_loading`}
+          className={`absolute inset-0 z-0 w-full h-full object-cover transition-all duration-300 ${
+            isLoaded ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
+      )}
+    </>
+  );
+}
 
 function GamePageContent() {
   const router = useRouter();
@@ -258,6 +348,20 @@ function GamePageContent() {
       setEasterEggChecked(true);
     }
   }, [easterEggChecked]);
+
+  // Предзагрузка видео через Service Worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      console.log("[GamePage] Service Worker supported, videos should be cached");
+      
+      // Опционально: можем принудительно запросить кэширование
+      GAME_MODES.forEach(mode => {
+        fetch(mode.videoUrl, { mode: 'no-cors' })
+          .then(() => console.log(`[GamePage] Video cached: ${mode.id}`))
+          .catch((err) => console.warn(`[GamePage] Failed to cache video: ${mode.id}`, err));
+      });
+    }
+  }, []);
 
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
@@ -559,7 +663,7 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* Enhanced horizontal scrolling cards with hover border effect */}
+      {/* Enhanced horizontal scrolling cards with video backgrounds */}
       <div className="mb-8 animate-fade-in">
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex space-x-6 px-4" style={{ width: "max-content" }}>
@@ -573,7 +677,7 @@ function GamePageContent() {
                 <div key={mode.id} className="relative group">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] border-2 transition-all duration-300 backdrop-blur-md ${mode.color.border
+                    className={`w-[280px] h-[400px] border-2 transition-all duration-300 backdrop-blur-md overflow-hidden ${mode.color.border
                       } ${isDisabled || isAnyModeLoading
                         ? "opacity-50"
                         : `group-hover:border-4 group-hover:${mode.color.borderActive} group-hover:shadow-lg group-hover:${mode.color.glow}`
@@ -614,13 +718,10 @@ function GamePageContent() {
                       </p>
                     </CardHeader>
 
-                    <Image
-                      removeWrapper
-                      alt={`${mode.id}_game_card`}
-                      className="z-0 w-full h-full object-cover transition-all duration-300"
-                      fallbackSrc="/game-placeholder.jpg"
-                      src={mode.imageUrl}
-                    />
+                    {/* Заменяем Image на наш кастомный видео компонент */}
+                    <div className="relative z-0 w-full h-full overflow-hidden">
+                      <GameModeVideo mode={mode} />
+                    </div>
 
                     <CardFooter className="absolute bg-black/50 backdrop-blur-md bottom-0 border-t-1 border-white/20 z-10 justify-between">
                       <div className="flex space-x-2 w-full">
