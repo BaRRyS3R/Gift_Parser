@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Enhanced with video backgrounds and improved caching
+// src/app/game/page.tsx - Complete game page with video backgrounds
 
 "use client";
 
@@ -209,6 +209,8 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showControls, setShowControls] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const handleVideoLoad = useCallback(() => {
     setIsLoaded(true);
@@ -220,6 +222,31 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
     setHasError(true);
   }, [mode.id]);
 
+  const togglePlayPause = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      video.play();
+      setIsPlaying(true);
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  }, []);
+
+  // Функция для определения CSS стилей видео
+  const getVideoStyles = useCallback(() => {
+    const baseStyles = "z-0 w-full h-full transition-all duration-300";
+    
+    // Адаптация по ширине с обрезкой высоты
+    const fitStyles = "object-cover object-center";
+    
+    const opacityStyles = isLoaded ? 'opacity-100' : 'opacity-0';
+    
+    return `${baseStyles} ${fitStyles} ${opacityStyles} ${className}`;
+  }, [isLoaded, className]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
@@ -227,6 +254,7 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
       const playVideo = async () => {
         try {
           await video.play();
+          setIsPlaying(true);
         } catch (error) {
           console.log(`[GameModeVideo] Autoplay failed for ${mode.id}, which is expected`);
         }
@@ -240,24 +268,26 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
   }, [mode.id]);
 
   if (hasError) {
-    // Fallback на картинку
+    // Fallback на картинку с теми же стилями
     return (
       <img
         src={mode.fallbackImageUrl}
         alt={`${mode.id}_game_card_fallback`}
-        className={`z-0 w-full h-full object-cover transition-all duration-300 ${className}`}
+        className="z-0 w-full h-full object-cover object-center transition-all duration-300"
         onError={() => console.warn(`[GameModeVideo] Fallback image also failed: ${mode.id}`)}
       />
     );
   }
 
   return (
-    <>
+    <div 
+      className="relative w-full h-full overflow-hidden"
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => setShowControls(false)}
+    >
       <video
         ref={videoRef}
-        className={`z-0 w-full h-full object-cover transition-all duration-300 ${className} ${
-          isLoaded ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={getVideoStyles()}
         autoPlay
         muted
         loop
@@ -265,22 +295,52 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
         preload="metadata"
         onLoadedData={handleVideoLoad}
         onError={handleVideoError}
+        onClick={togglePlayPause}
+        style={{
+          // Дополнительные стили для лучшей адаптации
+          minWidth: '100%',
+          minHeight: '100%',
+        }}
       >
         <source src={mode.videoUrl} type="video/mp4" />
         Ваш браузер не поддерживает видео.
       </video>
+      
+      {/* Кастомные контроли, показываются по ховеру */}
+      {isLoaded && (
+        <div 
+          className={`absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 flex items-center justify-center ${
+            showControls ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <button
+            onClick={togglePlayPause}
+            className="bg-black/50 hover:bg-black/70 text-white rounded-full p-3 transition-all duration-200 backdrop-blur-sm border border-white/20"
+          >
+            {isPlaying ? (
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+              </svg>
+            ) : (
+              <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            )}
+          </button>
+        </div>
+      )}
       
       {/* Показываем fallback картинку пока видео не загрузилось */}
       {!isLoaded && (
         <img
           src={mode.fallbackImageUrl}
           alt={`${mode.id}_game_card_loading`}
-          className={`absolute inset-0 z-0 w-full h-full object-cover transition-all duration-300 ${
+          className={`absolute inset-0 z-0 w-full h-full object-cover object-center transition-all duration-300 ${
             isLoaded ? 'opacity-0' : 'opacity-100'
           }`}
         />
       )}
-    </>
+    </div>
   );
 }
 
