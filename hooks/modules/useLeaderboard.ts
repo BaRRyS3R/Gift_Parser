@@ -1,4 +1,4 @@
-// src/hooks/modules/useLeaderboard.ts - Обновленная версия с поддержкой Redis кеша
+// src/hooks/modules/useLeaderboard.ts - ИСПРАВЛЕННАЯ версия без бесконечного цикла
 
 import { useState, useCallback, useRef } from "react";
 
@@ -117,6 +117,7 @@ export function useLeaderboard(
 
   /**
    * Fetch leaderboards with cache support
+   * ✅ ИСПРАВЛЕНО: убрана зависимость от state.data чтобы избежать бесконечного цикла
    */
   const fetchLeaderboards = useCallback(async (
     forceRefresh: boolean = false
@@ -126,7 +127,8 @@ export function useLeaderboard(
       return new Promise((resolve) => {
         const checkCompletion = () => {
           if (!fetchingRef.current) {
-            resolve(state.data);
+            // ✅ Возвращаем null вместо state.data чтобы избежать зависимости
+            resolve(null);
           } else {
             setTimeout(checkCompletion, 100);
           }
@@ -195,7 +197,7 @@ export function useLeaderboard(
     } finally {
       fetchingRef.current = false;
     }
-  }, [makeAuthenticatedRequest, state.data]);
+  }, [makeAuthenticatedRequest]); // ✅ ИСПРАВЛЕНО: убрали state.data из зависимостей
 
   /**
    * Force refresh leaderboards (bypass cache)
@@ -287,7 +289,7 @@ export function useLeaderboard(
     error: state.error,
 
     // Actions
-    fetchLeaderboards: () => fetchLeaderboards(false),
+    fetchLeaderboards: () => fetchLeaderboards(false), // ✅ ИСПРАВЛЕНО: возвращаем функцию без параметров
     forceRefreshLeaderboards,
     clearError,
     resetLeaderboard,

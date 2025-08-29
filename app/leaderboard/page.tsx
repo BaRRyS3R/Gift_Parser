@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Полная исправленная версия страницы лидерборда
+// src/app/leaderboard/page.tsx - ИСПРАВЛЕН бесконечный цикл в useEffect
 
 "use client";
 
@@ -37,7 +37,7 @@ type LeaderboardType =
   | "physics"
   | "rotation";
 
-// LightRays Component
+// LightRays Component (unchanged)
 interface LightRaysProps {
   className?: string;
   raysColor?: string;
@@ -451,7 +451,7 @@ function LeaderboardPageContent() {
   const { makeAuthenticatedRequest, user, telegramUser } = useUser();
   const {
     leaderboardData,
-    cacheInfo, // ✅ ИСПОЛЬЗУЕМ cacheInfo НАПРЯМУЮ ИЗ ХУКА
+    cacheInfo,
     isLoading,
     error,
     fetchLeaderboards,
@@ -463,6 +463,9 @@ function LeaderboardPageContent() {
   const [activeTab, setActiveTab] = useState<LeaderboardType>("season");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageInitialized, setPageInitialized] = useState(false);
+
+  // ✅ ИСПРАВЛЕНО: используем useRef для предотвращения повторных вызовов
+  const initializationRef = useRef(false);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -486,18 +489,27 @@ function LeaderboardPageContent() {
     }
   }, [router]);
 
-  // Load leaderboards on mount with proper initialization
+  // ✅ ИСПРАВЛЕНО: убрали fetchLeaderboards из зависимостей, используем ref для однократной инициализации
   useEffect(() => {
+    // Инициализируем только один раз
+    if (initializationRef.current) return;
+    
     const initializePage = async () => {
+      if (initializationRef.current) return; // Двойная проверка
+      
+      initializationRef.current = true;
+      
       try {
         await fetchLeaderboards();
+      } catch (error) {
+        console.error("Failed to initialize leaderboard:", error);
       } finally {
         setPageInitialized(true);
       }
     };
 
     initializePage();
-  }, [fetchLeaderboards]);
+  }, []); // ✅ Пустой массив зависимостей - запускается только один раз
 
   const handleTabChange = async (tab: LeaderboardType) => {
     if (tab === activeTab || isTransitioning) return;
@@ -878,7 +890,7 @@ function LeaderboardPageContent() {
           )}
         </div>
 
-        {/* Cache Status Badge - НОВ ТУТ */}
+        {/* Cache Status Badge */}
         <CacheStatusBadge cacheInfo={cacheInfo} />
 
         {/* Mode Tabs */}
