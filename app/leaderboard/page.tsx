@@ -433,6 +433,12 @@ const CacheStatusBadge = ({ cacheInfo }: { cacheInfo: CacheInfo | null }) => {
             }
           </span>
         </div>
+        
+        {/* ✅ НОВОЕ: Информация о персонализации */}
+        <div className="mt-1 text-white/50 text-xs">
+          📊 Personalized rankings • Optimized data
+        </div>
+        
         {cacheInfo.next_update_in_seconds !== undefined && cacheInfo.next_update_in_seconds > 0 && (
           <div className="mt-1 text-white/50">
             Next update in {formatTime(cacheInfo.next_update_in_seconds)}

@@ -1,8 +1,8 @@
-// src/lib/server/leaderboardService.ts - Optimized with single database query (no caching)
+// src/lib/server/leaderboardService.ts - ПОЛНЫЙ ИСПРАВЛЕННЫЙ КОД (БЕЗ UUID для клиента)
 
 import { supabaseServer } from "@/lib/supabase_server";
 
-// Existing interfaces remain the same...
+// ✅ БЕЗОПАСНЫЕ интерфейсы для отправки на клиент (БЕЗ id и telegram_id)
 export interface SafeReactionLeaderboard {
   position: number;
   first_name: string;
@@ -12,6 +12,7 @@ export interface SafeReactionLeaderboard {
   reaction_games: number;
   best_reaction_score: number;
   isCurrentUser?: boolean;
+  // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id и другие чувствительные поля
 }
 
 export interface SafeSurvivalLeaderboard {
@@ -25,6 +26,7 @@ export interface SafeSurvivalLeaderboard {
   best_streak: number;
   survival_games: number;
   isCurrentUser?: boolean;
+  // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
 }
 
 export interface SafePhysicsLeaderboard {
@@ -38,6 +40,7 @@ export interface SafePhysicsLeaderboard {
   least_mistakes: number;
   physics_games: number;
   isCurrentUser?: boolean;
+  // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
 }
 
 export interface SafeRotationLeaderboard {
@@ -52,6 +55,7 @@ export interface SafeRotationLeaderboard {
   total_hits: number;
   rotation_games: number;
   isCurrentUser?: boolean;
+  // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
 }
 
 export interface SafeSeasonLeaderboard {
@@ -62,6 +66,7 @@ export interface SafeSeasonLeaderboard {
   total_score: number;
   total_games: number;
   isCurrentUser?: boolean;
+  // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
 }
 
 export interface UserRankings {
@@ -72,6 +77,7 @@ export interface UserRankings {
   rotation?: number;
 }
 
+// ✅ БЕЗОПАСНЫЙ ответ для клиента (все интерфейсы без UUID)
 export interface AllLeaderboardsResponse {
   season: SafeSeasonLeaderboard[];
   reaction: SafeReactionLeaderboard[];
@@ -81,17 +87,48 @@ export interface AllLeaderboardsResponse {
   userRankings: UserRankings;
 }
 
+// 🔒 ВНУТРЕННИЙ интерфейс для работы с БД (ТОЛЬКО на сервере)
+interface InternalUserData {
+  id: string; // UUID - ТОЛЬКО для внутреннего использования
+  telegram_id: number; // Также чувствительные данные
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  total_score: number;
+  total_games: number;
+  reaction_best_time: number;
+  reaction_games: number;
+  reaction_best_score: number;
+  survival_best_time: number;
+  survival_best_score: number;
+  survival_max_level: number;
+  survival_best_streak: number;
+  survival_games: number;
+  physics_best_score: number;
+  physics_best_time: number;
+  physics_best_hits: number;
+  physics_least_mistakes: number;
+  physics_games: number;
+  rotation_best_score: number;
+  rotation_best_time: number;
+  rotation_max_level: number;
+  rotation_best_streak: number;
+  rotation_total_hits: number;
+  rotation_games: number;
+}
+
 export const serverLeaderboardService = {
   /**
-   * OPTIMIZED: Get all leaderboards with a single database query
+   * ✅ ОПТИМИЗИРОВАННЫЙ метод: получение всех лидербордов одним запросом
+   * UUID используется ТОЛЬКО для внутренней логики, НЕ передается на клиент
    */
   async getAllLeaderboards(
-    currentUserId: string,
+    currentUserId: string, // 🔒 UUID остается ТОЛЬКО на сервере
     telegramId: number,
     limit: number = 100,
   ): Promise<AllLeaderboardsResponse> {
     try {
-      // Single database query to fetch all users with game data
+      // Единый запрос к базе данных для получения всех пользователей
       const { data: allUsers, error } = await supabaseServer
         .from("users")
         .select(
@@ -133,30 +170,14 @@ export const serverLeaderboardService = {
         throw new Error("Failed to fetch users data");
       }
 
-      const users = allUsers || [];
+      const users: InternalUserData[] = allUsers || [];
 
-      // Process all leaderboards in memory
+      // Обрабатываем все лидерборды в памяти (БЕЗ передачи UUID на клиент)
       const season = this.processSeasonLeaderboard(users, currentUserId, limit);
-      const reaction = this.processReactionLeaderboard(
-        users,
-        currentUserId,
-        limit,
-      );
-      const survival = this.processSurvivalLeaderboard(
-        users,
-        currentUserId,
-        limit,
-      );
-      const physics = this.processPhysicsLeaderboard(
-        users,
-        currentUserId,
-        limit,
-      );
-      const rotation = this.processRotationLeaderboard(
-        users,
-        currentUserId,
-        limit,
-      );
+      const reaction = this.processReactionLeaderboard(users, currentUserId, limit);
+      const survival = this.processSurvivalLeaderboard(users, currentUserId, limit);
+      const physics = this.processPhysicsLeaderboard(users, currentUserId, limit);
+      const rotation = this.processRotationLeaderboard(users, currentUserId, limit);
       const userRankings = this.calculateUserRankings(users, telegramId);
 
       return {
@@ -174,11 +195,11 @@ export const serverLeaderboardService = {
   },
 
   /**
-   * Process season leaderboard from fetched data
+   * ✅ Обработка season лидерборда (БЕЗ UUID в ответе)
    */
   processSeasonLeaderboard(
-    allUsers: any[],
-    currentUserId: string,
+    allUsers: InternalUserData[],
+    currentUserId: string, // 🔒 UUID для внутреннего сравнения
     limit: number = 100,
   ): SafeSeasonLeaderboard[] {
     const filtered = allUsers
@@ -187,7 +208,6 @@ export const serverLeaderboardService = {
         if (b.total_score !== a.total_score) {
           return b.total_score - a.total_score;
         }
-
         return b.total_games - a.total_games;
       })
       .slice(0, limit);
@@ -199,15 +219,16 @@ export const serverLeaderboardService = {
       username: user.username,
       total_score: user.total_score,
       total_games: user.total_games,
-      isCurrentUser: user.id === currentUserId,
+      isCurrentUser: user.id === currentUserId, // 🔒 UUID остается на сервере
+      // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
     }));
   },
 
   /**
-   * Process reaction leaderboard from fetched data
+   * ✅ Обработка reaction лидерборда (БЕЗ UUID в ответе)
    */
   processReactionLeaderboard(
-    allUsers: any[],
+    allUsers: InternalUserData[],
     currentUserId: string,
     limit: number = 100,
   ): SafeReactionLeaderboard[] {
@@ -217,7 +238,6 @@ export const serverLeaderboardService = {
         if (a.reaction_best_time !== b.reaction_best_time) {
           return a.reaction_best_time - b.reaction_best_time;
         }
-
         return b.reaction_best_score - a.reaction_best_score;
       })
       .slice(0, limit);
@@ -230,15 +250,16 @@ export const serverLeaderboardService = {
       best_reaction_time: user.reaction_best_time,
       reaction_games: user.reaction_games,
       best_reaction_score: user.reaction_best_score,
-      isCurrentUser: user.id === currentUserId,
+      isCurrentUser: user.id === currentUserId, // 🔒 UUID остается на сервере
+      // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
     }));
   },
 
   /**
-   * Process survival leaderboard from fetched data
+   * ✅ Обработка survival лидерборда (БЕЗ UUID в ответе)
    */
   processSurvivalLeaderboard(
-    allUsers: any[],
+    allUsers: InternalUserData[],
     currentUserId: string,
     limit: number = 100,
   ): SafeSurvivalLeaderboard[] {
@@ -251,7 +272,6 @@ export const serverLeaderboardService = {
         if (b.survival_best_time !== a.survival_best_time) {
           return b.survival_best_time - a.survival_best_time;
         }
-
         return b.survival_max_level - a.survival_max_level;
       })
       .slice(0, limit);
@@ -266,15 +286,16 @@ export const serverLeaderboardService = {
       max_level: user.survival_max_level,
       best_streak: user.survival_best_streak,
       survival_games: user.survival_games,
-      isCurrentUser: user.id === currentUserId,
+      isCurrentUser: user.id === currentUserId, // 🔒 UUID остается на сервере
+      // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
     }));
   },
 
   /**
-   * Process physics leaderboard from fetched data
+   * ✅ Обработка physics лидерборда (БЕЗ UUID в ответе)
    */
   processPhysicsLeaderboard(
-    allUsers: any[],
+    allUsers: InternalUserData[],
     currentUserId: string,
     limit: number = 100,
   ): SafePhysicsLeaderboard[] {
@@ -287,7 +308,6 @@ export const serverLeaderboardService = {
         if (b.physics_best_time !== a.physics_best_time) {
           return b.physics_best_time - a.physics_best_time;
         }
-
         return b.physics_best_hits - a.physics_best_hits;
       })
       .slice(0, limit);
@@ -302,15 +322,16 @@ export const serverLeaderboardService = {
       best_hits: user.physics_best_hits,
       least_mistakes: user.physics_least_mistakes,
       physics_games: user.physics_games,
-      isCurrentUser: user.id === currentUserId,
+      isCurrentUser: user.id === currentUserId, // 🔒 UUID остается на сервере
+      // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
     }));
   },
 
   /**
-   * Process rotation leaderboard from fetched data
+   * ✅ Обработка rotation лидерборда (БЕЗ UUID в ответе)
    */
   processRotationLeaderboard(
-    allUsers: any[],
+    allUsers: InternalUserData[],
     currentUserId: string,
     limit: number = 100,
   ): SafeRotationLeaderboard[] {
@@ -323,7 +344,6 @@ export const serverLeaderboardService = {
         if (b.rotation_best_time !== a.rotation_best_time) {
           return b.rotation_best_time - a.rotation_best_time;
         }
-
         return b.rotation_max_level - a.rotation_max_level;
       })
       .slice(0, limit);
@@ -339,15 +359,16 @@ export const serverLeaderboardService = {
       best_streak: user.rotation_best_streak,
       total_hits: user.rotation_total_hits,
       rotation_games: user.rotation_games,
-      isCurrentUser: user.id === currentUserId,
+      isCurrentUser: user.id === currentUserId, // 🔒 UUID остается на сервере
+      // ❌ НЕ ВКЛЮЧАЕМ: id, telegram_id
     }));
   },
 
   /**
-   * Calculate user rankings from fetched data
+   * ✅ Вычисление персональных рейтингов пользователя (используем telegram_id)
    */
-  calculateUserRankings(allUsers: any[], telegramId: number): UserRankings {
-    const user = allUsers.find((u) => u.telegram_id === telegramId);
+  calculateUserRankings(allUsers: InternalUserData[], telegramId: number): UserRankings {
+    const user = allUsers.find((u) => u.telegram_id === telegramId); // ✅ Ищем по telegram_id
 
     if (!user) {
       return {};
@@ -364,7 +385,6 @@ export const serverLeaderboardService = {
             (u.total_score === user.total_score &&
               u.total_games > user.total_games)),
       );
-
       rankings.season = betterUsers.length + 1;
     }
 
@@ -378,7 +398,6 @@ export const serverLeaderboardService = {
             (u.reaction_best_time === user.reaction_best_time &&
               u.reaction_best_score > user.reaction_best_score)),
       );
-
       rankings.reaction = betterUsers.length + 1;
     }
 
@@ -391,7 +410,6 @@ export const serverLeaderboardService = {
             (u.survival_best_score === user.survival_best_score &&
               u.survival_best_time > user.survival_best_time)),
       );
-
       rankings.survival = betterUsers.length + 1;
     }
 
@@ -404,7 +422,6 @@ export const serverLeaderboardService = {
             (u.physics_best_score === user.physics_best_score &&
               u.physics_best_time > user.physics_best_time)),
       );
-
       rankings.physics = betterUsers.length + 1;
     }
 
@@ -417,19 +434,23 @@ export const serverLeaderboardService = {
             (u.rotation_best_score === user.rotation_best_score &&
               u.rotation_best_time > user.rotation_best_time)),
       );
-
       rankings.rotation = betterUsers.length + 1;
     }
 
     return rankings;
   },
 
-  // Legacy methods for backward compatibility (now redirect to optimized version)
+  // ============================================================================
+  // ✅ LEGACY МЕТОДЫ для обратной совместимости (также БЕЗ UUID в ответах)
+  // ============================================================================
+
+  /**
+   * LEGACY: Season leaderboard (БЕЗ UUID в ответе)
+   */
   async getSeasonLeaderboard(
     currentUserId: string,
     limit: number = 100,
   ): Promise<SafeSeasonLeaderboard[]> {
-    // For backward compatibility - get all data and extract season
     const { data, error } = await supabaseServer
       .from("users")
       .select(
@@ -460,9 +481,13 @@ export const serverLeaderboardService = {
       total_score: user.total_score,
       total_games: user.total_games,
       isCurrentUser: user.id === currentUserId,
+      // ❌ НЕ ВКЛЮЧАЕМ: id в финальный ответ
     }));
   },
 
+  /**
+   * LEGACY: Reaction leaderboard (БЕЗ UUID в ответе)
+   */
   async getReactionLeaderboard(
     currentUserId: string,
     limit: number = 100,
@@ -500,9 +525,13 @@ export const serverLeaderboardService = {
       reaction_games: user.reaction_games,
       best_reaction_score: user.reaction_best_score,
       isCurrentUser: user.id === currentUserId,
+      // ❌ НЕ ВКЛЮЧАЕМ: id в финальный ответ
     }));
   },
 
+  /**
+   * LEGACY: Survival leaderboard (БЕЗ UUID в ответе)
+   */
   async getSurvivalLeaderboard(
     currentUserId: string,
     limit: number = 100,
@@ -544,9 +573,13 @@ export const serverLeaderboardService = {
       best_streak: user.survival_best_streak,
       survival_games: user.survival_games,
       isCurrentUser: user.id === currentUserId,
+      // ❌ НЕ ВКЛЮЧАЕМ: id в финальный ответ
     }));
   },
 
+  /**
+   * LEGACY: Physics leaderboard (БЕЗ UUID в ответе)
+   */
   async getPhysicsLeaderboard(
     currentUserId: string,
     limit: number = 100,
@@ -588,9 +621,13 @@ export const serverLeaderboardService = {
       least_mistakes: user.physics_least_mistakes,
       physics_games: user.physics_games,
       isCurrentUser: user.id === currentUserId,
+      // ❌ НЕ ВКЛЮЧАЕМ: id в финальный ответ
     }));
   },
 
+  /**
+   * LEGACY: Rotation leaderboard (БЕЗ UUID в ответе)
+   */
   async getRotationLeaderboard(
     currentUserId: string,
     limit: number = 100,
@@ -634,16 +671,19 @@ export const serverLeaderboardService = {
       total_hits: user.rotation_total_hits,
       rotation_games: user.rotation_games,
       isCurrentUser: user.id === currentUserId,
+      // ❌ НЕ ВКЛЮЧАЕМ: id в финальный ответ
     }));
   },
 
+  /**
+   * LEGACY: Получение персональных рейтингов пользователя
+   * Этот метод используется только для обратной совместимости
+   */
   async getUserRankings(telegramId: number): Promise<UserRankings> {
-    // This method is now only used for backward compatibility
-    // The optimized version calculates rankings in getAllLeaderboards
     const { data: user, error: userError } = await supabaseServer
       .from("users")
       .select("*")
-      .eq("telegram_id", telegramId)
+      .eq("telegram_id", telegramId) // ✅ Используем telegram_id вместо UUID
       .single();
 
     if (userError || !user) {
@@ -658,7 +698,7 @@ export const serverLeaderboardService = {
         .from("users")
         .select("id", { count: "exact" })
         .gt("total_games", 0)
-        .gt("total_score", user.total_score);
+        .or(`total_score.gt.${user.total_score},and(total_score.eq.${user.total_score},total_games.gt.${user.total_games})`);
 
       if (!seasonError) {
         rankings.season = (count || 0) + 1;
@@ -672,7 +712,7 @@ export const serverLeaderboardService = {
         .select("id", { count: "exact" })
         .gt("reaction_games", 0)
         .gt("reaction_best_time", 0)
-        .lt("reaction_best_time", user.reaction_best_time);
+        .or(`reaction_best_time.lt.${user.reaction_best_time},and(reaction_best_time.eq.${user.reaction_best_time},reaction_best_score.gt.${user.reaction_best_score})`);
 
       if (!reactionError) {
         rankings.reaction = (count || 0) + 1;
@@ -685,7 +725,7 @@ export const serverLeaderboardService = {
         .from("users")
         .select("id", { count: "exact" })
         .gt("survival_games", 0)
-        .gt("survival_best_score", user.survival_best_score);
+        .or(`survival_best_score.gt.${user.survival_best_score},and(survival_best_score.eq.${user.survival_best_score},survival_best_time.gt.${user.survival_best_time})`);
 
       if (!survivalError) {
         rankings.survival = (count || 0) + 1;
@@ -698,7 +738,7 @@ export const serverLeaderboardService = {
         .from("users")
         .select("id", { count: "exact" })
         .gt("physics_games", 0)
-        .gt("physics_best_score", user.physics_best_score);
+        .or(`physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`);
 
       if (!physicsError) {
         rankings.physics = (count || 0) + 1;
@@ -711,7 +751,7 @@ export const serverLeaderboardService = {
         .from("users")
         .select("id", { count: "exact" })
         .gt("rotation_games", 0)
-        .gt("rotation_best_score", user.rotation_best_score);
+        .or(`rotation_best_score.gt.${user.rotation_best_score},and(rotation_best_score.eq.${user.rotation_best_score},rotation_best_time.gt.${user.rotation_best_time})`);
 
       if (!rotationError) {
         rankings.rotation = (count || 0) + 1;
