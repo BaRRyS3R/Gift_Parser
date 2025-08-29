@@ -7,6 +7,7 @@ import type {
   SafeSurvivalLeaderboard,
   SafePhysicsLeaderboard,
   SafeRotationLeaderboard,
+  CacheInfo,
 } from "@/hooks/modules/useLeaderboard";
 
 // Season leaderboard interface
@@ -410,11 +411,47 @@ void main() {
   );
 }
 
+// Cache Status Badge Component
+const CacheStatusBadge = ({ cacheInfo }: { cacheInfo: CacheInfo | null }) => {
+  if (!cacheInfo) return null;
+
+  const formatTime = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}m${seconds % 60 > 0 ? ` ${seconds % 60}s` : ''}`;
+  };
+
+  return (
+    <div className="text-center text-xs text-white/60 mb-4 px-4">
+      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2 inline-block">
+        <div className="flex items-center justify-center space-x-2">
+          <div className={`w-2 h-2 rounded-full ${cacheInfo.is_from_cache ? 'bg-green-400' : 'bg-yellow-400'}`} />
+          <span>
+            {cacheInfo.is_from_cache 
+              ? `Updated ${cacheInfo.cache_age_seconds ? formatTime(cacheInfo.cache_age_seconds) : '0s'} ago` 
+              : 'Just updated'
+            }
+          </span>
+        </div>
+        {cacheInfo.next_update_in_seconds !== undefined && cacheInfo.next_update_in_seconds > 0 && (
+          <div className="mt-1 text-white/50">
+            Next update in {formatTime(cacheInfo.next_update_in_seconds)}
+          </div>
+        )}
+        <div className="mt-1 text-white/40">
+          Leaderboard updates every 5 minutes
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function LeaderboardPageContent() {
   const router = useRouter();
   const { makeAuthenticatedRequest, user, telegramUser } = useUser();
   const {
     leaderboardData,
+    cacheInfo, // ✅ ИСПОЛЬЗУЕМ cacheInfo НАПРЯМУЮ ИЗ ХУКА
     isLoading,
     error,
     fetchLeaderboards,
@@ -650,7 +687,7 @@ function LeaderboardPageContent() {
   const getTabIcon = (tab: LeaderboardType) => {
     switch (tab) {
       case "season":
-        return <span className="text-xs font-bold">βῆτα SEASON</span>;
+        return <span className="text-xs font-bold">βῦτα SEASON</span>;
       case "reaction":
         return <Zap size={16} />;
       case "survival":
@@ -840,6 +877,9 @@ function LeaderboardPageContent() {
             </div>
           )}
         </div>
+
+        {/* Cache Status Badge - НОВ ТУТ */}
+        <CacheStatusBadge cacheInfo={cacheInfo} />
 
         {/* Mode Tabs */}
         <div className="text-center mb-4">
