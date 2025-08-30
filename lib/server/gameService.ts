@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with daily quests integration
+// src/lib/server/gameService.ts - Updated with simplified tournament integration
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -33,13 +33,12 @@ export interface GameSaveResult {
     attemptsAwarded: number;
   }>;
   totalAttemptsAwarded?: number;
-  // Tournament information
+  // Tournament information - УПРОЩЕНО
   tournamentInfo?: {
     tournamentId: string;
     tournamentName: string;
     newBestScore: boolean;
-    position?: number;
-    improved: boolean;
+    participated: boolean; // Заменяет позиции
   };
   // NEW: Daily quest information
   questCompletions?: Array<{
@@ -411,7 +410,7 @@ export const serverGameService = {
       );
     }
 
-    // Check for active tournament and update tournament leaderboard
+    // ✅ ИСПРАВЛЕНО: Упрощенная обработка турниров без расчета позиций
     let tournamentInfo: any = undefined;
 
     try {
@@ -428,14 +427,19 @@ export const serverGameService = {
           activeTournament &&
           activeTournament.mode === gameResult.mode.toLowerCase()
         ) {
-          // Get previous tournament entry to check for improvements
-          const previousPosition =
-            await serverTournamentService.getUserTournamentPosition(
-              activeTournament.id,
-              telegramId,
-            );
+          console.log(`[GAME_SERVICE] Processing tournament game for ${activeTournament.name}`);
 
-          // Update tournament leaderboard
+          // ✅ Получаем предыдущую статистику пользователя БЕЗ позиции
+          const previousStats = await serverTournamentService.getUserTournamentStats(
+            activeTournament.id,
+            telegramId,
+          );
+
+          const previousBestScore = previousStats.is_participating 
+            ? previousStats.user_score || 0 
+            : 0;
+
+          // ✅ Обновляем лидерборд турнира
           await serverTournamentService.updateTournamentLeaderboard(
             activeTournament.id,
             telegramId,
@@ -449,33 +453,23 @@ export const serverGameService = {
             },
           );
 
-          // Get new position after update
-          const newPosition =
-            await serverTournamentService.getUserTournamentPosition(
-              activeTournament.id,
-              telegramId,
-            );
-
-          // Check if this is a new best score in tournament
+          // ✅ Проверяем, улучшился ли счет (БЕЗ получения новой позиции)
           const tournamentScore = modeSpecificScore;
-          const newBestScore =
-            !previousPosition ||
-            (newPosition &&
-              newPosition.entry.best_score >
-                (previousPosition.entry.best_score || 0));
+          const newBestScore = tournamentScore > previousBestScore;
+
+          console.log(`[GAME_SERVICE] Tournament result:`, {
+            tournament_id: activeTournament.id,
+            previous_score: previousBestScore,
+            new_score: tournamentScore,
+            is_new_best: newBestScore,
+            was_participating: previousStats.is_participating
+          });
 
           tournamentInfo = {
             tournamentId: activeTournament.id,
             tournamentName: activeTournament.name,
             newBestScore,
-            position: newPosition?.position,
-            improved:
-              !previousPosition ||
-              (newPosition && newPosition.position < previousPosition.position),
-            previousPosition: previousPosition?.position,
-            scoreImprovement: newBestScore
-              ? modeSpecificScore - (previousPosition?.entry.best_score || 0)
-              : undefined,
+            participated: true, // ✅ Упрощено: просто факт участия
           };
         }
       }
