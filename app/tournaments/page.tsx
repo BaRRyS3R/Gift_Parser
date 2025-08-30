@@ -1,4 +1,4 @@
-// src/app/tournaments/page.tsx - ОБНОВЛЕНО: плашки и индикаторы источника данных
+// src/app/tournaments/page.tsx - ЛОКАЛИЗОВАННАЯ ВЕРСИЯ с улучшениями UI
 
 "use client";
 
@@ -19,7 +19,6 @@ import {
   Star,
   Clock,
   Info,
-  Database, // ✅ ДОБАВЛЕНО для индикатора источника данных
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -126,7 +125,7 @@ function getFutureTechModeColors(mode?: string) {
   }
 }
 
-// Получение иконки и названия режима (без изменений)
+// Получение иконки и название режима (без изменений)
 function getModeIcon(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
   
@@ -138,13 +137,13 @@ function getModeIcon(mode?: string) {
   }
 }
 
-function getModeName(mode?: string) {
+function getModeName(mode: string | undefined, t: any) {
   const normalizedMode = mode?.toLowerCase();
   
   switch (normalizedMode) {
-    case "survival": return "SURVIVAL";
-    case "physics": return "PHYSICS";
-    case "rotation": return "ROTATION";
+    case "survival": return t("tournaments.modes.survival");
+    case "physics": return t("tournaments.modes.physics");
+    case "rotation": return t("tournaments.modes.rotation");
     default: return "GAME";
   }
 }
@@ -220,33 +219,17 @@ function calculateUserPosition(
   };
 }
 
-// ✅ НОВЫЙ компонент плашки об обновлениях кеша
-function CacheUpdateNotice({ 
-  nextUpdateIn, 
-  cacheAge,
-  dataSource 
-}: { 
-  nextUpdateIn: number; 
-  cacheAge: number;
-  dataSource: 'redis' | 'database' | null;
-}) {
-  if (!dataSource) return null;
-
+// ✅ УПРОЩЕННЫЙ компонент плашки об обновлениях кеша
+function CacheUpdateNotice() {
+  const t = useT();
+  
   return (
     <Card className="bg-blue-500/10 border border-blue-500/30 mb-4">
       <CardBody className="py-3 px-4">
         <div className="flex items-center gap-3">
           <Info className="text-blue-400 flex-shrink-0" size={16} />
           <div className="text-blue-400 text-xs font-mono">
-            {dataSource === 'redis' ? (
-              <>
-                Leaderboard updates every 5 minutes • Next update in {Math.ceil(nextUpdateIn / 60)}m • Cache age: {Math.ceil(cacheAge / 60)}m
-              </>
-            ) : (
-              <>
-                Live data from database • Redis unavailable
-              </>
-            )}
+            {t("tournaments.leaderboard.updateInfo")}
           </div>
         </div>
       </CardBody>
@@ -254,8 +237,8 @@ function CacheUpdateNotice({
   );
 }
 
-// ✅ НОВЫЙ компонент плашки для неучаствующих пользователей
-function NonParticipatingNotice({ colors }: { colors: any }) {
+// ✅ ЛОКАЛИЗОВАННЫЙ компонент плашки для неучаствующих пользователей
+function NonParticipatingNotice({ colors, t }: { colors: any; t: any }) {
   return (
     <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 mb-4">
       <CardBody className="p-4">
@@ -263,9 +246,11 @@ function NonParticipatingNotice({ colors }: { colors: any }) {
           <div className="flex items-center gap-3">
             <Target className="text-yellow-400" size={20} />
             <div>
-              <div className="text-yellow-400 font-mono text-sm font-bold">PLAY YOUR FIRST TOURNAMENT GAME</div>
+              <div className="text-yellow-400 font-mono text-sm font-bold">
+                {t("tournaments.participation.playFirst")}
+              </div>
               <div className="text-white/80 font-mono text-xs">
-                Join the competition to appear on the leaderboard
+                {t("tournaments.participation.joinCompetition")}
               </div>
             </div>
           </div>
@@ -278,8 +263,8 @@ function NonParticipatingNotice({ colors }: { colors: any }) {
   );
 }
 
-// Компонент отображения призов (без изменений)
-function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any }) {
+// Компонент отображения призов (локализован)
+function PrizesSection({ prizes, colors, t }: { prizes: RawPrizeData[]; colors: any; t: any }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   if (!prizes || prizes.length === 0) return null;
@@ -311,10 +296,10 @@ function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any
   };
 
   const getPositionText = (position: number) => {
-    if (position === 1) return "1st PLACE";
-    if (position === 2) return "2nd PLACE";
-    if (position === 3) return "3rd PLACE";
-    return `${position}th PLACE`;
+    if (position === 1) return t("tournaments.prizes.first");
+    if (position === 2) return t("tournaments.prizes.second");
+    if (position === 3) return t("tournaments.prizes.third");
+    return t("tournaments.prizes.position", { position });
   };
 
   return (
@@ -323,7 +308,7 @@ function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
             <Gift className="text-yellow-400" size={16} />
-            <h3 className="text-lg font-bold text-white font-mono">PRIZES</h3>
+            <h3 className="text-lg font-bold text-white font-mono">{t("tournaments.details.prizes")}</h3>
             <span className="text-xs text-white/60 font-mono">({prizes.length})</span>
           </div>
           {isExpanded ? (
@@ -365,7 +350,7 @@ function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any
                   {prize.attempts && (
                     <div className="text-right">
                       <div className="text-blue-400 font-mono text-sm font-bold">+{prize.attempts}</div>
-                      <div className="text-white/50 text-xs font-mono">ATTEMPTS</div>
+                      <div className="text-white/50 text-xs font-mono">{t("common.attempts")}</div>
                     </div>
                   )}
                 </div>
@@ -446,8 +431,8 @@ function LeaderboardEntry({
   );
 }
 
-// Компонент заглушки для неактивных турниров (без изменений)
-function NoActiveTournamentPlaceholder() {
+// Компонент заглушки для неактивных турниров (локализован)
+function NoActiveTournamentPlaceholder({ t }: { t: any }) {
   return (
     <div className="text-center py-16 space-y-8">
       <div className="relative">
@@ -459,10 +444,16 @@ function NoActiveTournamentPlaceholder() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-white font-mono tracking-wider">NO ACTIVE TOURNAMENT</h2>
+        <h2 className="text-2xl font-bold text-white font-mono tracking-wider">
+          {t("tournaments.sections.noActiveTournament")}
+        </h2>
         <div className="space-y-2">
-          <p className="text-white/60 font-mono text-sm tracking-wide">TOURNAMENTS ARE CURRENTLY OFFLINE</p>
-          <p className="text-white/40 font-mono text-xs">CHECK BACK SOON FOR THE NEXT COMPETITION</p>
+          <p className="text-white/60 font-mono text-sm tracking-wide">
+            {t("tournaments.empty.noTournaments")}
+          </p>
+          <p className="text-white/40 font-mono text-xs">
+            {t("tournaments.empty.checkBackLater")}
+          </p>
         </div>
       </div>
 
@@ -476,12 +467,12 @@ function NoActiveTournamentPlaceholder() {
         <div className="space-y-3">
           <div className="flex items-center justify-center gap-2">
             <Target className="text-blue-400" size={16} />
-            <span className="text-blue-400 font-mono text-sm">UPCOMING FEATURES</span>
+            <span className="text-blue-400 font-mono text-sm">{t("tournaments.empty.firstTournament")}</span>
           </div>
           <div className="text-white/50 font-mono text-xs leading-relaxed">
-            Weekly tournaments with exciting prizes<br />
-            Leaderboards and rankings<br />
-            Exclusive rewards for top players
+            {t("tournaments.participation.howToParticipate")}<br />
+            {t("tournaments.leaderboard.title")}<br />
+            {t("tournaments.details.prizes")}
           </div>
         </div>
       </div>
@@ -638,7 +629,7 @@ function TournamentsPageContent() {
     fetchActiveTournament();
   }, [fetchActiveTournament]);
 
-  // Обработчики (без изменений)
+  // Обработчики (с локализацией)
   const handlePlayTournament = useCallback(() => {
     router.push("/game");
   }, [router]);
@@ -680,7 +671,7 @@ function TournamentsPageContent() {
             <Spinner color="primary" size="lg" />
             <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
           </div>
-          <p className="text-white/80 font-mono text-sm">LOADING TOURNAMENT DATA...</p>
+          <p className="text-white/80 font-mono text-sm">{t("tournaments.errors.loadingTournaments")}</p>
         </div>
       </div>
     );
@@ -695,7 +686,7 @@ function TournamentsPageContent() {
             <div className="absolute inset-0 bg-red-500/20 rounded-full blur-xl" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white font-mono">SYSTEM ERROR</h2>
+            <h2 className="text-xl font-bold text-white font-mono">{t("common.error")}</h2>
             <p className="text-red-400 font-mono text-sm">{state.error}</p>
           </div>
           <div className="flex gap-3 justify-center">
@@ -704,14 +695,14 @@ function TournamentsPageContent() {
               startContent={<Zap size={16} />}
               onClick={handleRetry}
             >
-              TRY AGAIN
+              {t("common.retry")}
             </Button>
             <Button
               className="bg-white/10 border border-white/30 text-white font-mono"
               startContent={<ArrowLeft size={16} />}
               onClick={() => router.push("/main")}
             >
-              BACK TO MAIN
+              {t("common.back")}
             </Button>
           </div>
         </div>
@@ -724,23 +715,23 @@ function TournamentsPageContent() {
       <div className="px-4 pb-8">
         <div className="text-center space-y-3 mb-8 pt-6">
           <div className="relative">
-            <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">TOURNAMENT</h1>
+            <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">
+              {t("tournaments.title")}
+            </h1>
             <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full animate-pulse" />
           </div>
           <div className="h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
           <div className="flex items-center justify-center gap-2">
-            <p className="text-blue-400/80 text-xs font-mono tracking-widest">COMPETE FOR GLORY</p>
+            <p className="text-blue-400/80 text-xs font-mono tracking-widest">
+              {t("tournaments.subtitle")}
+            </p>
           </div>
         </div>
 
         {isActiveTournament ? (
           <div className="space-y-6">
-            {/* ✅ НОВАЯ плашка об обновлениях кеша */}
-            <CacheUpdateNotice 
-              nextUpdateIn={state.nextUpdateIn}
-              cacheAge={state.cacheAge}
-              dataSource={state.dataSource}
-            />
+            {/* ✅ УПРОЩЕННАЯ плашка об обновлениях кеша */}
+            <CacheUpdateNotice />
 
             <Card
               className="bg-black/80 backdrop-blur-sm border-2"
@@ -767,14 +758,14 @@ function TournamentsPageContent() {
                         {state.activeTournament!.name}
                       </h2>
                       <p className="text-sm font-mono" style={{ color: colors.primary }}>
-                        {getModeName(tournamentMode)} MODE
+                        {getModeName(tournamentMode, t)} {t("tournaments.details.mode")}
                       </p>
                     </div>
                   </div>
 
                   {timeLeft && (
                     <div className="text-right">
-                      <div className="text-xs text-white/60 font-mono">ENDS IN</div>
+                      <div className="text-xs text-white/60 font-mono">{t("tournaments.details.timeLeft")}</div>
                       <div className="text-lg font-mono font-bold" style={{ color: colors.primary }}>
                         {timeLeft}
                       </div>
@@ -790,14 +781,14 @@ function TournamentsPageContent() {
                   style={{ borderColor: colors.primary + "60", color: colors.primary }}
                   onClick={handlePlayTournament}
                 >
-                  PLAY NOW
+                  {t("common.play")}
                 </Button>
               </CardBody>
             </Card>
 
-            <PrizesSection prizes={state.activeTournament!.prizes || []} colors={colors} />
+            <PrizesSection prizes={state.activeTournament!.prizes || []} colors={colors} t={t} />
 
-            {/* ✅ ОБНОВЛЕННАЯ обработка позиции пользователя */}
+            {/* ✅ ЛОКАЛИЗОВАННАЯ обработка позиции пользователя */}
             {state.userStats?.is_participating ? (
               clientUserPosition && (
                 <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
@@ -806,9 +797,11 @@ function TournamentsPageContent() {
                       <div className="flex items-center gap-3">
                         <Trophy className="text-yellow-400" size={20} />
                         <div>
-                          <div className="text-yellow-400 font-mono text-sm font-bold">YOUR POSITION</div>
+                          <div className="text-yellow-400 font-mono text-sm font-bold">
+                            {t("tournaments.leaderboard.yourPosition")}
+                          </div>
                           <div className="text-white font-mono text-xs">
-                            {clientUserPosition.score} POINTS • {clientUserPosition.games_played} GAMES
+                            {clientUserPosition.score} {t("common.points")} • {clientUserPosition.games_played} {t("tournaments.leaderboard.games")}
                           </div>
                         </div>
                       </div>
@@ -825,31 +818,23 @@ function TournamentsPageContent() {
                 </Card>
               )
             ) : (
-              <NonParticipatingNotice colors={colors} />
+              <NonParticipatingNotice colors={colors} t={t} />
             )}
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Trophy className="text-yellow-400" size={16} />
-                  <h3 className="text-lg font-bold text-white font-mono">TOP 100 LEADERBOARD</h3>
+                  <h3 className="text-lg font-bold text-white font-mono">{t("tournaments.leaderboard.topPlayers")} 100</h3>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-white/60 font-mono">
-                  {/* ✅ НОВЫЕ индикаторы источника данных */}
-                  <div className="flex items-center gap-1">
-                    {state.dataSource === 'redis' ? (
-                      <span className="text-green-500/40 text-xs font-mono">R</span>
-                    ) : (
-                      <span className="text-orange-500/40 text-xs font-mono">S</span>
-                    )}
-                    <Database size={10} className="text-white/40" />
-                  </div>
                   <Users size={12} />
                   <span>{state.totalParticipantsInCache || state.leaderboard.length}</span>
                 </div>
               </div>
 
-              <div className="bg-black/40 border border-white/20 rounded-lg p-4">
+              {/* ✅ УБРАН контейнер, список теперь на всю ширину страницы */}
+              <div className="px-0">
                 {state.isLeaderboardLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Spinner color="primary" size="sm" />
@@ -872,14 +857,14 @@ function TournamentsPageContent() {
                 ) : (
                   <div className="text-center py-8">
                     <Target className="text-white/20 mx-auto mb-2" size={32} />
-                    <p className="text-white/60 font-mono text-sm">NO PARTICIPANTS YET</p>
+                    <p className="text-white/60 font-mono text-sm">{t("tournaments.leaderboard.noParticipants")}</p>
                   </div>
                 )}
               </div>
             </div>
           </div>
         ) : (
-          <NoActiveTournamentPlaceholder />
+          <NoActiveTournamentPlaceholder t={t} />
         )}
       </div>
     </div>

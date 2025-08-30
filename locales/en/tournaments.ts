@@ -1,4 +1,4 @@
-// src/locales/en/tournaments.ts - Tournament localization (English)
+// src/locales/en/tournaments.ts - Tournament localization (English) - UPDATED VERSION
 export const tournaments = {
   title: "TOURNAMENTS",
   subtitle: "Weekly competitions",
@@ -16,20 +16,20 @@ export const tournaments = {
     activeTournament: "Current tournament",
     upcomingTournaments: "Upcoming tournaments",
     completedTournaments: "Completed tournaments",
-    noActiveTournament: "No active tournaments",
+    noActiveTournament: "NO ACTIVE TOURNAMENT",
     noUpcomingTournaments: "No upcoming tournaments",
     noCompletedTournaments: "No completed tournaments",
   },
 
   // Tournament details
   details: {
-    mode: "Mode",
+    mode: "MODE",
     duration: "Duration",
     participants: "Participants",
-    timeLeft: "Time left",
+    timeLeft: "ENDS IN",
     startsIn: "Starts in",
     endedOn: "Ended on",
-    prizes: "Prizes",
+    prizes: "PRIZES",
     joinTournament: "JOIN",
     viewLeaderboard: "LEADERBOARD",
     tournamentEnded: "ENDED",
@@ -37,9 +37,9 @@ export const tournaments = {
 
   // Game modes for tournaments
   modes: {
-    survival: "Survival",
-    physics: "Physics",
-    rotation: "Rotation",
+    survival: "SURVIVAL",
+    physics: "PHYSICS",
+    rotation: "ROTATION",
   },
 
   // Leaderboard
@@ -48,31 +48,35 @@ export const tournaments = {
     position: "Rank",
     player: "Player",
     score: "Score",
-    games: "Games",
+    games: "GAMES",
     time: "Time",
     level: "Level",
     streak: "Streak",
     hits: "Hits",
     mistakes: "Mistakes",
-    yourPosition: "Your position",
+    yourPosition: "YOUR POSITION",
     notParticipating: "You're not participating in the tournament",
     participateFirst: "Play {mode} mode to join the tournament",
     loadingLeaderboard: "Loading leaderboard...",
     errorLoadingLeaderboard: "Error loading leaderboard",
     retryLoading: "Retry",
-    topPlayers: "Top players",
+    topPlayers: "TOP",
     viewFullLeaderboard: "Full leaderboard",
     backToTournaments: "Back to tournaments",
+    updateInfo: "Leaderboard updates every 5 minutes",
+    noParticipants: "NO PARTICIPANTS YET",
   },
 
   // Tournament participation
   participation: {
-    howToParticipate: "How to participate",
+    howToParticipate: "Weekly tournaments with exciting prizes",
     playGames: "Play {mode} mode during the tournament",
     bestScore: "Your best score counts for the tournament",
     multipleGames: "Play as many games as you want - best result counts",
     timeLimit: "Games only count during tournament time",
     goodLuck: "Good luck in the competition!",
+    playFirst: "PLAY YOUR FIRST TOURNAMENT GAME",
+    joinCompetition: "Join the competition to appear on the leaderboard",
   },
 
   // Time formatting
@@ -99,16 +103,16 @@ export const tournaments = {
     tournamentNotFound: "Tournament not found",
     noConnection: "No connection",
     tryAgain: "Try again",
-    loadingTournaments: "Loading tournaments...",
+    loadingTournaments: "LOADING TOURNAMENT DATA...",
     loadingTournament: "Loading tournament...",
   },
 
   // Prize positions
   prizes: {
-    first: "1st place",
-    second: "2nd place",
-    third: "3rd place",
-    position: "{position}th place",
+    first: "1ST PLACE",
+    second: "2ND PLACE",
+    third: "3RD PLACE",
+    position: "{position}TH PLACE",
     topTen: "Top 10",
     winner: "Winner",
     runner_up: "Runner-up",
@@ -144,9 +148,9 @@ export const tournaments = {
 
   // Empty states
   empty: {
-    noTournaments: "No tournaments yet",
-    checkBackLater: "Check back later",
-    firstTournament: "New tournament is coming soon!",
+    noTournaments: "TOURNAMENTS ARE CURRENTLY OFFLINE",
+    checkBackLater: "CHECK BACK SOON FOR THE NEXT COMPETITION",
+    firstTournament: "Upcoming features",
   },
 
   // Additional missing keys found in components

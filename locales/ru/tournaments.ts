@@ -1,4 +1,4 @@
-// src/locales/ru/tournaments.ts - Tournament localization (Russian)
+// src/locales/ru/tournaments.ts - Tournament localization (Russian) - ОБНОВЛЕННАЯ ВЕРСИЯ
 export const tournaments = {
   title: "ТУРНИРЫ",
   subtitle: "Еженедельные соревнования",
@@ -16,20 +16,20 @@ export const tournaments = {
     activeTournament: "Текущий турнир",
     upcomingTournaments: "Предстоящие турниры",
     completedTournaments: "Завершённые турниры",
-    noActiveTournament: "Нет активных турниров",
+    noActiveTournament: "НЕТ АКТИВНОГО ТУРНИРА",
     noUpcomingTournaments: "Нет предстоящих турниров",
     noCompletedTournaments: "Нет завершённых турниров",
   },
 
   // Tournament details
   details: {
-    mode: "Режим",
+    mode: "РЕЖИМ",
     duration: "Длительность",
     participants: "Участников",
-    timeLeft: "Осталось времени",
+    timeLeft: "ОСТАЛОСЬ",
     startsIn: "Начнётся через",
     endedOn: "Завершился",
-    prizes: "Призы",
+    prizes: "ПРИЗЫ",
     joinTournament: "УЧАСТВОВАТЬ",
     viewLeaderboard: "ЛИДЕРБОРД",
     tournamentEnded: "ЗАВЕРШЁН",
@@ -37,9 +37,9 @@ export const tournaments = {
 
   // Game modes for tournaments
   modes: {
-    survival: "Выживание",
-    physics: "Физика",
-    rotation: "Вращение",
+    survival: "ВЫЖИВАНИЕ",
+    physics: "ФИЗИКА",
+    rotation: "ВРАЩЕНИЕ",
   },
 
   // Leaderboard
@@ -48,31 +48,35 @@ export const tournaments = {
     position: "Место",
     player: "Игрок",
     score: "Счёт",
-    games: "Игр",
+    games: "ИГР",
     time: "Время",
     level: "Уровень",
     streak: "Серия",
     hits: "Попаданий",
     mistakes: "Ошибок",
-    yourPosition: "Ваша позиция",
+    yourPosition: "ВАША ПОЗИЦИЯ",
     notParticipating: "Вы не участвуете в турнире",
     participateFirst: "Сыграйте в режим {mode} чтобы попасть в турнир",
     loadingLeaderboard: "Загрузка лидерборда...",
     errorLoadingLeaderboard: "Ошибка загрузки лидерборда",
     retryLoading: "Повторить",
-    topPlayers: "Топ игроков",
+    topPlayers: "ТОП",
     viewFullLeaderboard: "Полный лидерборд",
     backToTournaments: "К турнирам",
+    updateInfo: "Лидерборд обновляется каждые 5 минут",
+    noParticipants: "УЧАСТНИКОВ ПОКА НЕТ",
   },
 
   // Tournament participation
   participation: {
-    howToParticipate: "Как участвовать",
+    howToParticipate: "Еженедельные турниры с призами",
     playGames: "Играйте в режим {mode} во время турнира",
     bestScore: "Ваш лучший счёт засчитывается в турнире",
     multipleGames: "Играйте сколько хотите - засчитывается лучший результат",
     timeLimit: "Игры засчитываются только во время турнира",
     goodLuck: "Удачи в соревновании!",
+    playFirst: "СЫГРАЙТЕ ПЕРВУЮ ИГРУ ТУРНИРА",
+    joinCompetition: "Присоединитесь к соревнованию, чтобы попасть в лидерборд",
   },
 
   // Time formatting
@@ -99,16 +103,16 @@ export const tournaments = {
     tournamentNotFound: "Турнир не найден",
     noConnection: "Нет соединения",
     tryAgain: "Попробовать снова",
-    loadingTournaments: "Загрузка турниров...",
+    loadingTournaments: "ЗАГРУЗКА ТУРНИРОВ...",
     loadingTournament: "Загрузка турнира...",
   },
 
   // Prize positions
   prizes: {
-    first: "1-е место",
-    second: "2-е место",
-    third: "3-е место",
-    position: "{position}-е место",
+    first: "1-Е МЕСТО",
+    second: "2-Е МЕСТО",
+    third: "3-Е МЕСТО",
+    position: "{position}-Е МЕСТО",
     topTen: "Топ-10",
     winner: "Победитель",
     runner_up: "Призёр",
@@ -144,9 +148,9 @@ export const tournaments = {
 
   // Empty states
   empty: {
-    noTournaments: "Турниров пока нет",
-    checkBackLater: "Заходите позже",
-    firstTournament: "Новый турнир скоро начнётся!",
+    noTournaments: "ТУРНИРЫ СЕЙЧАС ОТКЛЮЧЕНЫ",
+    checkBackLater: "ЗАХОДИТЕ СКОРО ЗА НОВЫМИ СОРЕВНОВАНИЯМИ",
+    firstTournament: "Предстоящие возможности",
   },
 
   // Additional missing keys found in components
