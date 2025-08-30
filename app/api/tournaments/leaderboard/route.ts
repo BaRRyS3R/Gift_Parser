@@ -1,21 +1,28 @@
-// src/app/api/tournaments/leaderboard/route.ts - Оптимизированный API лидерборда турниров
+// src/app/api/tournaments/leaderboard/route.ts - ОБНОВЛЕНО: использование полного кеширования
 
 import { NextRequest, NextResponse } from "next/server";
 import { tournamentCacheService } from "@/lib/server/tournamentCacheService";
 import type { 
   Tournament,
-  OptimizedTournamentLeaderboardEntry,
 } from "@/types/tournaments";
 
-// ✅ ИСПРАВЛЕННЫЙ Response interface с правильными полями
+// ✅ ОБНОВЛЕННЫЙ Response interface с полными данными из кеша
 interface TournamentLeaderboardResponse {
   success: boolean;
   tournament?: Tournament;
-  leaderboard?: OptimizedTournamentLeaderboardEntry[];
+  leaderboard?: Array<{
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    best_score: number;
+    updated_at: string;
+    isCurrentUser?: boolean;
+  }>;
   user_stats?: {
     is_participating: boolean;
     user_score?: number;
     games_played?: number;
+    user_position?: number; // ✅ Точная позиция из кеша
     is_in_top_100: boolean;
   };
   cache_info?: {
@@ -23,14 +30,15 @@ interface TournamentLeaderboardResponse {
     cached_at?: number;
     cache_age_seconds?: number;
     next_update_in_seconds?: number;
+    total_participants_in_cache: number; // ✅ ДОБАВЛЕНО
   };
+  data_source?: 'redis' | 'database'; // ✅ ДОБАВЛЕНО для индикации источника
   error?: string;
 }
 
 /**
  * GET /api/tournaments/leaderboard
- * ✅ Получение лидерборда турнира с оптимизированным кешированием
- * Query parameters: tournamentId - ID турнира для получения лидерборда
+ * ✅ Получение лидерборда турнира с полным кешированием всех участников
  */
 export async function GET(
   request: NextRequest,
@@ -76,13 +84,12 @@ export async function GET(
       );
     }
 
-    // 🔒 ВАЖНО: userId (UUID) остается ТОЛЬКО на сервере и НЕ передается на клиент
-    console.log(`[TOURNAMENT_LEADERBOARD_API] Request for tournament ${tournamentId} from telegram_id: ${telegramIdNumber} (UUID secured)`);
+    console.log(`[TOURNAMENT_LEADERBOARD_API] Request for tournament ${tournamentId} from telegram_id: ${telegramIdNumber}`);
 
-    // Получаем параметр limit из query string (по умолчанию: 100, максимум: 100)
+    // Получаем параметр limit из query string (по умолчанию: 100, максимум: 500 для больших турниров)
     const limitParam = searchParams.get("limit");
     const limit = limitParam
-      ? Math.min(Math.max(parseInt(limitParam), 1), 100)
+      ? Math.min(Math.max(parseInt(limitParam), 1), 500)
       : 100;
 
     // Проверяем параметр force_refresh для принудительного обновления
@@ -90,47 +97,53 @@ export async function GET(
 
     if (forceRefresh) {
       console.log(`[TOURNAMENT_LEADERBOARD_API] Force refresh requested for tournament ${tournamentId}`);
-      
-      // Инвалидируем кеш перед получением свежих данных
       await tournamentCacheService.invalidateTournamentLeaderboard(tournamentId);
     }
 
-    // ✅ ИСПОЛЬЗУЕМ ОПТИМИЗИРОВАННЫЙ КЕШИРУЮЩИЙ СЕРВИС
+    // ✅ ИСПОЛЬЗУЕМ ОБНОВЛЕННЫЙ КЕШИРУЮЩИЙ СЕРВИС с полным кешированием
     const { leaderboard, cache_info } = await tournamentCacheService.getTournamentLeaderboard(
       tournamentId,
-      userId, // 🔒 UUID используется ТОЛЬКО на сервере для персонализации
+      userId, // 🔒 UUID используется ТОЛЬКО на сервере
       telegramIdNumber,
       limit
     );
 
-    // Логируем информацию о кеше (БЕЗ чувствительных данных)
+    // Логируем информацию о кеше и данных
     console.log(`[TOURNAMENT_LEADERBOARD_API] Response prepared:`, {
       tournament_id: tournamentId,
       entries_count: leaderboard.leaderboard.length,
-      user_participating: leaderboard.user_stats?.is_participating || false,
-      user_in_top_100: leaderboard.user_stats?.is_in_top_100 || false,
+      user_participating: leaderboard.user_stats.is_participating,
+      user_position: leaderboard.user_stats.user_position || 'not participating',
+      total_cached: cache_info.total_participants_in_cache,
       from_cache: cache_info.is_from_cache,
       cache_age: cache_info.cache_age_seconds,
-      next_update_in: cache_info.next_update_in_seconds,
-      data_secured: true, // ✅ UUID не передаются на клиент
-      personalized: true // ✅ user_stats персонализированы
+      data_source: leaderboard.data_source,
     });
 
-    // ✅ ИСПРАВЛЕНО: используем правильное поле user_stats
+    // ✅ ПОЛНЫЙ ОТВЕТ с данными из кеша
     const response = NextResponse.json({
       success: true,
       tournament: leaderboard.tournament,
-      leaderboard: leaderboard.leaderboard, // ✅ Содержит ТОЛЬКО публичные данные
-      user_stats: leaderboard.user_stats, // ✅ ИСПРАВЛЕНО: используем user_stats вместо userPosition
-      cache_info
+      leaderboard: leaderboard.leaderboard, // ✅ Топ-N с флагом isCurrentUser
+      user_stats: leaderboard.user_stats, // ✅ Полная статистика включая точную позицию
+      cache_info: {
+        is_from_cache: cache_info.is_from_cache,
+        cached_at: cache_info.cached_at,
+        cache_age_seconds: cache_info.cache_age_seconds,
+        next_update_in_seconds: cache_info.next_update_in_seconds,
+        total_participants_in_cache: cache_info.total_participants_in_cache,
+      },
+      data_source: leaderboard.data_source,
     });
 
-    // Добавляем заголовки кеша для клиента (без чувствительной информации)
+    // Добавляем заголовки для клиента
     response.headers.set("X-Cache-Status", cache_info.is_from_cache ? "HIT" : "MISS");
     response.headers.set("X-Cache-Age", cache_info.cache_age_seconds?.toString() || "0");
     response.headers.set("X-Next-Update", cache_info.next_update_in_seconds?.toString() || "0");
-    response.headers.set("X-Data-Secured", "true"); // ✅ Подтверждаем безопасность данных
-    response.headers.set("X-Personalized", "true"); // ✅ Подтверждаем персонализацию
+    response.headers.set("X-Total-Participants", cache_info.total_participants_in_cache.toString());
+    response.headers.set("X-Data-Source", leaderboard.data_source); // ✅ Источник данных
+    response.headers.set("X-Data-Secured", "true");
+    response.headers.set("X-Full-Cache", "true"); // ✅ Полное кеширование
 
     return response;
 
@@ -219,7 +232,7 @@ export async function POST(
 
     console.log(`[TOURNAMENT_LEADERBOARD_API] Manual cache refresh requested for tournament ${tournamentId} by telegram_id: ${telegramIdNumber}`);
 
-    // ✅ ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ с персонализацией (БЕЗ UUID в ответе)
+    // ✅ ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ с полным кешированием
     await tournamentCacheService.invalidateTournamentLeaderboard(tournamentId);
     
     const { leaderboard, cache_info } = await tournamentCacheService.getTournamentLeaderboard(
@@ -229,13 +242,19 @@ export async function POST(
       100
     );
 
-    // ✅ ИСПРАВЛЕНО: используем правильное поле user_stats
     return NextResponse.json({
       success: true,
       tournament: leaderboard.tournament,
-      leaderboard: leaderboard.leaderboard, // ✅ БЕЗ UUID
-      user_stats: leaderboard.user_stats, // ✅ ИСПРАВЛЕНО: используем user_stats вместо userPosition
-      cache_info
+      leaderboard: leaderboard.leaderboard,
+      user_stats: leaderboard.user_stats, // ✅ Полная статистика
+      cache_info: {
+        is_from_cache: cache_info.is_from_cache,
+        cached_at: cache_info.cached_at,
+        cache_age_seconds: cache_info.cache_age_seconds,
+        next_update_in_seconds: cache_info.next_update_in_seconds,
+        total_participants_in_cache: cache_info.total_participants_in_cache,
+      },
+      data_source: leaderboard.data_source,
     });
 
   } catch (error) {

@@ -1,4 +1,4 @@
-// src/app/tournaments/page.tsx - ОПТИМИЗИРОВАНО: клиентский расчет позиций, упрощенная серверная логика
+// src/app/tournaments/page.tsx - ОБНОВЛЕНО: плашки и индикаторы источника данных
 
 "use client";
 
@@ -18,6 +18,8 @@ import {
   ChevronUp,
   Star,
   Clock,
+  Info,
+  Database, // ✅ ДОБАВЛЕНО для индикатора источника данных
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -28,26 +30,32 @@ import type {
   Prize,
 } from "@/types/tournaments";
 
-// УПРОЩЕННОЕ состояние страницы БЕЗ серверного userPosition
+// ✅ ОБНОВЛЕННОЕ состояние страницы с новыми полями
 interface TournamentPageState {
   activeTournament: Tournament | null;
   leaderboard: OptimizedTournamentLeaderboardEntry[];
-  userStats: UserTournamentStats | null; // Базовая статистика вместо точной позиции
+  userStats: UserTournamentStats | null;
   isLoading: boolean;
   isLeaderboardLoading: boolean;
   error: string | null;
   leaderboardError: string | null;
+  // ✅ НОВЫЕ поля
+  dataSource: 'redis' | 'database' | null;
+  totalParticipantsInCache: number;
+  cacheAge: number;
+  nextUpdateIn: number;
 }
 
-// Упрощенная статистика пользователя
+// ✅ ОБНОВЛЕННАЯ статистика пользователя
 interface UserTournamentStats {
   is_participating: boolean;
   user_score?: number;
   games_played?: number;
+  user_position?: number; // ✅ Точная позиция из кеша
   is_in_top_100: boolean;
 }
 
-// НОВЫЙ интерфейс для клиентского расчета позиций
+// ✅ НОВЫЙ интерфейс позиции пользователя (упрощенный)
 interface ClientUserPosition {
   position: number | "100+";
   score: number;
@@ -66,7 +74,7 @@ interface RawPrizeData {
   special_title?: string;
 }
 
-// Future Tech цвета для режимов
+// Future Tech цвета для режимов (без изменений)
 function getFutureTechModeColors(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
   
@@ -118,7 +126,7 @@ function getFutureTechModeColors(mode?: string) {
   }
 }
 
-// Получение иконки и названия режима
+// Получение иконки и названия режима (без изменений)
 function getModeIcon(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
   
@@ -141,7 +149,7 @@ function getModeName(mode?: string) {
   }
 }
 
-// Утилиты форматирования
+// Утилиты форматирования (без изменений)
 function formatTimeRemaining(endTime: string): string {
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
@@ -170,7 +178,7 @@ function getPositionColor(position: number | string): string {
   return "#64748b";
 }
 
-// Проверка активности турнира
+// Проверка активности турнира (без изменений)
 function isTournamentActive(tournament: Tournament | null): boolean {
   if (!tournament) return false;
 
@@ -184,35 +192,26 @@ function isTournamentActive(tournament: Tournament | null): boolean {
 }
 
 /**
- * КЛЮЧЕВАЯ ФУНКЦИЯ: клиентский расчет позиции пользователя
+ * ✅ УПРОЩЕННАЯ функция расчета позиции пользователя (теперь данные приходят из кеша)
  */
 function calculateUserPosition(
-  leaderboard: OptimizedTournamentLeaderboardEntry[],
   userStats: UserTournamentStats | null
 ): ClientUserPosition | null {
   if (!userStats?.is_participating || !userStats.user_score) {
     return null;
   }
 
-  // Если пользователь в топ-100, находим его точную позицию
-  if (userStats.is_in_top_100) {
-    const userIndex = leaderboard.findIndex(entry => 
-      entry.best_score === userStats.user_score && entry.isCurrentUser
-    );
-
-    if (userIndex !== -1) {
-      console.log(`[CLIENT_POSITIONING] User found in top-100 at position ${userIndex + 1}`);
-      return {
-        position: userIndex + 1,
-        score: userStats.user_score,
-        games_played: userStats.games_played || 0,
-        is_current_user: true
-      };
-    }
+  // ✅ Если есть точная позиция из кеша - используем её
+  if (userStats.user_position) {
+    return {
+      position: userStats.user_position,
+      score: userStats.user_score,
+      games_played: userStats.games_played || 0,
+      is_current_user: true
+    };
   }
 
-  // Если пользователь не в топ-100, отображаем "100+"
-  console.log(`[CLIENT_POSITIONING] User not in top-100, showing 100+ position`);
+  // ✅ Fallback для случаев когда позиция не определена
   return {
     position: "100+",
     score: userStats.user_score,
@@ -221,27 +220,65 @@ function calculateUserPosition(
   };
 }
 
-/**
- * ОБНОВЛЕННАЯ функция: добавление флага isCurrentUser в лидерборд
- */
-function enrichLeaderboardWithCurrentUser(
-  leaderboard: OptimizedTournamentLeaderboardEntry[],
-  userStats: UserTournamentStats | null
-): OptimizedTournamentLeaderboardEntry[] {
-  if (!userStats?.is_participating || !userStats.is_in_top_100) {
-    return leaderboard;
-  }
+// ✅ НОВЫЙ компонент плашки об обновлениях кеша
+function CacheUpdateNotice({ 
+  nextUpdateIn, 
+  cacheAge,
+  dataSource 
+}: { 
+  nextUpdateIn: number; 
+  cacheAge: number;
+  dataSource: 'redis' | 'database' | null;
+}) {
+  if (!dataSource) return null;
 
-  // Помечаем запись текущего пользователя
-  return leaderboard.map(entry => ({
-    ...entry,
-    isCurrentUser: entry.best_score === userStats.user_score &&
-      leaderboard.findIndex(e => e.best_score === userStats.user_score) === 
-      leaderboard.findIndex(e => e === entry) // Первое вхождение с таким счетом
-  }));
+  return (
+    <Card className="bg-blue-500/10 border border-blue-500/30 mb-4">
+      <CardBody className="py-3 px-4">
+        <div className="flex items-center gap-3">
+          <Info className="text-blue-400 flex-shrink-0" size={16} />
+          <div className="text-blue-400 text-xs font-mono">
+            {dataSource === 'redis' ? (
+              <>
+                Leaderboard updates every 5 minutes • Next update in {Math.ceil(nextUpdateIn / 60)}m • Cache age: {Math.ceil(cacheAge / 60)}m
+              </>
+            ) : (
+              <>
+                Live data from database • Redis unavailable
+              </>
+            )}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  );
 }
 
-// Компонент отображения призов
+// ✅ НОВЫЙ компонент плашки для неучаствующих пользователей
+function NonParticipatingNotice({ colors }: { colors: any }) {
+  return (
+    <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 mb-4">
+      <CardBody className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Target className="text-yellow-400" size={20} />
+            <div>
+              <div className="text-yellow-400 font-mono text-sm font-bold">PLAY YOUR FIRST TOURNAMENT GAME</div>
+              <div className="text-white/80 font-mono text-xs">
+                Join the competition to appear on the leaderboard
+              </div>
+            </div>
+          </div>
+          <div className="text-yellow-400">
+            <Play size={24} />
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+// Компонент отображения призов (без изменений)
 function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -341,7 +378,7 @@ function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any
   );
 }
 
-// Упрощенный компонент записи лидерборда
+// Упрощенный компонент записи лидерборда (без изменений)
 function LeaderboardEntry({
   entry,
   position,
@@ -409,7 +446,7 @@ function LeaderboardEntry({
   );
 }
 
-// Компонент заглушки для неактивных турниров
+// Компонент заглушки для неактивных турниров (без изменений)
 function NoActiveTournamentPlaceholder() {
   return (
     <div className="text-center py-16 space-y-8">
@@ -458,6 +495,7 @@ function TournamentsPageContent() {
   const { makeAuthenticatedRequest } = useUser();
   const t = useT();
 
+  // ✅ ОБНОВЛЕННОЕ состояние с новыми полями
   const [state, setState] = useState<TournamentPageState>({
     activeTournament: null,
     leaderboard: [],
@@ -466,11 +504,15 @@ function TournamentsPageContent() {
     isLeaderboardLoading: false,
     error: null,
     leaderboardError: null,
+    dataSource: null,
+    totalParticipantsInCache: 0,
+    cacheAge: 0,
+    nextUpdateIn: 0,
   });
 
   const [timeLeft, setTimeLeft] = useState<string>("");
 
-  // ОПТИМИЗИРОВАННАЯ функция получения активного турнира
+  // ✅ ОБНОВЛЕННАЯ функция получения активного турнира
   const fetchActiveTournament = useCallback(async (force: boolean = false) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -505,7 +547,7 @@ function TournamentsPageContent() {
         error: null,
       }));
 
-      // ИСПРАВЛЕНО: Загружаем лидерборд только для ДЕЙСТВИТЕЛЬНО активных турниров
+      // Загружаем лидерборд только для действительно активных турниров
       if (tournament && isTournamentActive(tournament)) {
         await fetchTournamentLeaderboard(tournament.id, force);
       } else {
@@ -522,7 +564,7 @@ function TournamentsPageContent() {
     }
   }, [makeAuthenticatedRequest]);
 
-  // УПРОЩЕННАЯ функция получения лидерборда с базовой статистикой пользователя
+  // ✅ ОБНОВЛЕННАЯ функция получения лидерборда с обработкой новых полей
   const fetchTournamentLeaderboard = useCallback(async (
     tournamentId: string,
     force: boolean = false
@@ -546,18 +588,25 @@ function TournamentsPageContent() {
         throw new Error(result.error || "Failed to fetch leaderboard");
       }
 
-      // Обогащаем лидерборд флагом текущего пользователя
-      const enrichedLeaderboard = enrichLeaderboardWithCurrentUser(
-        result.leaderboard || [],
-        result.user_stats
-      );
+      console.log("[TournamentsPage] Leaderboard data received:", {
+        leaderboard_count: result.leaderboard?.length || 0,
+        user_participating: result.user_stats?.is_participating || false,
+        user_position: result.user_stats?.user_position || 'not participating',
+        total_in_cache: result.cache_info?.total_participants_in_cache || 0,
+        data_source: result.data_source,
+      });
 
       setState(prev => ({
         ...prev,
-        leaderboard: enrichedLeaderboard,
+        leaderboard: result.leaderboard || [],
         userStats: result.user_stats || null,
         isLeaderboardLoading: false,
         leaderboardError: null,
+        // ✅ НОВЫЕ поля из ответа
+        dataSource: result.data_source || 'database',
+        totalParticipantsInCache: result.cache_info?.total_participants_in_cache || 0,
+        cacheAge: result.cache_info?.cache_age_seconds || 0,
+        nextUpdateIn: result.cache_info?.next_update_in_seconds || 0,
       }));
 
     } catch (error) {
@@ -570,7 +619,7 @@ function TournamentsPageContent() {
     }
   }, [makeAuthenticatedRequest]);
 
-  // Обновление таймера
+  // Обновление таймера (без изменений)
   useEffect(() => {
     if (!state.activeTournament || !isTournamentActive(state.activeTournament)) return;
 
@@ -589,7 +638,7 @@ function TournamentsPageContent() {
     fetchActiveTournament();
   }, [fetchActiveTournament]);
 
-  // Обработчики
+  // Обработчики (без изменений)
   const handlePlayTournament = useCallback(() => {
     router.push("/game");
   }, [router]);
@@ -599,7 +648,7 @@ function TournamentsPageContent() {
     fetchActiveTournament();
   }, [fetchActiveTournament]);
 
-  // Telegram WebApp back button
+  // Telegram WebApp back button (без изменений)
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -616,8 +665,8 @@ function TournamentsPageContent() {
     }
   }, [router]);
 
-  // КЛЮЧЕВОЙ РАСЧЕТ: клиентская позиция пользователя
-  const clientUserPosition = calculateUserPosition(state.leaderboard, state.userStats);
+  // ✅ УПРОЩЕННЫЙ расчет позиции пользователя из кешированных данных
+  const clientUserPosition = calculateUserPosition(state.userStats);
   
   const isActiveTournament = isTournamentActive(state.activeTournament);
   const colors = getFutureTechModeColors(state.activeTournament?.mode);
@@ -686,6 +735,13 @@ function TournamentsPageContent() {
 
         {isActiveTournament ? (
           <div className="space-y-6">
+            {/* ✅ НОВАЯ плашка об обновлениях кеша */}
+            <CacheUpdateNotice 
+              nextUpdateIn={state.nextUpdateIn}
+              cacheAge={state.cacheAge}
+              dataSource={state.dataSource}
+            />
+
             <Card
               className="bg-black/80 backdrop-blur-sm border-2"
               style={{
@@ -741,31 +797,35 @@ function TournamentsPageContent() {
 
             <PrizesSection prizes={state.activeTournament!.prizes || []} colors={colors} />
 
-            {/* ОБНОВЛЕНО: блок позиции с клиентским расчетом */}
-            {clientUserPosition && (
-              <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
-                <CardBody className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Trophy className="text-yellow-400" size={20} />
-                      <div>
-                        <div className="text-yellow-400 font-mono text-sm font-bold">YOUR POSITION</div>
-                        <div className="text-white font-mono text-xs">
-                          {clientUserPosition.score} POINTS • {clientUserPosition.games_played} GAMES
+            {/* ✅ ОБНОВЛЕННАЯ обработка позиции пользователя */}
+            {state.userStats?.is_participating ? (
+              clientUserPosition && (
+                <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+                  <CardBody className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Trophy className="text-yellow-400" size={20} />
+                        <div>
+                          <div className="text-yellow-400 font-mono text-sm font-bold">YOUR POSITION</div>
+                          <div className="text-white font-mono text-xs">
+                            {clientUserPosition.score} POINTS • {clientUserPosition.games_played} GAMES
+                          </div>
                         </div>
                       </div>
+                      <div
+                        className="text-2xl font-bold font-mono"
+                        style={{ color: getPositionColor(clientUserPosition.position) }}
+                      >
+                        #{typeof clientUserPosition.position === "number" 
+                          ? clientUserPosition.position.toLocaleString() 
+                          : clientUserPosition.position}
+                      </div>
                     </div>
-                    <div
-                      className="text-2xl font-bold font-mono"
-                      style={{ color: getPositionColor(clientUserPosition.position) }}
-                    >
-                      #{typeof clientUserPosition.position === "number" 
-                        ? clientUserPosition.position.toLocaleString() 
-                        : clientUserPosition.position}
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
+                  </CardBody>
+                </Card>
+              )
+            ) : (
+              <NonParticipatingNotice colors={colors} />
             )}
 
             <div className="space-y-4">
@@ -775,8 +835,17 @@ function TournamentsPageContent() {
                   <h3 className="text-lg font-bold text-white font-mono">TOP 100 LEADERBOARD</h3>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-white/60 font-mono">
+                  {/* ✅ НОВЫЕ индикаторы источника данных */}
+                  <div className="flex items-center gap-1">
+                    {state.dataSource === 'redis' ? (
+                      <span className="text-green-500/40 text-xs font-mono">R</span>
+                    ) : (
+                      <span className="text-orange-500/40 text-xs font-mono">S</span>
+                    )}
+                    <Database size={10} className="text-white/40" />
+                  </div>
                   <Users size={12} />
-                  <span>{state.leaderboard.length}</span>
+                  <span>{state.totalParticipantsInCache || state.leaderboard.length}</span>
                 </div>
               </div>
 

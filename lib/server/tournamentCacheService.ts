@@ -1,4 +1,4 @@
-// src/lib/server/tournamentCacheService.ts - ОПТИМИЗИРОВАНО: убрана персонализация, упрощен кеш
+// src/lib/server/tournamentCacheService.ts - РЕФАКТОРИНГ: полное кеширование всех участников турнира
 
 import { redis, REDIS_KEYS, acquireLock, releaseLock, safeRedisOperation } from "@/lib/redis";
 import { supabaseServer } from "@/lib/supabase_server";
@@ -14,8 +14,8 @@ const TOURNAMENT_REDIS_KEYS = {
   ACTIVE_TOURNAMENT: "tournament:active",
   ACTIVE_TOURNAMENT_LOCK: "tournament:active:lock",
   
-  // Лидерборд конкретного турнира (короткоживущий кеш) - БЕЗ персонализации
-  TOURNAMENT_LEADERBOARD: (tournamentId: string) => `tournament:${tournamentId}:leaderboard:public`,
+  // ИЗМЕНЕНО: полный лидерборд турнира (ВСЕ участники)
+  TOURNAMENT_FULL_LEADERBOARD: (tournamentId: string) => `tournament:${tournamentId}:leaderboard:full`,
   TOURNAMENT_LEADERBOARD_LOCK: (tournamentId: string) => `tournament:${tournamentId}:leaderboard:lock`,
   
   // Метаданные
@@ -37,37 +37,55 @@ interface CachedActiveTournament {
   version: string;
 }
 
-// УПРОЩЕНО: без персонализации, только публичные данные
-interface CachedTournamentLeaderboard {
+// РАСШИРЕННАЯ структура для полного кеширования
+interface CachedFullTournamentLeaderboard {
   tournament_id: string;
-  entries: PublicLeaderboardEntry[]; // Только публичные данные
+  tournament: Tournament;
+  // ВСЕ участники турнира с telegram_id для серверной идентификации
+  all_entries: FullLeaderboardEntry[];
+  participants_count: number;
   cached_at: number;
   expires_at: number;
   version: string;
 }
 
-// УПРОЩЕНО: публичная структура записи лидерборда (БЕЗ UUID и telegram_id)
+// Полная структура записи лидерборда (для сервера)
+interface FullLeaderboardEntry {
+  telegram_id: number; // ✅ ДОБАВЛЕНО для идентификации пользователя
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  best_score: number;
+  total_games: number;
+  updated_at: string;
+}
+
+// Публичная структура записи лидерборда (для клиента)
 interface PublicLeaderboardEntry {
   first_name: string;
   last_name?: string;
   username?: string;
   best_score: number;
   updated_at: string;
+  isCurrentUser?: boolean; // Добавляется при персонализации
 }
 
-// УПРОЩЕНО: ответ БЕЗ персонализации
+// ОБНОВЛЕННЫЙ ответ с использованием полного кеша
 export interface TournamentLeaderboardResponse {
   tournament: Tournament;
-  leaderboard: PublicLeaderboardEntry[];
-  user_stats?: UserTournamentStats; // Отдельная информация о пользователе
+  leaderboard: PublicLeaderboardEntry[]; // Топ-N для клиента
+  user_stats: UserTournamentStats;
+  cache_info: TournamentCacheInfo;
+  data_source: 'redis' | 'database'; // ✅ ДОБАВЛЕНО для индикации источника
 }
 
-// Базовая статистика пользователя в турнире (БЕЗ точной позиции)
+// Обновленная статистика пользователя из кеша
 export interface UserTournamentStats {
   is_participating: boolean;
   user_score?: number;
   games_played?: number;
-  is_in_top_100: boolean; // Флаг для определения отображения позиции на клиенте
+  user_position?: number; // ✅ ВОЗВРАЩЕНО точная позиция из кеша
+  is_in_top_100: boolean;
 }
 
 // Метаданные кеша для UI
@@ -76,6 +94,7 @@ export interface TournamentCacheInfo {
   cached_at?: number;
   cache_age_seconds?: number;
   next_update_in_seconds?: number;
+  total_participants_in_cache: number; // ✅ ДОБАВЛЕНО
 }
 
 export const tournamentCacheService = {
@@ -99,7 +118,8 @@ export const tournamentCacheService = {
             is_from_cache: true,
             cached_at: cached.cached_at,
             cache_age_seconds: Math.floor((Date.now() - cached.cached_at) / 1000),
-            next_update_in_seconds: Math.max(0, Math.floor((cached.expires_at - Date.now()) / 1000))
+            next_update_in_seconds: Math.max(0, Math.floor((cached.expires_at - Date.now()) / 1000)),
+            total_participants_in_cache: 0
           }
         };
       }
@@ -122,7 +142,8 @@ export const tournamentCacheService = {
               is_from_cache: false,
               cached_at: Date.now(),
               cache_age_seconds: 0,
-              next_update_in_seconds: TOURNAMENT_CACHE_TTL.ACTIVE_TOURNAMENT
+              next_update_in_seconds: TOURNAMENT_CACHE_TTL.ACTIVE_TOURNAMENT,
+              total_participants_in_cache: 0
             }
           };
           
@@ -140,7 +161,8 @@ export const tournamentCacheService = {
               is_from_cache: true,
               cached_at: retryCached.cached_at,
               cache_age_seconds: Math.floor((Date.now() - retryCached.cached_at) / 1000),
-              next_update_in_seconds: Math.max(0, Math.floor((retryCached.expires_at - Date.now()) / 1000))
+              next_update_in_seconds: Math.max(0, Math.floor((retryCached.expires_at - Date.now()) / 1000)),
+              total_participants_in_cache: 0
             }
           };
         }
@@ -152,7 +174,8 @@ export const tournamentCacheService = {
             is_from_cache: false,
             cached_at: Date.now(),
             cache_age_seconds: 0,
-            next_update_in_seconds: 0
+            next_update_in_seconds: 0,
+            total_participants_in_cache: 0
           }
         };
       }
@@ -167,18 +190,19 @@ export const tournamentCacheService = {
           is_from_cache: false,
           cached_at: Date.now(),
           cache_age_seconds: 0,
-          next_update_in_seconds: 0
+          next_update_in_seconds: 0,
+          total_participants_in_cache: 0
         }
       };
     }
   },
 
   /**
-   * УПРОЩЕНО: получение лидерборда БЕЗ персонализации + отдельная статистика пользователя
+   * НОВОЕ: получение лидерборда турнира с полным кешированием всех участников
    */
   async getTournamentLeaderboard(
     tournamentId: string,
-    userId: string, // Для получения статистики пользователя
+    userId: string,
     telegramId: number,
     limit: number = 100
   ): Promise<{
@@ -186,70 +210,109 @@ export const tournamentCacheService = {
     cache_info: TournamentCacheInfo;
   }> {
     try {
-      // Получаем кешированный лидерборд
-      const cached = await this.getCachedTournamentLeaderboard(tournamentId);
-      let leaderboardEntries: PublicLeaderboardEntry[];
+      // Проверяем кеш полного лидерборда
+      const cached = await this.getCachedFullTournamentLeaderboard(tournamentId);
+      let fullLeaderboardData: CachedFullTournamentLeaderboard;
       let cacheInfo: TournamentCacheInfo;
+      let dataSource: 'redis' | 'database' = 'redis';
       
       if (cached && !this.isCacheExpired(cached)) {
-        console.log(`[TOURNAMENT_CACHE] Tournament leaderboard cache hit for ${tournamentId}`);
-        leaderboardEntries = cached.entries.slice(0, limit);
+        console.log(`[TOURNAMENT_CACHE] Full leaderboard cache hit for ${tournamentId} (${cached.participants_count} participants)`);
+        fullLeaderboardData = cached;
         cacheInfo = {
           is_from_cache: true,
           cached_at: cached.cached_at,
           cache_age_seconds: Math.floor((Date.now() - cached.cached_at) / 1000),
-          next_update_in_seconds: Math.max(0, Math.floor((cached.expires_at - Date.now()) / 1000))
+          next_update_in_seconds: Math.max(0, Math.floor((cached.expires_at - Date.now()) / 1000)),
+          total_participants_in_cache: cached.participants_count
         };
       } else {
-        console.log(`[TOURNAMENT_CACHE] Tournament leaderboard cache miss for ${tournamentId}`);
+        console.log(`[TOURNAMENT_CACHE] Full leaderboard cache miss for ${tournamentId}`);
         
         const lockKey = TOURNAMENT_REDIS_KEYS.TOURNAMENT_LEADERBOARD_LOCK(tournamentId);
         const lockAcquired = await acquireLock(lockKey, TOURNAMENT_CACHE_TTL.LOCK_TIMEOUT);
         
         if (lockAcquired) {
           try {
-            // Получаем свежие данные (больше для кеша)
-            const freshEntries = await this.fetchTournamentLeaderboardFromDB(tournamentId, 1000);
-            await this.setCachedTournamentLeaderboard(tournamentId, freshEntries);
+            // Получаем ВСЕ записи участников турнира
+            const allEntries = await this.fetchAllTournamentParticipantsFromDB(tournamentId);
+            const tournament = await this.fetchTournamentFromDB(tournamentId);
             
-            leaderboardEntries = freshEntries.slice(0, limit);
+            if (!tournament) {
+              throw new Error("Tournament not found");
+            }
+            
+            fullLeaderboardData = {
+              tournament_id: tournamentId,
+              tournament,
+              all_entries: allEntries,
+              participants_count: allEntries.length,
+              cached_at: Date.now(),
+              expires_at: Date.now() + (TOURNAMENT_CACHE_TTL.TOURNAMENT_LEADERBOARD * 1000),
+              version: "2.0-full-cache"
+            };
+            
+            await this.setCachedFullTournamentLeaderboard(tournamentId, fullLeaderboardData);
+            
             cacheInfo = {
               is_from_cache: false,
               cached_at: Date.now(),
               cache_age_seconds: 0,
-              next_update_in_seconds: TOURNAMENT_CACHE_TTL.TOURNAMENT_LEADERBOARD
+              next_update_in_seconds: TOURNAMENT_CACHE_TTL.TOURNAMENT_LEADERBOARD,
+              total_participants_in_cache: allEntries.length
             };
+            
+            console.log(`[TOURNAMENT_CACHE] Cached full leaderboard for ${tournamentId} (${allEntries.length} participants)`);
             
           } finally {
             await releaseLock(lockKey);
           }
         } else {
-          // Fallback к прямому запросу
-          const fallbackEntries = await this.fetchTournamentLeaderboardFromDB(tournamentId, limit);
-          leaderboardEntries = fallbackEntries;
+          // Fallback к прямому запросу БД
+          console.warn(`[TOURNAMENT_CACHE] Failed to acquire lock, falling back to database for ${tournamentId}`);
+          dataSource = 'database';
+          
+          const allEntries = await this.fetchAllTournamentParticipantsFromDB(tournamentId);
+          const tournament = await this.fetchTournamentFromDB(tournamentId);
+          
+          if (!tournament) {
+            throw new Error("Tournament not found");
+          }
+          
+          fullLeaderboardData = {
+            tournament_id: tournamentId,
+            tournament,
+            all_entries: allEntries,
+            participants_count: allEntries.length,
+            cached_at: Date.now(),
+            expires_at: Date.now() + 30000, // 30 секунд для fallback
+            version: "2.0-database-fallback"
+          };
+          
           cacheInfo = {
             is_from_cache: false,
             cached_at: Date.now(),
             cache_age_seconds: 0,
-            next_update_in_seconds: 0
+            next_update_in_seconds: 0,
+            total_participants_in_cache: allEntries.length
           };
         }
       }
       
-      // Получаем данные турнира
-      const tournament = await this.fetchTournamentFromDB(tournamentId);
-      if (!tournament) {
-        throw new Error("Tournament not found");
-      }
-      
-      // УПРОЩЕНО: получаем только базовую статистику пользователя
-      const userStats = await this.getUserTournamentStats(tournamentId, userId, telegramId, leaderboardEntries);
+      // Обрабатываем данные для клиента
+      const { publicLeaderboard, userStats } = this.processFullLeaderboardForClient(
+        fullLeaderboardData,
+        telegramId,
+        limit
+      );
       
       return {
         leaderboard: {
-          tournament,
-          leaderboard: leaderboardEntries,
+          tournament: fullLeaderboardData.tournament,
+          leaderboard: publicLeaderboard,
           user_stats: userStats,
+          cache_info: cacheInfo,
+          data_source: dataSource,
         },
         cache_info: cacheInfo
       };
@@ -261,56 +324,50 @@ export const tournamentCacheService = {
   },
 
   /**
-   * НОВАЯ ФУНКЦИЯ: получение базовой статистики пользователя БЕЗ точной позиции
+   * НОВАЯ ФУНКЦИЯ: обработка полного лидерборда для клиента
    */
-  async getUserTournamentStats(
-    tournamentId: string,
-    userId: string,
+  processFullLeaderboardForClient(
+    fullData: CachedFullTournamentLeaderboard,
     telegramId: number,
-    topEntries: PublicLeaderboardEntry[]
-  ): Promise<UserTournamentStats | undefined> {
-    try {
-      // Проверяем участие пользователя
-      const { data: userEntry, error } = await supabaseServer
-        .from("tournament_leaderboard")
-        .select(`
-          best_score,
-          total_games,
-          first_name,
-          updated_at
-        `)
-        .eq("tournament_id", tournamentId)
-        .eq("telegram_id", telegramId)
-        .single();
-
-      if (error || !userEntry) {
-        return {
-          is_participating: false,
-          is_in_top_100: false
-        };
+    limit: number
+  ): { publicLeaderboard: PublicLeaderboardEntry[]; userStats: UserTournamentStats } {
+    const allEntries = fullData.all_entries;
+    
+    // Сортируем всех участников по счету (убывание) и времени (возрастание)
+    const sortedEntries = [...allEntries].sort((a, b) => {
+      if (b.best_score !== a.best_score) {
+        return b.best_score - a.best_score;
       }
-
-      // Проверяем, находится ли пользователь в топ-100 по имени и счету
-      const isInTop100 = topEntries.some(entry => 
-        entry.first_name === userEntry.first_name && 
-        entry.best_score === userEntry.best_score &&
-        entry.updated_at === userEntry.updated_at
-      );
-
-      return {
-        is_participating: true,
-        user_score: userEntry.best_score,
-        games_played: userEntry.total_games,
-        is_in_top_100: isInTop100
-      };
-
-    } catch (error) {
-      console.error("[TOURNAMENT_CACHE] Error getting user stats:", error);
-      return {
-        is_participating: false,
-        is_in_top_100: false
-      };
-    }
+      return new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+    });
+    
+    // Находим пользователя и его позицию
+    const userIndex = sortedEntries.findIndex(entry => entry.telegram_id === telegramId);
+    const userEntry = userIndex !== -1 ? sortedEntries[userIndex] : null;
+    
+    // Формируем статистику пользователя
+    const userStats: UserTournamentStats = {
+      is_participating: userEntry !== null,
+      user_score: userEntry?.best_score,
+      games_played: userEntry?.total_games,
+      user_position: userEntry ? userIndex + 1 : undefined, // ✅ Точная позиция
+      is_in_top_100: userEntry ? userIndex < 100 : false,
+    };
+    
+    // Формируем топ-N для клиента
+    const topEntries = sortedEntries.slice(0, limit);
+    const publicLeaderboard: PublicLeaderboardEntry[] = topEntries.map(entry => ({
+      first_name: entry.first_name,
+      last_name: entry.last_name,
+      username: entry.username,
+      best_score: entry.best_score,
+      updated_at: entry.updated_at,
+      isCurrentUser: entry.telegram_id === telegramId, // ✅ Помечаем текущего пользователя
+    }));
+    
+    console.log(`[TOURNAMENT_CACHE] Processed leaderboard: ${allEntries.length} total, top ${limit} returned, user position: ${userStats.user_position || 'not participating'}`);
+    
+    return { publicLeaderboard, userStats };
   },
 
   /**
@@ -328,31 +385,32 @@ export const tournamentCacheService = {
   },
 
   /**
-   * УПРОЩЕНО: получение лидерборда БЕЗ UUID и telegram_id
+   * НОВОЕ: получение ВСЕХ участников турнира из БД
    */
-  async fetchTournamentLeaderboardFromDB(
-    tournamentId: string, 
-    limit: number
-  ): Promise<PublicLeaderboardEntry[]> {
+  async fetchAllTournamentParticipantsFromDB(tournamentId: string): Promise<FullLeaderboardEntry[]> {
+    console.log(`[TOURNAMENT_CACHE] Fetching ALL participants for tournament ${tournamentId}`);
+    
     const { data, error } = await supabaseServer
       .from("tournament_leaderboard")
       .select(`
+        telegram_id,
         first_name,
         last_name,
         username,
         best_score,
+        total_games,
         updated_at
-      `) // ТОЛЬКО публичные поля
+      `) // ✅ Включаем telegram_id для серверной идентификации
       .eq("tournament_id", tournamentId)
       .order("best_score", { ascending: false })
-      .order("updated_at", { ascending: true }) // Тайбрейкер
-      .limit(limit);
+      .order("updated_at", { ascending: true }); // БЕЗ лимита - получаем ВСЕХ
 
     if (error) {
-      console.error("Error fetching tournament leaderboard:", error);
+      console.error("Error fetching all tournament participants:", error);
       throw error;
     }
 
+    console.log(`[TOURNAMENT_CACHE] Fetched ${data?.length || 0} participants for tournament ${tournamentId}`);
     return data || [];
   },
 
@@ -393,7 +451,7 @@ export const tournamentCacheService = {
           tournament: tournament as any,
           cached_at: Date.now(),
           expires_at: Date.now() + (300 * 1000), // 5 минут для null
-          version: "1.1-optimized"
+          version: "2.0-full-cache"
         };
         
         await redis!.setex(
@@ -406,7 +464,7 @@ export const tournamentCacheService = {
           tournament,
           cached_at: Date.now(),
           expires_at: Date.now() + (TOURNAMENT_CACHE_TTL.ACTIVE_TOURNAMENT * 1000),
-          version: "1.1-optimized"
+          version: "2.0-full-cache"
         };
         
         await redis!.setex(
@@ -424,37 +482,29 @@ export const tournamentCacheService = {
   },
 
   /**
-   * УПРОЩЕННЫЕ кеш операции для лидерборда
+   * НОВЫЕ кеш операции для полного лидерборда
    */
-  async getCachedTournamentLeaderboard(tournamentId: string): Promise<CachedTournamentLeaderboard | null> {
+  async getCachedFullTournamentLeaderboard(tournamentId: string): Promise<CachedFullTournamentLeaderboard | null> {
     return await safeRedisOperation(async () => {
-      const cached = await redis!.get<CachedTournamentLeaderboard>(
-        TOURNAMENT_REDIS_KEYS.TOURNAMENT_LEADERBOARD(tournamentId)
+      const cached = await redis!.get<CachedFullTournamentLeaderboard>(
+        TOURNAMENT_REDIS_KEYS.TOURNAMENT_FULL_LEADERBOARD(tournamentId)
       );
       return cached;
     });
   },
 
-  async setCachedTournamentLeaderboard(
+  async setCachedFullTournamentLeaderboard(
     tournamentId: string, 
-    entries: PublicLeaderboardEntry[]
+    fullData: CachedFullTournamentLeaderboard
   ): Promise<boolean> {
     return await safeRedisOperation(async () => {
-      const cachedData: CachedTournamentLeaderboard = {
-        tournament_id: tournamentId,
-        entries, // Только публичные данные
-        cached_at: Date.now(),
-        expires_at: Date.now() + (TOURNAMENT_CACHE_TTL.TOURNAMENT_LEADERBOARD * 1000),
-        version: "1.1-optimized"
-      };
-      
       await redis!.setex(
-        TOURNAMENT_REDIS_KEYS.TOURNAMENT_LEADERBOARD(tournamentId),
+        TOURNAMENT_REDIS_KEYS.TOURNAMENT_FULL_LEADERBOARD(tournamentId),
         TOURNAMENT_CACHE_TTL.TOURNAMENT_LEADERBOARD,
-        JSON.stringify(cachedData)
+        JSON.stringify(fullData)
       );
       
-      console.log(`[TOURNAMENT_CACHE] ✅ Cached leaderboard for tournament ${tournamentId} (${entries.length} entries, no UUIDs)`);
+      console.log(`[TOURNAMENT_CACHE] ✅ Cached full leaderboard for tournament ${tournamentId} (${fullData.participants_count} participants)`);
       return true;
     }) || false;
   },
@@ -467,7 +517,7 @@ export const tournamentCacheService = {
   },
 
   /**
-   * Инвалидация кешей (без изменений)
+   * Инвалидация кешей (обновлено)
    */
   async invalidateActiveTournament(): Promise<void> {
     await safeRedisOperation(async () => {
@@ -478,8 +528,8 @@ export const tournamentCacheService = {
 
   async invalidateTournamentLeaderboard(tournamentId: string): Promise<void> {
     await safeRedisOperation(async () => {
-      await redis!.del(TOURNAMENT_REDIS_KEYS.TOURNAMENT_LEADERBOARD(tournamentId));
-      console.log(`[TOURNAMENT_CACHE] ✅ Tournament leaderboard cache invalidated: ${tournamentId}`);
+      await redis!.del(TOURNAMENT_REDIS_KEYS.TOURNAMENT_FULL_LEADERBOARD(tournamentId));
+      console.log(`[TOURNAMENT_CACHE] ✅ Tournament full leaderboard cache invalidated: ${tournamentId}`);
     });
   },
 
@@ -506,7 +556,7 @@ export const tournamentCacheService = {
   },
 
   /**
-   * УПРОЩЕННАЯ статистика кеша
+   * ОБНОВЛЕННАЯ статистика кеша
    */
   async getCacheStats(): Promise<{
     has_active_tournament_cache: boolean;
@@ -517,6 +567,8 @@ export const tournamentCacheService = {
       no_server_position_calculation: boolean;
       simplified_user_stats: boolean;
       public_leaderboard_only: boolean;
+      full_participant_caching: boolean; // ✅ ДОБАВЛЕНО
+      redis_fallback_to_database: boolean; // ✅ ДОБАВЛЕНО
     };
   }> {
     try {
@@ -527,10 +579,12 @@ export const tournamentCacheService = {
         cached_tournament_id: cached?.tournament?.id,
         cache_age_seconds: cached ? Math.floor((Date.now() - cached.cached_at) / 1000) : undefined,
         optimization_info: {
-          client_side_positioning: true,     // ✅ Позиции рассчитываются на клиенте
-          no_server_position_calculation: true, // ✅ Нет серверных расчетов позиций
-          simplified_user_stats: true,       // ✅ Упрощенная статистика пользователя
-          public_leaderboard_only: true,     // ✅ Только публичные данные в кеше
+          client_side_positioning: true,
+          no_server_position_calculation: false, // ✅ Теперь сервер считает позиции из кеша
+          simplified_user_stats: false, // ✅ Полная статистика включая позицию
+          public_leaderboard_only: false, // ✅ Полный лидерборд с telegram_id на сервере
+          full_participant_caching: true, // ✅ Кешируем всех участников
+          redis_fallback_to_database: true, // ✅ Fallback на БД
         },
       };
     } catch (error) {
@@ -539,9 +593,11 @@ export const tournamentCacheService = {
         has_active_tournament_cache: false,
         optimization_info: {
           client_side_positioning: true,
-          no_server_position_calculation: true,
-          simplified_user_stats: true,
-          public_leaderboard_only: true,
+          no_server_position_calculation: false,
+          simplified_user_stats: false,
+          public_leaderboard_only: false,
+          full_participant_caching: true,
+          redis_fallback_to_database: true,
         },
       };
     }
