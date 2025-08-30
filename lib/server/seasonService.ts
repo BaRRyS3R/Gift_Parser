@@ -1,7 +1,6 @@
-// src/lib/server/seasonService.ts - Server-side seasons management with Redis caching
+// src/lib/server/seasonService.ts - Server-side seasons management (без Redis)
 
 import { supabaseServer } from "@/lib/supabase_server";
-import { seasonCacheUtils, type CachedSeason } from "@/lib/redis";
 
 // Season interfaces
 export interface Season {
@@ -42,56 +41,14 @@ export interface CompleteSeasonData {
 }
 
 /**
- * Конвертировать данные сезона из БД в формат для кеширования
- */
-function convertToCache(season: any): CachedSeason {
-  return {
-    id: season.id,
-    name: season.name,
-    start_date: season.start_date,
-    end_date: season.end_date,
-    prizes: season.prizes,
-    created_at: season.created_at,
-    updated_at: season.updated_at,
-  };
-}
-
-/**
- * Конвертировать кешированные данные в формат Season
- */
-function convertFromCache(cachedSeason: CachedSeason): Season {
-  return {
-    id: cachedSeason.id,
-    name: cachedSeason.name,
-    start_date: cachedSeason.start_date,
-    end_date: cachedSeason.end_date,
-    prizes: cachedSeason.prizes,
-    created_at: cachedSeason.created_at,
-    updated_at: cachedSeason.updated_at,
-  };
-}
-
-/**
- * Server-side season service with Redis caching
+ * Server-side season service (прямое обращение к PostgreSQL)
  */
 export const serverSeasonService = {
   /**
-   * Get current active season with Redis caching
+   * Get current active season
    */
   async getCurrentSeason(): Promise<Season | null> {
-    // Сначала проверяем кеш
-    try {
-      const cachedSeason = await seasonCacheUtils.getCachedCurrentSeason();
-      if (cachedSeason) {
-        console.log(`[SEASON_SERVICE] Retrieved current season from cache: ${cachedSeason.name}`);
-        return convertFromCache(cachedSeason);
-      }
-    } catch (cacheError) {
-      console.warn("[SEASON_SERVICE] Cache retrieval failed, falling back to database:", cacheError);
-    }
-
-    // Fallback на БД
-    console.log("[SEASON_SERVICE] Cache miss, fetching current season from database");
+    console.log("[SEASON_SERVICE] Fetching current season from PostgreSQL");
     
     const { data, error } = await supabaseServer
       .from("seasons")
@@ -107,16 +64,8 @@ export const serverSeasonService = {
       throw new Error("Failed to fetch current season");
     }
 
-    // Если сезон найден, кешируем его
     if (data) {
-      const seasonForCache = convertToCache(data);
-      
-      try {
-        await seasonCacheUtils.setCachedCurrentSeason(seasonForCache);
-        console.log(`[SEASON_SERVICE] Cached current season: ${data.name} until ${data.end_date}`);
-      } catch (cacheError) {
-        console.warn("[SEASON_SERVICE] Failed to cache current season:", cacheError);
-      }
+      console.log(`[SEASON_SERVICE] Found current season: ${data.name} until ${data.end_date}`);
     } else {
       console.log("[SEASON_SERVICE] No active season found");
     }
@@ -125,22 +74,10 @@ export const serverSeasonService = {
   },
 
   /**
-   * Get season by ID with Redis caching
+   * Get season by ID
    */
   async getSeasonById(seasonId: string): Promise<Season | null> {
-    // Проверяем кеш
-    try {
-      const cachedSeason = await seasonCacheUtils.getCachedSeasonById(seasonId);
-      if (cachedSeason) {
-        console.log(`[SEASON_SERVICE] Retrieved season ${seasonId} from cache: ${cachedSeason.name}`);
-        return convertFromCache(cachedSeason);
-      }
-    } catch (cacheError) {
-      console.warn(`[SEASON_SERVICE] Cache retrieval failed for season ${seasonId}, falling back to database:`, cacheError);
-    }
-
-    // Fallback на БД
-    console.log(`[SEASON_SERVICE] Cache miss, fetching season ${seasonId} from database`);
+    console.log(`[SEASON_SERVICE] Fetching season ${seasonId} from PostgreSQL`);
     
     const { data, error } = await supabaseServer
       .from("seasons")
@@ -153,22 +90,12 @@ export const serverSeasonService = {
       throw new Error("Failed to fetch season");
     }
 
-    // Кешируем результат
-    const seasonForCache = convertToCache(data);
-    
-    try {
-      await seasonCacheUtils.setCachedSeasonById(seasonForCache);
-      console.log(`[SEASON_SERVICE] Cached season ${seasonId}: ${data.name} until ${data.end_date}`);
-    } catch (cacheError) {
-      console.warn(`[SEASON_SERVICE] Failed to cache season ${seasonId}:`, cacheError);
-    }
-
+    console.log(`[SEASON_SERVICE] Found season: ${data.name}`);
     return data;
   },
 
   /**
    * Get season leaderboard (top 10 players)
-   * Не кешируется согласно требованиям
    */
   async getSeasonLeaderboard(
     currentUserId: string,
@@ -212,7 +139,6 @@ export const serverSeasonService = {
 
   /**
    * Get user season stats and position
-   * Не кешируется согласно требованиям
    */
   async getUserSeasonStats(telegramId: number): Promise<SeasonUserStats> {
     // Get user data
@@ -254,7 +180,6 @@ export const serverSeasonService = {
 
   /**
    * Get complete season data (season + leaderboard + user stats)
-   * Кешируются только данные сезона, лидерборд и статистика остаются динамичными
    */
   async getCompleteSeasonData(
     userId: string,
@@ -262,7 +187,7 @@ export const serverSeasonService = {
     seasonId?: string,
   ): Promise<CompleteSeasonData | null> {
     try {
-      // Get season (current or by ID) - используется кеширование
+      // Get season (current or by ID)
       const season = seasonId
         ? await this.getSeasonById(seasonId)
         : await this.getCurrentSeason();
@@ -282,7 +207,7 @@ export const serverSeasonService = {
         ? endDate.getTime() - now.getTime()
         : undefined;
 
-      // Получаем лидерборд и пользовательскую статистику (не кешируются)
+      // Получаем лидерборд и пользовательскую статистику
       const [leaderboard, userStats] = await Promise.all([
         this.getSeasonLeaderboard(userId, 10),
         this.getUserSeasonStats(telegramId),
@@ -304,70 +229,9 @@ export const serverSeasonService = {
 
   /**
    * Check if there's an active season
-   * Использует кешированный getCurrentSeason
    */
   async hasActiveSeason(): Promise<boolean> {
     const season = await this.getCurrentSeason();
     return !!season;
   },
-
-  /**
-   * Cache management methods for manual control
-   */
-  cacheManagement: {
-    /**
-     * Инвалидировать кеш текущего сезона вручную
-     */
-    async invalidateCurrentSeasonCache(): Promise<boolean> {
-      try {
-        const result = await seasonCacheUtils.invalidateCurrentSeasonCache();
-        console.log("[SEASON_SERVICE] Current season cache invalidated manually");
-        return result;
-      } catch (error) {
-        console.error("[SEASON_SERVICE] Failed to invalidate current season cache:", error);
-        return false;
-      }
-    },
-
-    /**
-     * Инвалидировать кеш сезона по ID
-     */
-    async invalidateSeasonById(seasonId: string): Promise<boolean> {
-      try {
-        const result = await seasonCacheUtils.invalidateSeasonById(seasonId);
-        console.log(`[SEASON_SERVICE] Season ${seasonId} cache invalidated manually`);
-        return result;
-      } catch (error) {
-        console.error(`[SEASON_SERVICE] Failed to invalidate season ${seasonId} cache:`, error);
-        return false;
-      }
-    },
-
-    /**
-     * Получить информацию о TTL кеша текущего сезона
-     */
-    async getCurrentSeasonCacheTTL(): Promise<number> {
-      try {
-        const ttl = await seasonCacheUtils.getCurrentSeasonCacheTTL();
-        return ttl;
-      } catch (error) {
-        console.error("[SEASON_SERVICE] Failed to get cache TTL:", error);
-        return -1;
-      }
-    },
-
-    /**
-     * Прогреть кеш текущего сезона принудительно
-     */
-    async warmupCurrentSeasonCache(): Promise<boolean> {
-      try {
-        console.log("[SEASON_SERVICE] Warming up current season cache");
-        const season = await serverSeasonService.getCurrentSeason();
-        return !!season;
-      } catch (error) {
-        console.error("[SEASON_SERVICE] Failed to warmup cache:", error);
-        return false;
-      }
-    }
-  }
 };

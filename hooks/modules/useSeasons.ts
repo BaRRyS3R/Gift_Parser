@@ -1,4 +1,4 @@
-// src/hooks/modules/useSeasons.ts - React hook for seasons management
+// src/hooks/modules/useSeasons.ts - Упрощенный React hook с простой проверкой времени
 
 import { useState, useCallback, useRef } from "react";
 
@@ -46,8 +46,107 @@ export interface SeasonsState {
   error: string | null;
 }
 
+// Константы для localStorage
+const STORAGE_KEY = 'circusle_current_season';
+
 /**
- * Hook for managing season data and operations
+ * Простые утилиты для работы с localStorage кешем
+ */
+const seasonCache = {
+  /**
+   * Проверить доступность localStorage
+   */
+  isAvailable(): boolean {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return false;
+      }
+      
+      const testKey = 'test_localStorage_availability';
+      window.localStorage.setItem(testKey, 'test');
+      window.localStorage.removeItem(testKey);
+      return true;
+    } catch (error) {
+      console.warn('[SEASONS_CACHE] localStorage is not available:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Проверить, не закончился ли сезон
+   */
+  isSeasonExpired(endDate: string): boolean {
+    const endTime = new Date(endDate).getTime();
+    const currentTime = Date.now();
+    return currentTime >= endTime;
+  },
+
+  /**
+   * Сохранить данные сезона в localStorage
+   */
+  setCachedSeason(season: Season): boolean {
+    if (!this.isAvailable()) return false;
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(season));
+      console.log(`[SEASONS_CACHE] Cached season "${season.name}" until ${season.end_date}`);
+      return true;
+    } catch (error) {
+      console.warn('[SEASONS_CACHE] Failed to cache season:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Получить данные сезона из localStorage с проверкой времени
+   */
+  getCachedSeason(): Season | null {
+    if (!this.isAvailable()) return null;
+
+    try {
+      const cached = window.localStorage.getItem(STORAGE_KEY);
+      if (!cached) {
+        console.log('[SEASONS_CACHE] No cached season found');
+        return null;
+      }
+
+      const season: Season = JSON.parse(cached);
+
+      // Проверяем, не закончился ли сезон
+      if (this.isSeasonExpired(season.end_date)) {
+        console.log(`[SEASONS_CACHE] Season "${season.name}" expired, clearing cache`);
+        this.clearCache();
+        return null;
+      }
+
+      console.log(`[SEASONS_CACHE] Using cached season "${season.name}"`);
+      return season;
+    } catch (error) {
+      console.warn('[SEASONS_CACHE] Failed to retrieve cached season:', error);
+      this.clearCache(); // Очищаем поврежденные данные
+      return null;
+    }
+  },
+
+  /**
+   * Очистить кеш
+   */
+  clearCache(): boolean {
+    if (!this.isAvailable()) return false;
+
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+      console.log('[SEASONS_CACHE] Cache cleared');
+      return true;
+    } catch (error) {
+      console.warn('[SEASONS_CACHE] Failed to clear cache:', error);
+      return false;
+    }
+  }
+};
+
+/**
+ * Hook для управления данными сезонов с простым кешированием
  */
 export function useSeasons(
   makeAuthenticatedRequest: (
@@ -64,86 +163,138 @@ export function useSeasons(
   const fetchingRef = useRef<boolean>(false);
 
   /**
-   * Fetch current season data from API
+   * Получить данные сезона с простой логикой кеширования
    */
-  const fetchCurrentSeason =
-    useCallback(async (): Promise<CompleteSeasonData | null> => {
-      // Wait for current request to complete if already fetching
-      if (fetchingRef.current) {
-        return new Promise((resolve) => {
-          const checkCompletion = () => {
-            if (!fetchingRef.current) {
-              // Return current data from state without causing re-renders
-              setState((currentState) => {
-                resolve(currentState.data);
+  const fetchCurrentSeason = useCallback(async (): Promise<CompleteSeasonData | null> => {
+    // Предотвращаем параллельные запросы
+    if (fetchingRef.current) {
+      return new Promise((resolve) => {
+        const checkCompletion = () => {
+          if (!fetchingRef.current) {
+            setState((currentState) => {
+              resolve(currentState.data);
+              return currentState;
+            });
+          } else {
+            setTimeout(checkCompletion, 100);
+          }
+        };
+        checkCompletion();
+      });
+    }
 
-                return currentState;
-              });
-            } else {
-              setTimeout(checkCompletion, 100);
-            }
-          };
+    fetchingRef.current = true;
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-          checkCompletion();
-        });
-      }
-
-      fetchingRef.current = true;
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
-
-      try {
+    try {
+      // 1️⃣ Проверяем кеш (с автоматической очисткой если сезон закончился)
+      const cachedSeason = seasonCache.getCachedSeason();
+      
+      if (cachedSeason) {
+        console.log(`[SEASONS_HOOK] Using cached season data for: ${cachedSeason.name}`);
+        
+        // Получаем только динамические данные (лидерборд и статистику)
         const response = await makeAuthenticatedRequest("/api/seasons/current");
-
+        
         if (!response.ok) {
           if (response.status === 404) {
-            // No active season - this is expected behavior
+            // Если сезон больше не активен, очищаем кеш
+            seasonCache.clearCache();
             setState({
               data: null,
               isLoading: false,
               error: null,
             });
-
             return null;
           }
-
-          const errorData = await response.json().catch(() => ({}));
-
-          throw new Error(
-            errorData.error || `Server error: ${response.status}`,
-          );
+          throw new Error(`Server error: ${response.status}`);
         }
 
         const result = await response.json();
+        
+        if (result.success) {
+          // Объединяем кешированную статичную информацию с актуальными динамическими данными
+          const completeData: CompleteSeasonData = {
+            season: cachedSeason, // Из кеша
+            leaderboard: result.data.leaderboard, // Свежие данные
+            userStats: result.data.userStats, // Свежие данные
+            isActive: result.data.isActive,
+            timeRemaining: result.data.timeRemaining,
+            hasStarted: result.data.hasStarted,
+          };
 
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch season data");
+          setState({
+            data: completeData,
+            isLoading: false,
+            error: null,
+          });
+
+          return completeData;
         }
-
-        const seasonData: CompleteSeasonData = result.data;
-
-        setState({
-          data: seasonData,
-          isLoading: false,
-          error: null,
-        });
-
-        return seasonData;
-      } catch (error) {
-        console.error("Error fetching season data:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error: errorMessage,
-        }));
-
-        return null;
-      } finally {
-        fetchingRef.current = false;
       }
-    }, [makeAuthenticatedRequest]);
+
+      // 2️⃣ Кеша нет или сезон закончился - делаем полный запрос к API
+      console.log('[SEASONS_HOOK] No valid cached data, fetching from API');
+      
+      const response = await makeAuthenticatedRequest("/api/seasons/current");
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setState({
+            data: null,
+            isLoading: false,
+            error: null,
+          });
+          return null;
+        }
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch season data");
+      }
+
+      const seasonData: CompleteSeasonData = result.data;
+
+      // 3️⃣ Кешируем статичные данные нового сезона
+      if (seasonData.season) {
+        seasonCache.setCachedSeason(seasonData.season);
+      }
+
+      setState({
+        data: seasonData,
+        isLoading: false,
+        error: null,
+      });
+
+      return seasonData;
+
+    } catch (error) {
+      console.error("Error fetching season data:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+
+      return null;
+    } finally {
+      fetchingRef.current = false;
+    }
+  }, [makeAuthenticatedRequest]);
+
+  /**
+   * Очистить кеш и принудительно загрузить данные
+   */
+  const refetchWithoutCache = useCallback(async (): Promise<CompleteSeasonData | null> => {
+    console.log('[SEASONS_HOOK] Force refresh without cache');
+    seasonCache.clearCache();
+    return await fetchCurrentSeason();
+  }, [fetchCurrentSeason]);
 
   /**
    * Clear error state
@@ -161,6 +312,7 @@ export function useSeasons(
       isLoading: false,
       error: null,
     });
+    seasonCache.clearCache();
   }, []);
 
   /**
@@ -168,7 +320,6 @@ export function useSeasons(
    */
   const isUserInTopLeaderboard = useCallback((): boolean => {
     if (!state.data) return false;
-
     return state.data.leaderboard.some((entry) => entry.isCurrentUser);
   }, [state.data]);
 
@@ -177,7 +328,6 @@ export function useSeasons(
    */
   const getUserPosition = useCallback((): number | null => {
     if (!state.data) return null;
-
     return state.data.userStats.position;
   }, [state.data]);
 
@@ -186,7 +336,6 @@ export function useSeasons(
    */
   const isSeasonActive = useCallback((): boolean => {
     if (!state.data) return false;
-
     return state.data.isActive;
   }, [state.data]);
 
@@ -204,20 +353,57 @@ export function useSeasons(
 
     if (days > 0) {
       const hours = totalHours % 24;
-
       return `${days}d ${hours}h`;
     } else if (totalHours > 0) {
       const minutes = totalMinutes % 60;
-
       return `${totalHours}h ${minutes}m`;
     } else if (totalMinutes > 0) {
       const seconds = totalSeconds % 60;
-
       return `${totalMinutes}m ${seconds}s`;
     } else {
       return `${totalSeconds}s`;
     }
   }, [state.data]);
+
+  /**
+   * Cache management utilities
+   */
+  const cacheManagement = {
+    /**
+     * Проверить наличие кешированных данных
+     */
+    hasCachedData(): boolean {
+      return seasonCache.getCachedSeason() !== null;
+    },
+
+    /**
+     * Получить информацию о кеше
+     */
+    getCacheInfo(): { hasCached: boolean; cachedSeasonName?: string; expiresAt?: string } | null {
+      if (!seasonCache.isAvailable()) return null;
+
+      const cached = seasonCache.getCachedSeason();
+      if (!cached) return { hasCached: false };
+
+      return {
+        hasCached: true,
+        cachedSeasonName: cached.name,
+        expiresAt: cached.end_date,
+      };
+    },
+
+    /**
+     * Очистить кеш
+     */
+    clearCache(): boolean {
+      return seasonCache.clearCache();
+    },
+
+    /**
+     * Принудительно обновить данные без кеша
+     */
+    forceRefresh: refetchWithoutCache,
+  };
 
   return {
     // State
@@ -229,11 +415,15 @@ export function useSeasons(
     fetchCurrentSeason,
     clearError,
     resetSeasonData,
+    refetchWithoutCache,
 
     // Utility functions
     isUserInTopLeaderboard,
     getUserPosition,
     isSeasonActive,
     getTimeRemaining,
+
+    // Cache management
+    cacheManagement,
   };
 }

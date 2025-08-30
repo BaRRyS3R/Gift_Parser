@@ -43,11 +43,6 @@ export const REDIS_KEYS = {
   // Пользовательские данные
   USER_PROFILE: (telegramId: number) => `user:${telegramId}:profile`,
   USER_ATTEMPTS: (telegramId: number) => `user:${telegramId}:attempts`,
-  
-  // Сезонные данные (статичная информация)
-  CURRENT_SEASON: "season:current",
-  SEASON_BY_ID: (seasonId: string) => `season:${seasonId}:data`,
-  SEASON_LOCK: "season:lock",
 } as const;
 
 // Константы времени кеширования (в секундах)
@@ -55,20 +50,8 @@ export const CACHE_TTL = {
   LEADERBOARD: 300, // 5 минут
   USER_PROFILE: 600, // 10 минут
   USER_ATTEMPTS: 60, // 1 минута
-  SEASON_DATA: 3600, // 1 час (fallback, обычно используется динамический TTL)
   LOCK_TIMEOUT: 30, // 30 секунд для блокировок
 } as const;
-
-// Интерфейс для кешированного сезона
-export interface CachedSeason {
-  id: string;
-  name: string;
-  start_date: string;
-  end_date: string;
-  prizes: string[];
-  created_at: string;
-  updated_at: string;
-}
 
 // Типы для кешированных данных
 export interface CachedData<T> {
@@ -93,29 +76,6 @@ export function isCacheExpired<T>(cachedData: CachedData<T>): boolean {
 
 export function getCacheAge<T>(cachedData: CachedData<T>): number {
   return Date.now() - cachedData.cached_at;
-}
-
-/**
- * Рассчитать TTL до окончания сезона
- * @param endDate - дата окончания сезона в ISO формате
- * @returns TTL в секундах до окончания сезона
- */
-export function calculateSeasonTTL(endDate: string): number {
-  const endDateTime = new Date(endDate).getTime();
-  const currentTime = Date.now();
-  const timeDiffMs = endDateTime - currentTime;
-  
-  // Если сезон уже закончился, возвращаем минимальный TTL
-  if (timeDiffMs <= 0) {
-    return 60; // 1 минута
-  }
-  
-  // Конвертируем в секунды
-  const ttlSeconds = Math.floor(timeDiffMs / 1000);
-  
-  // Ограничиваем максимальным значением (30 дней)
-  const MAX_TTL = 30 * 24 * 60 * 60; // 30 дней в секундах
-  return Math.min(ttlSeconds, MAX_TTL);
 }
 
 // Distributed lock utilities
@@ -166,125 +126,3 @@ export async function safeRedisOperation<T>(
     return fallback || null;
   }
 }
-
-/**
- * Утилиты для работы с кешем сезонов
- */
-export const seasonCacheUtils = {
-  /**
-   * Сохранить данные текущего сезона в кеш
-   */
-  async setCachedCurrentSeason(seasonData: CachedSeason): Promise<boolean> {
-    const ttl = calculateSeasonTTL(seasonData.end_date);
-    
-    return await safeRedisOperation(async () => {
-      await redis!.setex(REDIS_KEYS.CURRENT_SEASON, ttl, JSON.stringify(seasonData));
-      console.log(`[REDIS] Cached current season for ${ttl} seconds until ${seasonData.end_date}`);
-      return true;
-    }, false) || false;
-  },
-
-  /**
-   * Получить данные текущего сезона из кеша
-   */
-  async getCachedCurrentSeason(): Promise<CachedSeason | null> {
-    return await safeRedisOperation(async () => {
-      const cached = await redis!.get(REDIS_KEYS.CURRENT_SEASON);
-      if (cached) {
-        // Обработка различных типов данных от Redis
-        let parsedData: CachedSeason;
-        
-        if (typeof cached === 'string') {
-          parsedData = JSON.parse(cached) as CachedSeason;
-        } else if (typeof cached === 'object' && cached !== null) {
-          // Если Redis уже десериализовал данные
-          parsedData = cached as CachedSeason;
-        } else {
-          console.warn(`[REDIS] Unexpected cached data type: ${typeof cached}`);
-          return null;
-        }
-        
-        console.log(`[REDIS] Retrieved cached current season: ${parsedData.name}`);
-        return parsedData;
-      }
-      return null;
-    }, null);
-  },
-
-  /**
-   * Сохранить данные сезона по ID в кеш
-   */
-  async setCachedSeasonById(seasonData: CachedSeason): Promise<boolean> {
-    const ttl = calculateSeasonTTL(seasonData.end_date);
-    const key = REDIS_KEYS.SEASON_BY_ID(seasonData.id);
-    
-    return await safeRedisOperation(async () => {
-      await redis!.setex(key, ttl, JSON.stringify(seasonData));
-      console.log(`[REDIS] Cached season ${seasonData.id} for ${ttl} seconds`);
-      return true;
-    }, false) || false;
-  },
-
-  /**
-   * Получить данные сезона по ID из кеша
-   */
-  async getCachedSeasonById(seasonId: string): Promise<CachedSeason | null> {
-    const key = REDIS_KEYS.SEASON_BY_ID(seasonId);
-    
-    return await safeRedisOperation(async () => {
-      const cached = await redis!.get(key);
-      if (cached) {
-        // Обработка различных типов данных от Redis
-        let parsedData: CachedSeason;
-        
-        if (typeof cached === 'string') {
-          parsedData = JSON.parse(cached) as CachedSeason;
-        } else if (typeof cached === 'object' && cached !== null) {
-          // Если Redis уже десериализовал данные
-          parsedData = cached as CachedSeason;
-        } else {
-          console.warn(`[REDIS] Unexpected cached data type for season ${seasonId}: ${typeof cached}`);
-          return null;
-        }
-        
-        console.log(`[REDIS] Retrieved cached season: ${parsedData.name}`);
-        return parsedData;
-      }
-      return null;
-    }, null);
-  },
-
-  /**
-   * Инвалидировать кеш текущего сезона (для ручного управления)
-   */
-  async invalidateCurrentSeasonCache(): Promise<boolean> {
-    return await safeRedisOperation(async () => {
-      const result = await redis!.del(REDIS_KEYS.CURRENT_SEASON);
-      console.log(`[REDIS] Invalidated current season cache`);
-      return result > 0;
-    }, false) || false;
-  },
-
-  /**
-   * Инвалидировать кеш сезона по ID
-   */
-  async invalidateSeasonById(seasonId: string): Promise<boolean> {
-    const key = REDIS_KEYS.SEASON_BY_ID(seasonId);
-    
-    return await safeRedisOperation(async () => {
-      const result = await redis!.del(key);
-      console.log(`[REDIS] Invalidated season cache for ID: ${seasonId}`);
-      return result > 0;
-    }, false) || false;
-  },
-
-  /**
-   * Проверить TTL кеша текущего сезона
-   */
-  async getCurrentSeasonCacheTTL(): Promise<number> {
-    return await safeRedisOperation(async () => {
-      const ttl = await redis!.ttl(REDIS_KEYS.CURRENT_SEASON);
-      return ttl;
-    }, -1) || -1;
-  }
-};
