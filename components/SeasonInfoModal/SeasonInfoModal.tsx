@@ -1,11 +1,12 @@
-// src/components/SeasonInfoModal/SeasonInfoModal.tsx
+// src/components/SeasonInfoModal/SeasonInfoModal.tsx - FIXED VERSION with proper caching
 import type { CompleteSeasonData } from "@/hooks/modules/useSeasons";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
+import { useUser } from "@/hooks/useUser"; // NEW: Use useUser hook
 
 interface SeasonInfoModalProps {
   isOpen: boolean;
@@ -19,59 +20,63 @@ interface SeasonInfoModalProps {
 export default function SeasonInfoModal({
   isOpen,
   onClose,
-  makeAuthenticatedRequest,
+  makeAuthenticatedRequest, // Keep for backwards compatibility but won't use directly
 }: SeasonInfoModalProps) {
   const router = useRouter();
   const t = useT();
+  
+  // NEW: Use the seasons module from useUser
+  const { seasons } = useUser();
+  const {
+    seasonData,
+    isLoading,
+    error,
+    fetchCurrentSeason,
+    clearError,
+    cacheManagement,
+  } = seasons;
 
-  const [seasonData, setSeasonData] = useState<CompleteSeasonData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Load season data when modal opens
+  // Load season data when modal opens - using the caching hook
   useEffect(() => {
     if (!isOpen) return;
 
     const loadSeasonData = async () => {
-      setIsLoading(true);
-      setError(null);
-
       try {
-        const response = await makeAuthenticatedRequest("/api/seasons/current");
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            // No active season
-            setSeasonData(null);
-            setIsLoading(false);
-
-            return;
-          }
-          throw new Error(`Server error: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-          setSeasonData(result.data);
+        console.log('[SEASON_MODAL] Modal opened, fetching season data with caching...');
+        
+        // Clear any previous errors
+        clearError();
+        
+        // This will use cache if available, or fetch from API if needed
+        await fetchCurrentSeason();
+        
+        // Log cache status for debugging
+        const cacheInfo = cacheManagement.getCacheInfo();
+        if (cacheInfo?.hasCached) {
+          console.log(`[SEASON_MODAL] Using cached data for season: ${cacheInfo.cachedSeasonName}`);
         } else {
-          throw new Error(result.error || "Failed to load season data");
+          console.log('[SEASON_MODAL] No cache available, data fetched from API');
         }
+        
       } catch (err) {
         console.error("Error loading season data:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setIsLoading(false);
+        // Error is handled by the seasons hook
       }
     };
 
     loadSeasonData();
-  }, [isOpen, makeAuthenticatedRequest]);
+  }, [isOpen, fetchCurrentSeason, clearError, cacheManagement]);
 
   // Handle view details (redirect to leaderboard page)
   const handleViewDetails = () => {
     onClose();
     router.push("/leaderboard");
+  };
+
+  // Handle force refresh (for debugging or when user wants fresh data)
+  const handleForceRefresh = async () => {
+    console.log('[SEASON_MODAL] Force refreshing season data...');
+    await cacheManagement.forceRefresh();
   };
 
   if (!isOpen) return null;
@@ -195,7 +200,14 @@ export default function SeasonInfoModal({
                   <p className="text-red-400 font-mono text-sm tracking-wider mb-4">
                     {t("main.seasonModal.error")}
                   </p>
-                  <p className="text-white/60 text-xs">{error}</p>
+                  <p className="text-white/60 text-xs mb-4">{error}</p>
+                  {/* Add force refresh button for debugging */}
+                  <button
+                    onClick={handleForceRefresh}
+                    className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                  >
+                    Force Refresh
+                  </button>
                 </div>
               )}
 
@@ -214,6 +226,16 @@ export default function SeasonInfoModal({
               {/* Season Data */}
               {!isLoading && !error && seasonData && (
                 <div className="space-y-6">
+                  {/* Cache Status Indicator (for debugging, can be removed in production) */}
+                  {process.env.NODE_ENV === 'development' && (() => {
+                    const cacheInfo = cacheManagement.getCacheInfo();
+                    return cacheInfo?.hasCached && (
+                      <div className="text-xs text-green-400/60 text-center">
+                        📦 Cached data: {cacheInfo.cachedSeasonName}
+                      </div>
+                    );
+                  })()}
+
                   {/* Season Name and Status */}
                   <div className="text-center">
                     <h3 className="text-2xl font-mono tracking-widest text-white mb-2">
@@ -247,7 +269,7 @@ export default function SeasonInfoModal({
                       </span>
                     </div>
                     <div className="font-mono text-sm text-white/80 tracking-wider pl-6">
-                      {formatDate(seasonData.season.start_date)} —{" "}
+                      {formatDate(seasonData.season.start_date)} – {" "}
                       {formatDate(seasonData.season.end_date)}
                     </div>
                   </div>

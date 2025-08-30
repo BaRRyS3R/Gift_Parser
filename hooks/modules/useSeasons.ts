@@ -1,4 +1,4 @@
-// src/hooks/modules/useSeasons.ts - Упрощенный React hook с простой проверкой времени
+// src/hooks/modules/useSeasons.ts - FIXED VERSION: Cache only static data, always fetch dynamic data
 
 import { useState, useCallback, useRef } from "react";
 
@@ -50,7 +50,7 @@ export interface SeasonsState {
 const STORAGE_KEY = 'circusle_current_season';
 
 /**
- * Простые утилиты для работы с localStorage кешем
+ * Простые утилиты для работы с localStorage кешем ТОЛЬКО СТАТИЧЕСКИХ ДАННЫХ
  */
 const seasonCache = {
   /**
@@ -82,7 +82,7 @@ const seasonCache = {
   },
 
   /**
-   * Сохранить данные сезона в localStorage
+   * Сохранить ТОЛЬКО статические данные сезона в localStorage
    */
   setCachedSeason(season: Season): boolean {
     if (!this.isAvailable()) return false;
@@ -98,7 +98,7 @@ const seasonCache = {
   },
 
   /**
-   * Получить данные сезона из localStorage с проверкой времени
+   * Получить ТОЛЬКО статические данные сезона из localStorage с проверкой времени
    */
   getCachedSeason(): Season | null {
     if (!this.isAvailable()) return null;
@@ -146,7 +146,7 @@ const seasonCache = {
 };
 
 /**
- * Hook для управления данными сезонов с простым кешированием
+ * Hook для управления данными сезонов с кешированием ТОЛЬКО статических данных
  */
 export function useSeasons(
   makeAuthenticatedRequest: (
@@ -163,7 +163,8 @@ export function useSeasons(
   const fetchingRef = useRef<boolean>(false);
 
   /**
-   * Получить данные сезона с простой логикой кеширования
+   * Получить данные сезона с кешированием ТОЛЬКО статических данных
+   * Динамические данные (leaderboard, userStats) ВСЕГДА запрашиваются свежие
    */
   const fetchCurrentSeason = useCallback(async (): Promise<CompleteSeasonData | null> => {
     // Предотвращаем параллельные запросы
@@ -187,13 +188,13 @@ export function useSeasons(
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // 1️⃣ Проверяем кеш (с автоматической очисткой если сезон закончился)
+      // 1️⃣ Проверяем кеш статических данных сезона (с автоматической очисткой если сезон закончился)
       const cachedSeason = seasonCache.getCachedSeason();
       
       if (cachedSeason) {
         console.log(`[SEASONS_HOOK] Using cached season data for: ${cachedSeason.name}`);
         
-        // Получаем только динамические данные (лидерборд и статистику)
+        // Получаем ВСЕГДА СВЕЖИЕ динамические данные (leaderboard и userStats)
         const response = await makeAuthenticatedRequest("/api/seasons/current");
         
         if (!response.ok) {
@@ -205,6 +206,7 @@ export function useSeasons(
               isLoading: false,
               error: null,
             });
+            fetchingRef.current = false;
             return null;
           }
           throw new Error(`Server error: ${response.status}`);
@@ -215,9 +217,9 @@ export function useSeasons(
         if (result.success) {
           // Объединяем кешированную статичную информацию с актуальными динамическими данными
           const completeData: CompleteSeasonData = {
-            season: cachedSeason, // Из кеша
-            leaderboard: result.data.leaderboard, // Свежие данные
-            userStats: result.data.userStats, // Свежие данные
+            season: cachedSeason, // ИЗ КЕША
+            leaderboard: result.data.leaderboard, // ВСЕГДА СВЕЖИЕ
+            userStats: result.data.userStats, // ВСЕГДА СВЕЖИЕ
             isActive: result.data.isActive,
             timeRemaining: result.data.timeRemaining,
             hasStarted: result.data.hasStarted,
@@ -229,6 +231,7 @@ export function useSeasons(
             error: null,
           });
 
+          fetchingRef.current = false;
           return completeData;
         }
       }
@@ -245,6 +248,7 @@ export function useSeasons(
             isLoading: false,
             error: null,
           });
+          fetchingRef.current = false;
           return null;
         }
         throw new Error(`Server error: ${response.status}`);
@@ -258,7 +262,7 @@ export function useSeasons(
 
       const seasonData: CompleteSeasonData = result.data;
 
-      // 3️⃣ Кешируем статичные данные нового сезона
+      // 3️⃣ Кешируем ТОЛЬКО статические данные нового сезона
       if (seasonData.season) {
         seasonCache.setCachedSeason(seasonData.season);
       }
@@ -269,6 +273,7 @@ export function useSeasons(
         error: null,
       });
 
+      fetchingRef.current = false;
       return seasonData;
 
     } catch (error) {
@@ -281,9 +286,8 @@ export function useSeasons(
         error: errorMessage,
       }));
 
-      return null;
-    } finally {
       fetchingRef.current = false;
+      return null;
     }
   }, [makeAuthenticatedRequest]);
 
@@ -370,7 +374,7 @@ export function useSeasons(
    */
   const cacheManagement = {
     /**
-     * Проверить наличие кешированных данных
+     * Проверить наличие кешированных статических данных
      */
     hasCachedData(): boolean {
       return seasonCache.getCachedSeason() !== null;
