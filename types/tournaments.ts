@@ -1,4 +1,4 @@
-// src/types/tournaments.ts - Tournament type definitions with sanitized leaderboard
+// src/types/tournaments.ts - Исправленные типы турниров с корректной структурой призов
 
 // Tournament status enum
 export enum TournamentStatus {
@@ -15,13 +15,10 @@ export enum TournamentMode {
   ROTATION = "rotation",
 }
 
-// Prize interface
+// ✅ ИСПРАВЛЕННЫЙ Prize interface - соответствует структуре БД
 export interface Prize {
-  position: number;
-  description: string;
-  attempts?: number;
-  special_title?: string;
-  reward_type?: "attempts" | "title" | "custom";
+  place: number | string; // БД может содержать как числа, так и строки типа "4-10"
+  prize: string; // Полное описание приза из БД
 }
 
 // Tournament interface
@@ -33,7 +30,7 @@ export interface Tournament {
   start_time: string;
   end_time: string;
   status: TournamentStatus;
-  prizes: Prize[];
+  prizes: Prize[]; // ✅ Исправлено: теперь соответствует структуре БД
   created_at: string;
   updated_at: string;
 }
@@ -217,6 +214,27 @@ export function isValidTournamentStatus(
   status: string,
 ): status is TournamentStatus {
   return Object.values(TournamentStatus).includes(status as TournamentStatus);
+}
+
+// ✅ ИСПРАВЛЕННЫЕ утилиты для работы с призами
+export function getPrizePosition(prize: Prize): string {
+  if (typeof prize.place === "string") {
+    return prize.place; // Для диапазонов типа "4-10"
+  }
+  return `#${prize.place}`; // Для конкретных позиций
+}
+
+export function getPrizeDescription(prize: Prize): string {
+  return prize.prize;
+}
+
+export function extractAttemptsFromPrize(prize: Prize): number | undefined {
+  const match = prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i);
+  return match ? parseInt(match[1]) : undefined;
+}
+
+export function hasBadgeReward(prize: Prize): boolean {
+  return prize.prize.toLowerCase().includes("badge");
 }
 
 // Tournament time calculation utilities

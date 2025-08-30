@@ -1,9 +1,9 @@
-// src/components/Tournaments/TournamentButton.tsx - Обновленная кнопка турниров с Redis кешированием
+// src/components/Tournaments/TournamentButton.tsx - Исправленная кнопка без лишних индикаторов
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Trophy, Clock, Target } from "lucide-react";
+import { Trophy, Target } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -18,10 +18,8 @@ interface Tournament {
   end_time: string;
   status: "upcoming" | "active" | "completed" | "cancelled";
   prizes: Array<{
-    position: number;
-    description: string;
-    attempts?: number;
-    reward_type?: "attempts" | "title" | "custom";
+    place: number | string;
+    prize: string;
   }>;
   created_at: string;
   updated_at: string;
@@ -292,32 +290,6 @@ export default function TournamentButton({
           style={{ color: colors.primary }}
         >
           {timeDisplay}
-        </div>
-      )}
-
-      {/* Participants count indicator */}
-      {tournamentData.stats.totalParticipants > 0 && (
-        <div
-          className="absolute top-0 left-0 z-20 text-[6px] font-mono leading-none px-1 py-0.5 rounded-br opacity-80"
-          style={{ 
-            backgroundColor: colors.primary + "40",
-            color: colors.primary 
-          }}
-        >
-          {tournamentData.stats.totalParticipants}
-        </div>
-      )}
-
-      {/* User position indicator (if participating) */}
-      {tournamentData.userPosition && (
-        <div
-          className="absolute top-0 right-0 z-20 text-[6px] font-mono leading-none px-1 py-0.5 rounded-bl opacity-90"
-          style={{ 
-            backgroundColor: colors.primary,
-            color: "#ffffff"
-          }}
-        >
-          #{tournamentData.userPosition.position}
         </div>
       )}
 

@@ -40,11 +40,8 @@ interface Tournament {
 }
 
 interface Prize {
-  position: number;
-  description: string;
-  attempts?: number;
-  special_title?: string;
-  reward_type?: "attempts" | "title" | "custom";
+  place: number | string;
+  prize: string;
 }
 
 interface PublicTournamentLeaderboardEntry {
@@ -319,6 +316,10 @@ function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
           const prizeColor = getPositionColor(index + 1);
           const prizeIcon = prizeIcons[index] || "🎁";
 
+          // Extract attempts from prize description if mentioned
+          const attemptsMatch = prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i);
+          const attempts = attemptsMatch ? parseInt(attemptsMatch[1]) : null;
+
           return (
             <div
               key={index}
@@ -335,19 +336,21 @@ function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
                     className="text-sm font-mono font-bold"
                     style={{ color: prizeColor }}
                   >
-                    #{prize.position}
+                    {typeof prize.place === "string" ? prize.place : `#${prize.place}`}
                   </div>
                   <div className="text-xs text-white/60 font-mono">PLACE</div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-white font-mono">{prize.description}</div>
-                {prize.attempts && (
+              <div className="text-right max-w-[200px]">
+                <div className="text-sm text-white font-mono text-right break-words">
+                  {prize.prize}
+                </div>
+                {attempts && (
                   <div
-                    className="text-xs font-mono"
+                    className="text-xs font-mono mt-1"
                     style={{ color: colors.primary }}
                   >
-                    +{prize.attempts} ATTEMPTS
+                    +{attempts} ATTEMPTS
                   </div>
                 )}
               </div>
@@ -801,6 +804,17 @@ function TournamentsPageContent() {
             </div>
           )}
         </div>
+
+        {/* Cache Info (for debugging) */}
+        {cacheInfo && process.env.NODE_ENV === "development" && (
+          <div className="mt-4 p-2 rounded bg-black/40 border border-white/10">
+            <div className="text-xs font-mono text-white/50">
+              Cache: {cacheInfo.is_from_cache ? "HIT" : "MISS"} | 
+              Age: {cacheInfo.cache_age_seconds}s | 
+              Next: {cacheInfo.next_update_in_seconds}s
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

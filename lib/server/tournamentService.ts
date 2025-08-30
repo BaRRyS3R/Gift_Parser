@@ -30,33 +30,13 @@ interface RawTournament {
   start_time: string;
   end_time: string;
   status: string;
-  prizes: Array<{ place: number | string; prize: string }>; // Note: different structure
+  prizes: Array<{ place: number | string; prize: string }>; // ✅ ИСПРАВЛЕНО: соответствует структуре БД
   created_at: string;
   updated_at: string;
 }
 
 // Transform raw tournament data to frontend format
 function transformTournament(rawTournament: RawTournament): Tournament {
-  // Transform prizes from { place, prize } to { position, description }
-  const transformedPrizes: Prize[] = rawTournament.prizes.map((prize) => ({
-    position:
-      typeof prize.place === "string"
-        ? prize.place === "4-10"
-          ? 4
-          : parseInt(prize.place)
-        : prize.place,
-    description: prize.prize,
-    // Extract attempts if mentioned in prize description
-    attempts: prize.prize.includes("attempts")
-      ? parseInt(
-          prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i)?.[1] || "0",
-        ) || undefined
-      : undefined,
-    reward_type: prize.prize.includes("attempts")
-      ? ("attempts" as const)
-      : ("custom" as const),
-  }));
-
   return {
     id: rawTournament.id,
     name: rawTournament.name,
@@ -65,7 +45,7 @@ function transformTournament(rawTournament: RawTournament): Tournament {
     start_time: rawTournament.start_time,
     end_time: rawTournament.end_time,
     status: rawTournament.status as any,
-    prizes: transformedPrizes,
+    prizes: rawTournament.prizes || [], // ✅ ИСПРАВЛЕНО: призы используются как есть из БД
     created_at: rawTournament.created_at,
     updated_at: rawTournament.updated_at,
   };
