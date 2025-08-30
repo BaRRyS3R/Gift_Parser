@@ -1,4 +1,4 @@
-// src/lib/server/tournamentService.ts - ИСПРАВЛЕНО: правильная обработка режимов турниров
+// src/lib/server/tournamentService.ts - ИСПРАВЛЕНО: правильный парсинг призов из базы данных
 
 import type {
   Tournament,
@@ -32,12 +32,12 @@ interface RawTournament {
   start_time: string;
   end_time: string;
   status: string;
-  prizes: Array<{ place: number | string; prize: string }>;
+  prizes: Array<{ place: number; prize: string }>; // ИСПРАВЛЕНО: точная структура из базы данных
   created_at: string;
   updated_at: string;
 }
 
-// ИСПРАВЛЕНО: Правильное маппирование режимов игры
+// Правильное маппирование режимов игры
 function mapGameModeToTournamentMode(gameMode: string): TournamentMode {
   switch (gameMode?.toLowerCase()) {
     case "survival":
@@ -52,27 +52,37 @@ function mapGameModeToTournamentMode(gameMode: string): TournamentMode {
   }
 }
 
-// ИСПРАВЛЕНО: Transform raw tournament data with proper mode handling
+// ИСПРАВЛЕНО: Правильный парсинг призов из базы данных
 function transformTournament(rawTournament: RawTournament): Tournament {
-  const transformedPrizes: Prize[] = rawTournament.prizes.map((prize) => ({
-    position:
-      typeof prize.place === "string"
-        ? prize.place === "4-10"
-          ? 4
-          : parseInt(prize.place)
-        : prize.place,
-    description: prize.prize,
-    attempts: prize.prize.includes("attempts")
-      ? parseInt(
-          prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i)?.[1] || "0",
-        ) || undefined
-      : undefined,
-    reward_type: prize.prize.includes("attempts")
-      ? ("attempts" as const)
-      : ("custom" as const),
-  }));
+  console.log(`[TournamentService] Raw prizes from DB:`, rawTournament.prizes);
 
-  // ИСПРАВЛЕНО: Правильное преобразование режима
+  // ИСПРАВЛЕНО: Правильная обработка призов
+  const transformedPrizes: Prize[] = (rawTournament.prizes || []).map((prize) => {
+    // Извлекаем количество попыток из текста приза
+    const attemptsMatch = prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i);
+    const attempts = attemptsMatch ? parseInt(attemptsMatch[1]) : undefined;
+    
+    // Определяем тип награды
+    const reward_type = prize.prize.toLowerCase().includes('attempts') 
+      ? ("attempts" as const) 
+      : ("custom" as const);
+
+    const transformedPrize: Prize = {
+      position: prize.place, // ИСПРАВЛЕНО: используем правильное поле из базы данных
+      description: prize.prize, // ИСПРАВЛЕНО: используем правильное поле из базы данных
+      attempts: attempts,
+      reward_type: reward_type,
+    };
+
+    console.log(`[TournamentService] Transformed prize:`, {
+      original: prize,
+      transformed: transformedPrize
+    });
+
+    return transformedPrize;
+  });
+
+  // Правильное преобразование режима
   const mappedMode = mapGameModeToTournamentMode(rawTournament.game_mode);
 
   console.log(`[TournamentService] Transforming tournament:`, {
@@ -80,18 +90,20 @@ function transformTournament(rawTournament: RawTournament): Tournament {
     name: rawTournament.name,
     raw_game_mode: rawTournament.game_mode,
     mapped_mode: mappedMode,
-    prizes_count: transformedPrizes.length
+    prizes_count: transformedPrizes.length,
+    raw_prizes_sample: rawTournament.prizes.slice(0, 2),
+    transformed_prizes_sample: transformedPrizes.slice(0, 2)
   });
 
   return {
     id: rawTournament.id,
     name: rawTournament.name,
     description: rawTournament.description,
-    mode: mappedMode, // ИСПРАВЛЕНО: используем правильный маппинг
+    mode: mappedMode,
     start_time: rawTournament.start_time,
     end_time: rawTournament.end_time,
     status: rawTournament.status as any,
-    prizes: transformedPrizes,
+    prizes: transformedPrizes, // ИСПРАВЛЕНО: правильно трансформированные призы
     created_at: rawTournament.created_at,
     updated_at: rawTournament.updated_at,
   };
@@ -125,7 +137,7 @@ export interface GameResultForTournament {
 // ИСПРАВЛЕННЫЙ server-side tournament service
 export const serverTournamentService = {
   /**
-   * ИСПРАВЛЕНО: получение активного турнира с правильной обработкой режима
+   * ИСПРАВЛЕНО: получение активного турнира с правильной обработкой режима и призов
    */
   async getActiveTournament(): Promise<Tournament | null> {
     try {
@@ -147,7 +159,9 @@ export const serverTournamentService = {
         id: data.id,
         name: data.name,
         game_mode: data.game_mode,
-        status: data.status
+        status: data.status,
+        prizes_count: data.prizes?.length || 0,
+        prizes_structure: data.prizes?.[0] // Показываем структуру первого приза
       });
 
       const transformed = transformTournament(data);
@@ -157,7 +171,8 @@ export const serverTournamentService = {
         name: transformed.name,
         mode: transformed.mode,
         status: transformed.status,
-        prizes_count: transformed.prizes?.length || 0
+        prizes_count: transformed.prizes?.length || 0,
+        first_prize: transformed.prizes?.[0] // Показываем первый трансформированный приз
       });
 
       return transformed;
@@ -229,14 +244,16 @@ export const serverTournamentService = {
       console.log(`[TournamentService] Raw tournament by ID:`, {
         id: data.id,
         name: data.name,
-        game_mode: data.game_mode
+        game_mode: data.game_mode,
+        prizes_count: data.prizes?.length || 0
       });
 
       const transformed = transformTournament(data);
       
       console.log(`[TournamentService] Transformed tournament by ID:`, {
         id: transformed.id,
-        mode: transformed.mode
+        mode: transformed.mode,
+        prizes_count: transformed.prizes?.length || 0
       });
 
       return transformed;
@@ -485,7 +502,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * Получение позиции пользователя (используется кеш-сервисом)
+   * ИСПРАВЛЕНО: Получение позиции пользователя (работает для любых позиций, включая 15432)
    */
   async getUserTournamentPosition(
     tournamentId: string,
@@ -495,13 +512,7 @@ export const serverTournamentService = {
     entry: OptimizedTournamentLeaderboardEntry;
   } | null> {
     try {
-      // Получаем оптимизированный лидерборд
-      const leaderboard = await this.getOptimizedTournamentLeaderboard(
-        tournamentId,
-        1000, // Больше записей для точного определения позиции
-      );
-
-      // Находим пользователя через отдельный запрос
+      // Сначала находим пользователя
       const { data: userEntry, error } = await supabaseServer
         .from("tournament_leaderboard")
         .select(`
@@ -516,17 +527,31 @@ export const serverTournamentService = {
         .single();
 
       if (error || !userEntry) {
+        console.log(`[TournamentService] User not found in tournament: ${telegramId}`);
         return null;
       }
 
-      // Вычисляем позицию пользователя
-      const betterCount = await supabaseServer
+      // ИСПРАВЛЕНО: Правильный расчет позиции для ЛЮБОГО места (включая 15432)
+      // Подсчитываем количество игроков с лучшим результатом
+      const { count: betterPlayersCount, error: countError } = await supabaseServer
         .from("tournament_leaderboard")
-        .select("id", { count: "exact" })
+        .select("*", { count: "exact", head: true })
         .eq("tournament_id", tournamentId)
         .or(`best_score.gt.${userEntry.best_score},and(best_score.eq.${userEntry.best_score},updated_at.lt.${userEntry.updated_at})`);
 
-      const position = (betterCount.count || 0) + 1;
+      if (countError) {
+        console.error("Error calculating user position:", countError);
+        return null;
+      }
+
+      const position = (betterPlayersCount || 0) + 1;
+
+      console.log(`[TournamentService] User position calculated:`, {
+        telegram_id: telegramId,
+        user_score: userEntry.best_score,
+        better_players: betterPlayersCount,
+        final_position: position
+      });
 
       return {
         position,

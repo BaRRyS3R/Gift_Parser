@@ -1,4 +1,4 @@
-// src/app/tournaments/page.tsx - ИСПРАВЛЕНО: добавлены призы, убрано кеширование, исправлен режим
+// src/app/tournaments/page.tsx - ФИНАЛЬНАЯ ВЕРСИЯ: убрана кнопка обновления, исправлены призы, свёрнутые призы, упрощенный лидерборд
 
 "use client";
 
@@ -7,16 +7,15 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardBody, Button, Spinner } from "@nextui-org/react";
 import {
   Trophy,
-  Clock,
   AlertTriangle,
   ArrowLeft,
   Play,
   Target,
   Users,
   Zap,
-  RefreshCw,
   Gift,
-  Award,
+  ChevronDown,
+  ChevronUp,
   Star,
 } from "lucide-react";
 
@@ -40,7 +39,7 @@ interface TournamentPageState {
   leaderboardError: string | null;
 }
 
-// Future Tech цвета для режимов with better fallback
+// Future Tech цвета для режимов
 function getFutureTechModeColors(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
   
@@ -92,7 +91,7 @@ function getFutureTechModeColors(mode?: string) {
   }
 }
 
-// Получение иконки режима с защитой от undefined
+// Получение иконки режима
 function getModeIcon(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
   
@@ -156,8 +155,10 @@ function getPositionColor(position: number): string {
   }
 }
 
-// Компонент отображения призов
+// ИСПРАВЛЕННЫЙ компонент отображения призов (свёрнутый по умолчанию)
 function PrizesSection({ prizes, colors }: { prizes: Prize[]; colors: any }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   if (!prizes || prizes.length === 0) return null;
 
   const getPrizeIcon = (position: number, rewardType?: string) => {
@@ -175,72 +176,85 @@ function PrizesSection({ prizes, colors }: { prizes: Prize[]; colors: any }) {
     return "text-blue-400";
   };
 
+  const getPositionText = (position: number) => {
+    if (position === 1) return "1st PLACE";
+    if (position === 2) return "2nd PLACE";
+    if (position === 3) return "3rd PLACE";
+    return `${position}th PLACE`;
+  };
+
   return (
     <Card className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <Gift className="text-yellow-400" size={16} />
-          <h3 className="text-lg font-bold text-white font-mono">PRIZES</h3>
+      <CardHeader className="pb-3 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-2">
+            <Gift className="text-yellow-400" size={16} />
+            <h3 className="text-lg font-bold text-white font-mono">PRIZES</h3>
+            <span className="text-xs text-white/60 font-mono">({prizes.length})</span>
+          </div>
+          {isExpanded ? (
+            <ChevronUp className="text-yellow-400" size={16} />
+          ) : (
+            <ChevronDown className="text-yellow-400" size={16} />
+          )}
         </div>
       </CardHeader>
       
-      <CardBody className="pt-0">
-        <div className="grid gap-3">
-          {prizes.map((prize, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/10"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8">
-                  <span className="text-lg">
-                    {getPrizeIcon(prize.position, prize.reward_type)}
-                  </span>
-                </div>
-                
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-mono text-sm font-bold ${getPrizeColor(prize.position)}`}>
-                      {typeof prize.position === 'number' 
-                        ? (prize.position <= 3 
-                            ? `${prize.position}${prize.position === 1 ? 'st' : prize.position === 2 ? 'nd' : 'rd'} PLACE`
-                            : `${prize.position}th PLACE`)
-                        : `${prize.position} PLACE`}
+      {isExpanded && (
+        <CardBody className="pt-0">
+          <div className="grid gap-3">
+            {prizes.map((prize, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/10"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8">
+                    <span className="text-lg">
+                      {getPrizeIcon(prize.position, prize.reward_type)}
                     </span>
                   </div>
                   
-                  <div className="text-white/80 text-xs font-mono mt-1">
-                    {prize.description}
-                  </div>
-                  
-                  {prize.special_title && (
-                    <div className="flex items-center gap-1 mt-1">
-                      <Star className="text-yellow-400" size={10} />
-                      <span className="text-yellow-400 text-xs font-mono">
-                        {prize.special_title}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono text-sm font-bold ${getPrizeColor(prize.position)}`}>
+                        {getPositionText(prize.position)}
                       </span>
                     </div>
-                  )}
-                </div>
-              </div>
-              
-              {prize.attempts && (
-                <div className="text-right">
-                  <div className="text-blue-400 font-mono text-sm font-bold">
-                    +{prize.attempts}
+                    
+                    <div className="text-white/80 text-xs font-mono mt-1">
+                      {prize.description}
+                    </div>
+                    
+                    {prize.special_title && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Star className="text-yellow-400" size={10} />
+                        <span className="text-yellow-400 text-xs font-mono">
+                          {prize.special_title}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-white/50 text-xs font-mono">ATTEMPTS</div>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </CardBody>
+                
+                {prize.attempts && (
+                  <div className="text-right">
+                    <div className="text-blue-400 font-mono text-sm font-bold">
+                      +{prize.attempts}
+                    </div>
+                    <div className="text-white/50 text-xs font-mono">ATTEMPTS</div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardBody>
+      )}
     </Card>
   );
 }
 
-// Компонент записи лидерборда
+// УПРОЩЕННЫЙ компонент записи лидерборда (без Card обёртки)
 function LeaderboardEntry({
   entry,
   position,
@@ -254,69 +268,68 @@ function LeaderboardEntry({
   const positionIcons = ["👑", "🥈", "🥉"];
 
   return (
-    <div
-      className={`flex items-center justify-between p-3 rounded border transition-all duration-300 ${
-        entry.isCurrentUser
-          ? `border-2 ${colors.border} bg-gradient-to-r ${colors.bg}`
-          : "border-white/10 hover:border-white/20 bg-black/40"
-      }`}
-      style={{
-        boxShadow: entry.isCurrentUser ? `0 0 15px ${colors.glow}` : "none",
-      }}
-    >
-      <div className="flex items-center gap-3">
-        {/* Position */}
-        <div
-          className="flex items-center justify-center w-8 h-8 rounded border"
-          style={{
-            borderColor: positionColor + "60",
-            backgroundColor: positionColor + "20",
-          }}
-        >
-          {position <= 3 ? (
-            <span className="text-sm">{positionIcons[position - 1]}</span>
-          ) : (
-            <span
-              className="text-xs font-mono font-bold"
-              style={{ color: positionColor }}
-            >
-              {position}
-            </span>
-          )}
-        </div>
-
-        {/* User info */}
-        <div>
-          <div className="flex items-center gap-1">
-            <span className="text-white font-mono text-sm">
-              {entry.first_name}
-              {entry.last_name && ` ${entry.last_name.charAt(0)}.`}
-            </span>
-            {entry.isCurrentUser && (
-              <span className="text-yellow-400">⭐</span>
+    <>
+      <div
+        className={`flex items-center justify-between py-3 px-1 transition-all duration-300 ${
+          entry.isCurrentUser
+            ? `border-l-2 pl-3 bg-gradient-to-r ${colors.bg}`
+            : "hover:bg-white/5"
+        }`}
+        style={{
+          borderLeftColor: entry.isCurrentUser ? colors.primary : "transparent",
+          backgroundColor: entry.isCurrentUser ? colors.glow + "10" : "transparent",
+        }}
+      >
+        <div className="flex items-center gap-3">
+          {/* Position */}
+          <div className="flex items-center justify-center w-8 h-8">
+            {position <= 3 ? (
+              <span className="text-lg">{positionIcons[position - 1]}</span>
+            ) : (
+              <span
+                className="text-sm font-mono font-bold"
+                style={{ color: positionColor }}
+              >
+                {position}
+              </span>
             )}
           </div>
-          {entry.username && (
-            <span className="text-white/50 text-xs font-mono">
-              @{entry.username.length > 12
-                ? entry.username.substring(0, 12) + "..."
-                : entry.username}
-            </span>
-          )}
-        </div>
-      </div>
 
-      {/* Score */}
-      <div className="text-right">
-        <div
-          className="text-sm font-mono font-bold"
-          style={{ color: entry.isCurrentUser ? colors.primary : "#ffffff" }}
-        >
-          {formatNumber(entry.best_score)}
+          {/* User info */}
+          <div>
+            <div className="flex items-center gap-1">
+              <span className="text-white font-mono text-sm">
+                {entry.first_name}
+                {entry.last_name && ` ${entry.last_name.charAt(0)}.`}
+              </span>
+              {entry.isCurrentUser && (
+                <span className="text-yellow-400">⭐</span>
+              )}
+            </div>
+            {entry.username && (
+              <span className="text-white/50 text-xs font-mono">
+                @{entry.username.length > 12
+                  ? entry.username.substring(0, 12) + "..."
+                  : entry.username}
+              </span>
+            )}
+          </div>
         </div>
-        <div className="text-xs text-white/50 font-mono">PTS</div>
+
+        {/* Score */}
+        <div className="text-right">
+          <div
+            className="text-sm font-mono font-bold"
+            style={{ color: entry.isCurrentUser ? colors.primary : "#ffffff" }}
+          >
+            {formatNumber(entry.best_score)}
+          </div>
+          <div className="text-xs text-white/50 font-mono">PTS</div>
+        </div>
       </div>
-    </div>
+      {/* Разделитель между игроками */}
+      <div className="h-px bg-white/10 mx-4" />
+    </>
   );
 }
 
@@ -358,10 +371,8 @@ function TournamentsPageContent() {
         throw new Error(result.error || "Failed to fetch tournament");
       }
 
-      // Normalize tournament mode for consistent handling
       let tournament = result.tournament;
       if (tournament) {
-        // Ensure mode is properly set
         tournament = {
           ...tournament,
           mode: tournament.mode || tournament.game_mode || 'unknown'
@@ -372,7 +383,8 @@ function TournamentsPageContent() {
           name: tournament.name,
           mode: tournament.mode,
           status: tournament.status,
-          prizes_count: tournament.prizes?.length || 0
+          prizes_count: tournament.prizes?.length || 0,
+          prizes_data: tournament.prizes
         });
       }
 
@@ -383,7 +395,6 @@ function TournamentsPageContent() {
         error: null,
       }));
 
-      // Если есть активный турнир, загружаем его лидерборд
       if (tournament) {
         await fetchTournamentLeaderboard(tournament.id, force);
       }
@@ -398,7 +409,7 @@ function TournamentsPageContent() {
     }
   }, [makeAuthenticatedRequest]);
 
-  // Получение лидерборда турнира БЕЗ автообновления
+  // Получение лидерборда турнира
   const fetchTournamentLeaderboard = useCallback(async (
     tournamentId: string,
     force: boolean = false
@@ -406,7 +417,7 @@ function TournamentsPageContent() {
     try {
       setState(prev => ({ ...prev, isLeaderboardLoading: true, leaderboardError: null }));
 
-      const endpoint = `/api/tournaments/leaderboard?tournamentId=${encodeURIComponent(tournamentId)}${
+      const endpoint = `/api/tournaments/leaderboard?tournamentId=${encodeURIComponent(tournamentId)}&limit=100${
         force ? "&force_refresh=true" : ""
       }`;
 
@@ -421,6 +432,13 @@ function TournamentsPageContent() {
       if (!result.success) {
         throw new Error(result.error || "Failed to fetch leaderboard");
       }
+
+      // Логируем данные позиции пользователя для отладки
+      console.log("[TournamentsPage] Leaderboard data:", {
+        leaderboard_count: result.leaderboard?.length || 0,
+        user_position: result.userPosition?.position,
+        user_in_top100: result.leaderboard?.some((entry: any) => entry.isCurrentUser) || false
+      });
 
       setState(prev => ({
         ...prev,
@@ -440,7 +458,7 @@ function TournamentsPageContent() {
     }
   }, [makeAuthenticatedRequest]);
 
-  // Обновление таймера - с защитой от null
+  // Обновление таймера
   useEffect(() => {
     if (!state.activeTournament) return;
 
@@ -451,8 +469,7 @@ function TournamentsPageContent() {
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 60000); // Обновление каждую минуту
-
+    const interval = setInterval(updateTimer, 60000);
     return () => clearInterval(interval);
   }, [state.activeTournament]);
 
@@ -465,10 +482,6 @@ function TournamentsPageContent() {
   const handlePlayTournament = useCallback(() => {
     router.push("/game");
   }, [router]);
-
-  const handleRefresh = useCallback(() => {
-    fetchActiveTournament(true); // Force refresh
-  }, [fetchActiveTournament]);
 
   const handleRetry = useCallback(() => {
     setState(prev => ({ ...prev, error: null, leaderboardError: null }));
@@ -492,7 +505,6 @@ function TournamentsPageContent() {
     }
   }, [router]);
 
-  // Безопасное определение цветов активного турнира
   const colors = getFutureTechModeColors(state.activeTournament?.mode);
   const tournamentMode = state.activeTournament?.mode;
 
@@ -530,14 +542,14 @@ function TournamentsPageContent() {
             <Button
               className="bg-red-500/20 border border-red-500/40 text-red-400 font-mono"
               startContent={<Zap size={16} />}
-              onClick={handleRetry}
+              onPress={handleRetry}
             >
               TRY AGAIN
             </Button>
             <Button
               className="bg-white/10 border border-white/30 text-white font-mono"
               startContent={<ArrowLeft size={16} />}
-              onClick={() => router.push("/main")}
+              onPress={() => router.push("/main")}
             >
               BACK TO MAIN
             </Button>
@@ -619,33 +631,24 @@ function TournamentsPageContent() {
               </CardHeader>
 
               <CardBody className="pt-0">
-                <div className="flex gap-3">
-                  <Button
-                    className="flex-1 bg-transparent border font-mono"
-                    startContent={<Play size={16} />}
-                    style={{
-                      borderColor: colors.primary + "60",
-                      color: colors.primary,
-                    }}
-                    onClick={handlePlayTournament}
-                  >
-                    PLAY NOW
-                  </Button>
-                  <Button
-                    className="bg-transparent border border-white/30 text-white font-mono"
-                    startContent={<RefreshCw size={16} />}
-                    onClick={handleRefresh}
-                  >
-                    REFRESH
-                  </Button>
-                </div>
+                <Button
+                  className="w-full bg-transparent border font-mono"
+                  startContent={<Play size={16} />}
+                  style={{
+                    borderColor: colors.primary + "60",
+                    color: colors.primary,
+                  }}
+                  onPress={handlePlayTournament}
+                >
+                  PLAY NOW
+                </Button>
               </CardBody>
             </Card>
 
             {/* Prizes Section */}
             <PrizesSection prizes={state.activeTournament.prizes || []} colors={colors} />
 
-            {/* User Position */}
+            {/* User Position (отображается даже если пользователь не в TOP 100) */}
             {state.userPosition && (
               <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
                 <CardBody className="p-4">
@@ -665,31 +668,29 @@ function TournamentsPageContent() {
                       className="text-2xl font-bold font-mono"
                       style={{ color: getPositionColor(state.userPosition.position) }}
                     >
-                      #{state.userPosition.position}
+                      #{state.userPosition.position.toLocaleString()}
                     </div>
                   </div>
                 </CardBody>
               </Card>
             )}
 
-            {/* Leaderboard */}
-            <Card className="bg-black/60 border border-white/20">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="text-yellow-400" size={16} />
-                    <h3 className="text-lg font-bold text-white font-mono">
-                      LEADERBOARD
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-white/60 font-mono">
-                    <Users size={12} />
-                    <span>{state.leaderboard.length}</span>
-                  </div>
+            {/* УПРОЩЕННЫЙ Leaderboard - без Card обёртки, встроен в страницу */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="text-yellow-400" size={16} />
+                  <h3 className="text-lg font-bold text-white font-mono">
+                    TOP 100 LEADERBOARD
+                  </h3>
                 </div>
-              </CardHeader>
+                <div className="flex items-center gap-2 text-sm text-white/60 font-mono">
+                  <Users size={12} />
+                  <span>{state.leaderboard.length}</span>
+                </div>
+              </div>
 
-              <CardBody className="pt-0">
+              <div className="bg-black/40 border border-white/20 rounded-lg p-4">
                 {state.isLeaderboardLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Spinner color="primary" size="sm" />
@@ -701,7 +702,7 @@ function TournamentsPageContent() {
                     </p>
                   </div>
                 ) : state.leaderboard.length > 0 ? (
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                  <div className="max-h-96 overflow-y-auto">
                     {state.leaderboard.map((entry, index) => (
                       <LeaderboardEntry
                         key={`${entry.first_name}-${index}`}
@@ -719,8 +720,8 @@ function TournamentsPageContent() {
                     </p>
                   </div>
                 )}
-              </CardBody>
-            </Card>
+              </div>
+            </div>
           </div>
         ) : (
           // No Active Tournament
@@ -737,13 +738,6 @@ function TournamentsPageContent() {
                 CHECK BACK SOON FOR THE NEXT COMPETITION
               </p>
             </div>
-            <Button
-              className="mt-6 bg-white/10 border border-white/30 text-white font-mono"
-              startContent={<RefreshCw size={16} />}
-              onClick={handleRefresh}
-            >
-              CHECK FOR UPDATES
-            </Button>
           </div>
         )}
       </div>
