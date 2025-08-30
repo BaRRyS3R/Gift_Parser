@@ -14,9 +14,10 @@ interface TournamentCacheStatsResponse {
     cache_age_seconds?: number;
   };
   optimization_info?: {
-    single_tournament_focus: boolean;
-    minimal_fields_cached: boolean;
-    leaderboard_optimized: boolean;
+    client_side_positioning: boolean;
+    no_server_position_calculation: boolean;
+    simplified_user_stats: boolean;
+    public_leaderboard_only: boolean;
     security_measures: {
       uuid_exposure_prevented: boolean;
       telegram_id_secured: boolean;
@@ -64,9 +65,10 @@ export async function GET(
           has_active_tournament_cache: false,
         },
         optimization_info: {
-          single_tournament_focus: true,
-          minimal_fields_cached: true,
-          leaderboard_optimized: true,
+          client_side_positioning: true,
+          no_server_position_calculation: true,
+          simplified_user_stats: true,
+          public_leaderboard_only: true,
           security_measures: {
             uuid_exposure_prevented: true, // ✅ UUID не передаются на клиент
             telegram_id_secured: true,     // ✅ telegram_id не передаются на клиент
@@ -88,11 +90,13 @@ export async function GET(
         cache_age_seconds: cacheStats.cache_age_seconds,
       },
       optimization_info: {
-        single_tournament_focus: cacheStats.optimization_info.single_tournament_focus,
-        minimal_fields_cached: cacheStats.optimization_info.minimal_fields_cached,
-        leaderboard_optimized: cacheStats.optimization_info.leaderboard_optimized,
+        // ✅ ИСПРАВЛЕНО: использую правильные поля из optimization_info
+        client_side_positioning: cacheStats.optimization_info.client_side_positioning,
+        no_server_position_calculation: cacheStats.optimization_info.no_server_position_calculation,
+        simplified_user_stats: cacheStats.optimization_info.simplified_user_stats,
+        public_leaderboard_only: cacheStats.optimization_info.public_leaderboard_only,
         security_measures: {
-          uuid_exposure_prevented: cacheStats.optimization_info.uuid_exposure_prevented,
+          uuid_exposure_prevented: true, // ✅ Статичное значение - UUID защищены
           telegram_id_secured: true,     // ✅ telegram_id надежно скрыты от клиента
           client_data_filtered: true,    // ✅ Строгая фильтрация данных
         },
@@ -107,9 +111,10 @@ export async function GET(
         success: false,
         redis_available: false,
         optimization_info: {
-          single_tournament_focus: true,
-          minimal_fields_cached: true,
-          leaderboard_optimized: true,
+          client_side_positioning: true,
+          no_server_position_calculation: true,
+          simplified_user_stats: true,
+          public_leaderboard_only: true,
           security_measures: {
             uuid_exposure_prevented: true,
             telegram_id_secured: true,

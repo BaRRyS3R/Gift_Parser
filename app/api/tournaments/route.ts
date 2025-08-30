@@ -1,14 +1,13 @@
-// src/app/api/tournaments/route.ts - ИСПРАВЛЕНО: правильная передача данных режима турнира
+// src/app/api/tournaments/route.ts - ОПТИМИЗИРОВАНО: упрощенный API без расчета позиций на сервере
 
 import { NextRequest, NextResponse } from "next/server";
 import { tournamentCacheService } from "@/lib/server/tournamentCacheService";
 import type { 
   Tournament,
   OptimizedTournamentLeaderboardEntry,
-  TournamentUserPosition 
 } from "@/types/tournaments";
 
-// УПРОЩЕННЫЕ response интерфейсы (только активный турнир)
+// Упрощенные response интерфейсы
 interface ActiveTournamentResponse {
   success: boolean;
   tournament?: Tournament | null;
@@ -21,11 +20,17 @@ interface ActiveTournamentResponse {
   error?: string;
 }
 
+// УПРОЩЕНО: без точной позиции пользователя, только базовая статистика
 interface TournamentLeaderboardResponse {
   success: boolean;
   tournament?: Tournament;
   leaderboard?: OptimizedTournamentLeaderboardEntry[];
-  userPosition?: TournamentUserPosition;
+  user_stats?: {
+    is_participating: boolean;
+    user_score?: number;
+    games_played?: number;
+    is_in_top_100: boolean;
+  };
   cache_info?: {
     is_from_cache: boolean;
     cached_at?: number;
@@ -36,17 +41,14 @@ interface TournamentLeaderboardResponse {
 }
 
 /**
- * ИСПРАВЛЕНО: Нормализация данных турнира для правильной передачи на клиент
+ * Нормализация данных турнира для правильной передачи на клиент
  */
 function normalizeTournamentData(tournament: Tournament | null): Tournament | null {
   if (!tournament) return null;
 
-  // Убеждаемся что mode правильно установлен
   const normalizedTournament: Tournament = {
     ...tournament,
-    // Гарантируем что mode присутствует и правильно типизирован
     mode: tournament.mode || (tournament as any).game_mode || 'survival',
-    // Убеждаемся что prizes правильно типизированы
     prizes: tournament.prizes || [],
   };
 
@@ -63,7 +65,7 @@ function normalizeTournamentData(tournament: Tournament | null): Tournament | nu
 
 /**
  * GET /api/tournaments
- * ИСПРАВЛЕНО: только активный турнир с оптимизированным кешированием и правильным режимом
+ * ОПТИМИЗИРОВАНО: упрощенная логика без серверного расчета позиций
  */
 export async function GET(
   request: NextRequest,
@@ -96,30 +98,31 @@ export async function GET(
           );
         }
 
-        // ИСПОЛЬЗУЕМ ОПТИМИЗИРОВАННЫЙ КЕШИРУЮЩИЙ СЕРВИС
+        // УПРОЩЕНО: получаем данные через упрощенный кеш-сервис
         const { leaderboard, cache_info } = await tournamentCacheService.getTournamentLeaderboard(
           tournamentId,
-          userId, // UUID остается ТОЛЬКО на сервере
+          userId,
           telegramIdNumber,
-          100 // limit
+          100 // Всегда топ-100
         );
 
-        // ИСПРАВЛЕНО: Нормализуем данные турнира перед отправкой
+        // Нормализуем данные турнира
         const normalizedTournament = normalizeTournamentData(leaderboard.tournament);
 
         console.log("Tournament leaderboard fetched:", {
           tournament_id: normalizedTournament?.id,
           tournament_mode: normalizedTournament?.mode,
           entries_count: leaderboard.leaderboard.length,
-          user_position: leaderboard.userPosition?.position,
+          user_participating: leaderboard.user_stats?.is_participating || false,
+          user_in_top_100: leaderboard.user_stats?.is_in_top_100 || false,
           from_cache: cache_info.is_from_cache
         });
 
         return NextResponse.json({
           success: true,
           tournament: normalizedTournament,
-          leaderboard: leaderboard.leaderboard, // БЕЗ UUID
-          userPosition: leaderboard.userPosition,
+          leaderboard: leaderboard.leaderboard,
+          user_stats: leaderboard.user_stats,
           cache_info,
         });
 
@@ -142,10 +145,8 @@ export async function GET(
     try {
       console.log("Fetching active tournament");
 
-      // ИСПОЛЬЗУЕМ ОПТИМИЗИРОВАННЫЙ КЕШИРУЮЩИЙ СЕРВИС
       const { tournament, cache_info } = await tournamentCacheService.getActiveTournament();
 
-      // ИСПРАВЛЕНО: Нормализуем данные турнира перед отправкой
       const normalizedTournament = normalizeTournamentData(tournament);
 
       console.log("Active tournament fetched:", {
@@ -159,7 +160,7 @@ export async function GET(
 
       return NextResponse.json({
         success: true,
-        tournament: normalizedTournament, // Может быть null если нет активного турнира
+        tournament: normalizedTournament,
         cache_info,
       });
 
@@ -197,7 +198,6 @@ export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<ActiveTournamentResponse>> {
   try {
-    // Проверка аутентификации
     const telegramId = request.headers.get("X-Telegram-ID");
     const userId = request.headers.get("X-User-ID");
 
@@ -213,13 +213,10 @@ export async function POST(
 
     console.log("Manual tournament cache refresh requested");
 
-    // Инвалидируем существующий кеш
     await tournamentCacheService.invalidateActiveTournament();
 
-    // Получаем свежие данные
     const { tournament, cache_info } = await tournamentCacheService.getActiveTournament();
 
-    // ИСПРАВЛЕНО: Нормализуем данные турнира перед отправкой
     const normalizedTournament = normalizeTournamentData(tournament);
 
     console.log("Tournament cache refreshed:", {

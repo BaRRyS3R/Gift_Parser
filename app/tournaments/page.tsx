@@ -1,4 +1,4 @@
-// src/app/tournaments/page.tsx - ИСПРАВЛЕНО: работа с реальной структурой данных призов
+// src/app/tournaments/page.tsx - ОПТИМИЗИРОВАНО: клиентский расчет позиций, упрощенная серверная логика
 
 "use client";
 
@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Star,
+  Clock,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -24,22 +25,37 @@ import { useT } from "@/contexts/LocalizationContext";
 import type {
   Tournament,
   OptimizedTournamentLeaderboardEntry,
-  TournamentUserPosition,
   Prize,
 } from "@/types/tournaments";
 
-// Упрощенные интерфейсы (только активный турнир)
+// УПРОЩЕННОЕ состояние страницы БЕЗ серверного userPosition
 interface TournamentPageState {
   activeTournament: Tournament | null;
   leaderboard: OptimizedTournamentLeaderboardEntry[];
-  userPosition: TournamentUserPosition | null;
+  userStats: UserTournamentStats | null; // Базовая статистика вместо точной позиции
   isLoading: boolean;
   isLeaderboardLoading: boolean;
   error: string | null;
   leaderboardError: string | null;
 }
 
-// НОВЫЙ интерфейс для работы с реальными данными призов из API
+// Упрощенная статистика пользователя
+interface UserTournamentStats {
+  is_participating: boolean;
+  user_score?: number;
+  games_played?: number;
+  is_in_top_100: boolean;
+}
+
+// НОВЫЙ интерфейс для клиентского расчета позиций
+interface ClientUserPosition {
+  position: number | "100+";
+  score: number;
+  games_played: number;
+  is_current_user: boolean;
+}
+
+// Интерфейс для работы с призами
 interface RawPrizeData {
   place?: number;
   prize?: string;
@@ -102,39 +118,30 @@ function getFutureTechModeColors(mode?: string) {
   }
 }
 
-// Получение иконки режима
+// Получение иконки и названия режима
 function getModeIcon(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
   
   switch (normalizedMode) {
-    case "survival":
-      return "⚡";
-    case "physics":
-      return "⚛️";
-    case "rotation":
-      return "🔄";
-    default:
-      return "🎯";
+    case "survival": return "⚡";
+    case "physics": return "⚛️";
+    case "rotation": return "🔄";
+    default: return "🎯";
   }
 }
 
-// Получение названия режима
 function getModeName(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
   
   switch (normalizedMode) {
-    case "survival":
-      return "SURVIVAL";
-    case "physics":
-      return "PHYSICS";
-    case "rotation":
-      return "ROTATION";
-    default:
-      return "GAME";
+    case "survival": return "SURVIVAL";
+    case "physics": return "PHYSICS";
+    case "rotation": return "ROTATION";
+    default: return "GAME";
   }
 }
 
-// Форматирование времени
+// Утилиты форматирования
 function formatTimeRemaining(endTime: string): string {
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
@@ -149,64 +156,106 @@ function formatTimeRemaining(endTime: string): string {
   return `${minutes}m`;
 }
 
-// Форматирование больших чисел
 function formatNumber(num: number): string {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
   if (num >= 1000) return (num / 1000).toFixed(1) + "K";
   return num.toString();
 }
 
-// Получение цвета позиции
-function getPositionColor(position: number): string {
-  switch (position) {
-    case 1: return "#ffd700";
-    case 2: return "#c0c0c0";
-    case 3: return "#cd7f32";
-    default: return position <= 10 ? "#3b82f6" : "#64748b";
-  }
+function getPositionColor(position: number | string): string {
+  if (position === 1) return "#ffd700";
+  if (position === 2) return "#c0c0c0";
+  if (position === 3) return "#cd7f32";
+  if (typeof position === "number" && position <= 10) return "#3b82f6";
+  return "#64748b";
 }
 
-// ПОЛНОСТЬЮ ПЕРЕПИСАННЫЙ компонент отображения призов для работы с реальными данными
-function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  
-  console.log("[PrizesSection] Raw prizes data:", prizes);
-  
-  if (!prizes || prizes.length === 0) {
-    console.log("[PrizesSection] No prizes to display");
+// Проверка активности турнира
+function isTournamentActive(tournament: Tournament | null): boolean {
+  if (!tournament) return false;
+
+  if (tournament.status !== 'active') return false;
+
+  const now = new Date().getTime();
+  const start = new Date(tournament.start_time).getTime();
+  const end = new Date(tournament.end_time).getTime();
+
+  return now >= start && now < end;
+}
+
+/**
+ * КЛЮЧЕВАЯ ФУНКЦИЯ: клиентский расчет позиции пользователя
+ */
+function calculateUserPosition(
+  leaderboard: OptimizedTournamentLeaderboardEntry[],
+  userStats: UserTournamentStats | null
+): ClientUserPosition | null {
+  if (!userStats?.is_participating || !userStats.user_score) {
     return null;
   }
 
-  // Функция нормализации данных приза
+  // Если пользователь в топ-100, находим его точную позицию
+  if (userStats.is_in_top_100) {
+    const userIndex = leaderboard.findIndex(entry => 
+      entry.best_score === userStats.user_score && entry.isCurrentUser
+    );
+
+    if (userIndex !== -1) {
+      console.log(`[CLIENT_POSITIONING] User found in top-100 at position ${userIndex + 1}`);
+      return {
+        position: userIndex + 1,
+        score: userStats.user_score,
+        games_played: userStats.games_played || 0,
+        is_current_user: true
+      };
+    }
+  }
+
+  // Если пользователь не в топ-100, отображаем "100+"
+  console.log(`[CLIENT_POSITIONING] User not in top-100, showing 100+ position`);
+  return {
+    position: "100+",
+    score: userStats.user_score,
+    games_played: userStats.games_played || 0,
+    is_current_user: true
+  };
+}
+
+/**
+ * ОБНОВЛЕННАЯ функция: добавление флага isCurrentUser в лидерборд
+ */
+function enrichLeaderboardWithCurrentUser(
+  leaderboard: OptimizedTournamentLeaderboardEntry[],
+  userStats: UserTournamentStats | null
+): OptimizedTournamentLeaderboardEntry[] {
+  if (!userStats?.is_participating || !userStats.is_in_top_100) {
+    return leaderboard;
+  }
+
+  // Помечаем запись текущего пользователя
+  return leaderboard.map(entry => ({
+    ...entry,
+    isCurrentUser: entry.best_score === userStats.user_score &&
+      leaderboard.findIndex(e => e.best_score === userStats.user_score) === 
+      leaderboard.findIndex(e => e === entry) // Первое вхождение с таким счетом
+  }));
+}
+
+// Компонент отображения призов
+function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!prizes || prizes.length === 0) return null;
+
   const normalizePrize = (prize: RawPrizeData, index: number) => {
-    // Определяем позицию из разных возможных полей
     const position = prize.position ?? prize.place ?? (index + 1);
-    
-    // Определяем описание из разных возможных полей
     const description = prize.description ?? prize.prize ?? "Unknown prize";
-    
-    // Извлекаем количество попыток из описания
     const attemptsMatch = description.match(/(\d+)\s+(?:bonus\s+)?attempts/i);
     const attempts = prize.attempts ?? (attemptsMatch ? parseInt(attemptsMatch[1]) : undefined);
-    
-    // Определяем тип награды
     const reward_type = prize.reward_type ?? 
       (description.toLowerCase().includes('attempts') ? 'attempts' : 'custom');
 
-    const normalized = {
-      position,
-      description,
-      attempts,
-      reward_type,
-      special_title: prize.special_title
-    };
-
-    console.log(`[PrizesSection] Normalized prize ${index}:`, {
-      original: prize,
-      normalized: normalized
-    });
-
-    return normalized;
+    return { position, description, attempts, reward_type, special_title: prize.special_title };
   };
 
   const getPrizeIcon = (position: number, rewardType?: string) => {
@@ -255,34 +304,22 @@ function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any
               const prize = normalizePrize(rawPrize, index);
               
               return (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/10"
-                >
+                <div key={index} className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/10">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center w-8 h-8">
-                      <span className="text-lg">
-                        {getPrizeIcon(prize.position, prize.reward_type)}
-                      </span>
+                      <span className="text-lg">{getPrizeIcon(prize.position, prize.reward_type)}</span>
                     </div>
                     
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`font-mono text-sm font-bold ${getPrizeColor(prize.position)}`}>
-                          {getPositionText(prize.position)}
-                        </span>
-                      </div>
-                      
-                      <div className="text-white/80 text-xs font-mono mt-1">
-                        {prize.description}
-                      </div>
+                      <span className={`font-mono text-sm font-bold ${getPrizeColor(prize.position)}`}>
+                        {getPositionText(prize.position)}
+                      </span>
+                      <div className="text-white/80 text-xs font-mono mt-1">{prize.description}</div>
                       
                       {prize.special_title && (
                         <div className="flex items-center gap-1 mt-1">
                           <Star className="text-yellow-400" size={10} />
-                          <span className="text-yellow-400 text-xs font-mono">
-                            {prize.special_title}
-                          </span>
+                          <span className="text-yellow-400 text-xs font-mono">{prize.special_title}</span>
                         </div>
                       )}
                     </div>
@@ -290,9 +327,7 @@ function PrizesSection({ prizes, colors }: { prizes: RawPrizeData[]; colors: any
                   
                   {prize.attempts && (
                     <div className="text-right">
-                      <div className="text-blue-400 font-mono text-sm font-bold">
-                        +{prize.attempts}
-                      </div>
+                      <div className="text-blue-400 font-mono text-sm font-bold">+{prize.attempts}</div>
                       <div className="text-white/50 text-xs font-mono">ATTEMPTS</div>
                     </div>
                   )}
@@ -337,10 +372,7 @@ function LeaderboardEntry({
             {position <= 3 ? (
               <span className="text-lg">{positionIcons[position - 1]}</span>
             ) : (
-              <span
-                className="text-sm font-mono font-bold"
-                style={{ color: positionColor }}
-              >
+              <span className="text-sm font-mono font-bold" style={{ color: positionColor }}>
                 {position}
               </span>
             )}
@@ -352,15 +384,11 @@ function LeaderboardEntry({
                 {entry.first_name}
                 {entry.last_name && ` ${entry.last_name.charAt(0)}.`}
               </span>
-              {entry.isCurrentUser && (
-                <span className="text-yellow-400">⭐</span>
-              )}
+              {entry.isCurrentUser && <span className="text-yellow-400">⭐</span>}
             </div>
             {entry.username && (
               <span className="text-white/50 text-xs font-mono">
-                @{entry.username.length > 12
-                  ? entry.username.substring(0, 12) + "..."
-                  : entry.username}
+                @{entry.username.length > 12 ? entry.username.substring(0, 12) + "..." : entry.username}
               </span>
             )}
           </div>
@@ -381,6 +409,49 @@ function LeaderboardEntry({
   );
 }
 
+// Компонент заглушки для неактивных турниров
+function NoActiveTournamentPlaceholder() {
+  return (
+    <div className="text-center py-16 space-y-8">
+      <div className="relative">
+        <div className="relative z-10">
+          <Trophy className="text-white/20 mx-auto animate-pulse" size={80} />
+        </div>
+        <div className="absolute inset-0 bg-white/5 blur-2xl rounded-full animate-pulse" />
+        <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-white font-mono tracking-wider">NO ACTIVE TOURNAMENT</h2>
+        <div className="space-y-2">
+          <p className="text-white/60 font-mono text-sm tracking-wide">TOURNAMENTS ARE CURRENTLY OFFLINE</p>
+          <p className="text-white/40 font-mono text-xs">CHECK BACK SOON FOR THE NEXT COMPETITION</p>
+        </div>
+      </div>
+
+      <div className="flex justify-center items-center gap-4">
+        <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent w-16" />
+        <Clock className="text-white/30" size={16} />
+        <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent w-16" />
+      </div>
+
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6 mx-4">
+        <div className="space-y-3">
+          <div className="flex items-center justify-center gap-2">
+            <Target className="text-blue-400" size={16} />
+            <span className="text-blue-400 font-mono text-sm">UPCOMING FEATURES</span>
+          </div>
+          <div className="text-white/50 font-mono text-xs leading-relaxed">
+            Weekly tournaments with exciting prizes<br />
+            Leaderboards and rankings<br />
+            Exclusive rewards for top players
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Главный компонент страницы
 function TournamentsPageContent() {
   const router = useRouter();
@@ -390,7 +461,7 @@ function TournamentsPageContent() {
   const [state, setState] = useState<TournamentPageState>({
     activeTournament: null,
     leaderboard: [],
-    userPosition: null,
+    userStats: null,
     isLoading: true,
     isLeaderboardLoading: false,
     error: null,
@@ -399,6 +470,7 @@ function TournamentsPageContent() {
 
   const [timeLeft, setTimeLeft] = useState<string>("");
 
+  // ОПТИМИЗИРОВАННАЯ функция получения активного турнира
   const fetchActiveTournament = useCallback(async (force: boolean = false) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -424,15 +496,6 @@ function TournamentsPageContent() {
           ...tournament,
           mode: tournament.mode || tournament.game_mode || 'unknown'
         };
-        
-        console.log("[TournamentsPage] Tournament loaded with prizes:", {
-          id: tournament.id,
-          name: tournament.name,
-          mode: tournament.mode,
-          status: tournament.status,
-          prizes_count: tournament.prizes?.length || 0,
-          first_prize_structure: tournament.prizes?.[0]
-        });
       }
 
       setState(prev => ({
@@ -442,8 +505,11 @@ function TournamentsPageContent() {
         error: null,
       }));
 
-      if (tournament) {
+      // ИСПРАВЛЕНО: Загружаем лидерборд только для ДЕЙСТВИТЕЛЬНО активных турниров
+      if (tournament && isTournamentActive(tournament)) {
         await fetchTournamentLeaderboard(tournament.id, force);
+      } else {
+        console.log("[TournamentsPage] Skipping leaderboard fetch - tournament not active");
       }
 
     } catch (error) {
@@ -456,6 +522,7 @@ function TournamentsPageContent() {
     }
   }, [makeAuthenticatedRequest]);
 
+  // УПРОЩЕННАЯ функция получения лидерборда с базовой статистикой пользователя
   const fetchTournamentLeaderboard = useCallback(async (
     tournamentId: string,
     force: boolean = false
@@ -479,10 +546,16 @@ function TournamentsPageContent() {
         throw new Error(result.error || "Failed to fetch leaderboard");
       }
 
+      // Обогащаем лидерборд флагом текущего пользователя
+      const enrichedLeaderboard = enrichLeaderboardWithCurrentUser(
+        result.leaderboard || [],
+        result.user_stats
+      );
+
       setState(prev => ({
         ...prev,
-        leaderboard: result.leaderboard || [],
-        userPosition: result.userPosition || null,
+        leaderboard: enrichedLeaderboard,
+        userStats: result.user_stats || null,
         isLeaderboardLoading: false,
         leaderboardError: null,
       }));
@@ -497,11 +570,12 @@ function TournamentsPageContent() {
     }
   }, [makeAuthenticatedRequest]);
 
+  // Обновление таймера
   useEffect(() => {
-    if (!state.activeTournament) return;
+    if (!state.activeTournament || !isTournamentActive(state.activeTournament)) return;
 
     const updateTimer = () => {
-      if (state.activeTournament?.status === "active" && state.activeTournament?.end_time) {
+      if (state.activeTournament?.end_time) {
         setTimeLeft(formatTimeRemaining(state.activeTournament.end_time));
       }
     };
@@ -515,6 +589,7 @@ function TournamentsPageContent() {
     fetchActiveTournament();
   }, [fetchActiveTournament]);
 
+  // Обработчики
   const handlePlayTournament = useCallback(() => {
     router.push("/game");
   }, [router]);
@@ -524,6 +599,7 @@ function TournamentsPageContent() {
     fetchActiveTournament();
   }, [fetchActiveTournament]);
 
+  // Telegram WebApp back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -540,6 +616,10 @@ function TournamentsPageContent() {
     }
   }, [router]);
 
+  // КЛЮЧЕВОЙ РАСЧЕТ: клиентская позиция пользователя
+  const clientUserPosition = calculateUserPosition(state.leaderboard, state.userStats);
+  
+  const isActiveTournament = isTournamentActive(state.activeTournament);
   const colors = getFutureTechModeColors(state.activeTournament?.mode);
   const tournamentMode = state.activeTournament?.mode;
 
@@ -551,9 +631,7 @@ function TournamentsPageContent() {
             <Spinner color="primary" size="lg" />
             <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
           </div>
-          <p className="text-white/80 font-mono text-sm">
-            LOADING TOURNAMENT DATA...
-          </p>
+          <p className="text-white/80 font-mono text-sm">LOADING TOURNAMENT DATA...</p>
         </div>
       </div>
     );
@@ -568,9 +646,7 @@ function TournamentsPageContent() {
             <div className="absolute inset-0 bg-red-500/20 rounded-full blur-xl" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white font-mono">
-              SYSTEM ERROR
-            </h2>
+            <h2 className="text-xl font-bold text-white font-mono">SYSTEM ERROR</h2>
             <p className="text-red-400 font-mono text-sm">{state.error}</p>
           </div>
           <div className="flex gap-3 justify-center">
@@ -599,20 +675,16 @@ function TournamentsPageContent() {
       <div className="px-4 pb-8">
         <div className="text-center space-y-3 mb-8 pt-6">
           <div className="relative">
-            <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">
-              TOURNAMENT
-            </h1>
+            <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">TOURNAMENT</h1>
             <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full animate-pulse" />
           </div>
           <div className="h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
           <div className="flex items-center justify-center gap-2">
-            <p className="text-blue-400/80 text-xs font-mono tracking-widest">
-              COMPETE FOR GLORY
-            </p>
+            <p className="text-blue-400/80 text-xs font-mono tracking-widest">COMPETE FOR GLORY</p>
           </div>
         </div>
 
-        {state.activeTournament ? (
+        {isActiveTournament ? (
           <div className="space-y-6">
             <Card
               className="bg-black/80 backdrop-blur-sm border-2"
@@ -636,24 +708,18 @@ function TournamentsPageContent() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold text-white font-mono">
-                        {state.activeTournament.name}
+                        {state.activeTournament!.name}
                       </h2>
-                      <p
-                        className="text-sm font-mono"
-                        style={{ color: colors.primary }}
-                      >
+                      <p className="text-sm font-mono" style={{ color: colors.primary }}>
                         {getModeName(tournamentMode)} MODE
                       </p>
                     </div>
                   </div>
 
-                  {state.activeTournament.status === "active" && timeLeft && (
+                  {timeLeft && (
                     <div className="text-right">
                       <div className="text-xs text-white/60 font-mono">ENDS IN</div>
-                      <div
-                        className="text-lg font-mono font-bold"
-                        style={{ color: colors.primary }}
-                      >
+                      <div className="text-lg font-mono font-bold" style={{ color: colors.primary }}>
                         {timeLeft}
                       </div>
                     </div>
@@ -665,10 +731,7 @@ function TournamentsPageContent() {
                 <Button
                   className="w-full bg-transparent border font-mono"
                   startContent={<Play size={16} />}
-                  style={{
-                    borderColor: colors.primary + "60",
-                    color: colors.primary,
-                  }}
+                  style={{ borderColor: colors.primary + "60", color: colors.primary }}
                   onClick={handlePlayTournament}
                 >
                   PLAY NOW
@@ -676,28 +739,29 @@ function TournamentsPageContent() {
               </CardBody>
             </Card>
 
-            <PrizesSection prizes={state.activeTournament.prizes || []} colors={colors} />
+            <PrizesSection prizes={state.activeTournament!.prizes || []} colors={colors} />
 
-            {state.userPosition && (
+            {/* ОБНОВЛЕНО: блок позиции с клиентским расчетом */}
+            {clientUserPosition && (
               <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
                 <CardBody className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Trophy className="text-yellow-400" size={20} />
                       <div>
-                        <div className="text-yellow-400 font-mono text-sm font-bold">
-                          YOUR POSITION
-                        </div>
+                        <div className="text-yellow-400 font-mono text-sm font-bold">YOUR POSITION</div>
                         <div className="text-white font-mono text-xs">
-                          {state.userPosition.entry.best_score} POINTS
+                          {clientUserPosition.score} POINTS • {clientUserPosition.games_played} GAMES
                         </div>
                       </div>
                     </div>
                     <div
                       className="text-2xl font-bold font-mono"
-                      style={{ color: getPositionColor(state.userPosition.position) }}
+                      style={{ color: getPositionColor(clientUserPosition.position) }}
                     >
-                      #{state.userPosition.position.toLocaleString()}
+                      #{typeof clientUserPosition.position === "number" 
+                        ? clientUserPosition.position.toLocaleString() 
+                        : clientUserPosition.position}
                     </div>
                   </div>
                 </CardBody>
@@ -708,9 +772,7 @@ function TournamentsPageContent() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Trophy className="text-yellow-400" size={16} />
-                  <h3 className="text-lg font-bold text-white font-mono">
-                    TOP 100 LEADERBOARD
-                  </h3>
+                  <h3 className="text-lg font-bold text-white font-mono">TOP 100 LEADERBOARD</h3>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-white/60 font-mono">
                   <Users size={12} />
@@ -725,9 +787,7 @@ function TournamentsPageContent() {
                   </div>
                 ) : state.leaderboardError ? (
                   <div className="text-center py-8">
-                    <p className="text-red-400 font-mono text-sm">
-                      {state.leaderboardError}
-                    </p>
+                    <p className="text-red-400 font-mono text-sm">{state.leaderboardError}</p>
                   </div>
                 ) : state.leaderboard.length > 0 ? (
                   <div className="max-h-96 overflow-y-auto">
@@ -743,29 +803,14 @@ function TournamentsPageContent() {
                 ) : (
                   <div className="text-center py-8">
                     <Target className="text-white/20 mx-auto mb-2" size={32} />
-                    <p className="text-white/60 font-mono text-sm">
-                      NO PARTICIPANTS YET
-                    </p>
+                    <p className="text-white/60 font-mono text-sm">NO PARTICIPANTS YET</p>
                   </div>
                 )}
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-12">
-            <div className="relative mb-6">
-              <Trophy className="text-white/20 mx-auto" size={64} />
-              <div className="absolute inset-0 bg-white/5 blur-xl rounded-full" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-bold text-white font-mono">
-                NO ACTIVE TOURNAMENT
-              </h2>
-              <p className="text-white/60 font-mono text-sm">
-                CHECK BACK SOON FOR THE NEXT COMPETITION
-              </p>
-            </div>
-          </div>
+          <NoActiveTournamentPlaceholder />
         )}
       </div>
     </div>

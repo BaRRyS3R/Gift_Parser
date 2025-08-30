@@ -5,15 +5,19 @@ import { tournamentCacheService } from "@/lib/server/tournamentCacheService";
 import type { 
   Tournament,
   OptimizedTournamentLeaderboardEntry,
-  TournamentUserPosition 
 } from "@/types/tournaments";
 
-// Response interface с оптимизированными данными
+// ✅ ИСПРАВЛЕННЫЙ Response interface с правильными полями
 interface TournamentLeaderboardResponse {
   success: boolean;
   tournament?: Tournament;
   leaderboard?: OptimizedTournamentLeaderboardEntry[];
-  userPosition?: TournamentUserPosition;
+  user_stats?: {
+    is_participating: boolean;
+    user_score?: number;
+    games_played?: number;
+    is_in_top_100: boolean;
+  };
   cache_info?: {
     is_from_cache: boolean;
     cached_at?: number;
@@ -103,20 +107,21 @@ export async function GET(
     console.log(`[TOURNAMENT_LEADERBOARD_API] Response prepared:`, {
       tournament_id: tournamentId,
       entries_count: leaderboard.leaderboard.length,
-      user_position: leaderboard.userPosition?.position || 'not participating',
+      user_participating: leaderboard.user_stats?.is_participating || false,
+      user_in_top_100: leaderboard.user_stats?.is_in_top_100 || false,
       from_cache: cache_info.is_from_cache,
       cache_age: cache_info.cache_age_seconds,
       next_update_in: cache_info.next_update_in_seconds,
       data_secured: true, // ✅ UUID не передаются на клиент
-      personalized: true // ✅ userPosition персонализирована
+      personalized: true // ✅ user_stats персонализированы
     });
 
-    // ✅ БЕЗОПАСНЫЙ ОТВЕТ - НЕ содержит UUID или другие чувствительные данные
+    // ✅ ИСПРАВЛЕНО: используем правильное поле user_stats
     const response = NextResponse.json({
       success: true,
       tournament: leaderboard.tournament,
       leaderboard: leaderboard.leaderboard, // ✅ Содержит ТОЛЬКО публичные данные
-      userPosition: leaderboard.userPosition,
+      user_stats: leaderboard.user_stats, // ✅ ИСПРАВЛЕНО: используем user_stats вместо userPosition
       cache_info
     });
 
@@ -224,11 +229,12 @@ export async function POST(
       100
     );
 
+    // ✅ ИСПРАВЛЕНО: используем правильное поле user_stats
     return NextResponse.json({
       success: true,
       tournament: leaderboard.tournament,
       leaderboard: leaderboard.leaderboard, // ✅ БЕЗ UUID
-      userPosition: leaderboard.userPosition,
+      user_stats: leaderboard.user_stats, // ✅ ИСПРАВЛЕНО: используем user_stats вместо userPosition
       cache_info
     });
 

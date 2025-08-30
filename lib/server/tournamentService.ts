@@ -1,4 +1,4 @@
-// src/lib/server/tournamentService.ts - ИСПРАВЛЕНО: правильный парсинг призов из базы данных
+// src/lib/server/tournamentService.ts - УПРОЩЕНО: убраны функции расчета позиций пользователей
 
 import type {
   Tournament,
@@ -32,7 +32,7 @@ interface RawTournament {
   start_time: string;
   end_time: string;
   status: string;
-  prizes: Array<{ place: number; prize: string }>; // ИСПРАВЛЕНО: точная структура из базы данных
+  prizes: Array<{ place: number; prize: string }>;
   created_at: string;
   updated_at: string;
 }
@@ -52,37 +52,28 @@ function mapGameModeToTournamentMode(gameMode: string): TournamentMode {
   }
 }
 
-// ИСПРАВЛЕНО: Правильный парсинг призов из базы данных
+// Правильный парсинг призов из базы данных
 function transformTournament(rawTournament: RawTournament): Tournament {
   console.log(`[TournamentService] Raw prizes from DB:`, rawTournament.prizes);
 
-  // ИСПРАВЛЕНО: Правильная обработка призов
   const transformedPrizes: Prize[] = (rawTournament.prizes || []).map((prize) => {
-    // Извлекаем количество попыток из текста приза
     const attemptsMatch = prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i);
     const attempts = attemptsMatch ? parseInt(attemptsMatch[1]) : undefined;
     
-    // Определяем тип награды
     const reward_type = prize.prize.toLowerCase().includes('attempts') 
       ? ("attempts" as const) 
       : ("custom" as const);
 
     const transformedPrize: Prize = {
-      position: prize.place, // ИСПРАВЛЕНО: используем правильное поле из базы данных
-      description: prize.prize, // ИСПРАВЛЕНО: используем правильное поле из базы данных
+      position: prize.place,
+      description: prize.prize,
       attempts: attempts,
       reward_type: reward_type,
     };
 
-    console.log(`[TournamentService] Transformed prize:`, {
-      original: prize,
-      transformed: transformedPrize
-    });
-
     return transformedPrize;
   });
 
-  // Правильное преобразование режима
   const mappedMode = mapGameModeToTournamentMode(rawTournament.game_mode);
 
   console.log(`[TournamentService] Transforming tournament:`, {
@@ -90,9 +81,7 @@ function transformTournament(rawTournament: RawTournament): Tournament {
     name: rawTournament.name,
     raw_game_mode: rawTournament.game_mode,
     mapped_mode: mappedMode,
-    prizes_count: transformedPrizes.length,
-    raw_prizes_sample: rawTournament.prizes.slice(0, 2),
-    transformed_prizes_sample: transformedPrizes.slice(0, 2)
+    prizes_count: transformedPrizes.length
   });
 
   return {
@@ -103,20 +92,18 @@ function transformTournament(rawTournament: RawTournament): Tournament {
     start_time: rawTournament.start_time,
     end_time: rawTournament.end_time,
     status: rawTournament.status as any,
-    prizes: transformedPrizes, // ИСПРАВЛЕНО: правильно трансформированные призы
+    prizes: transformedPrizes,
     created_at: rawTournament.created_at,
     updated_at: rawTournament.updated_at,
   };
 }
 
-// Результат участия в турнире
+// Результат участия в турнире (упрощен)
 export interface TournamentParticipationResult {
   tournamentId: string;
   tournamentName: string;
   newBestScore: boolean;
-  position?: number;
   improved: boolean;
-  previousPosition?: number;
   scoreImprovement?: number;
 }
 
@@ -134,10 +121,10 @@ export interface GameResultForTournament {
   mistakesMade?: number;
 }
 
-// ИСПРАВЛЕННЫЙ server-side tournament service
+// УПРОЩЕННЫЙ server-side tournament service БЕЗ расчета позиций
 export const serverTournamentService = {
   /**
-   * ИСПРАВЛЕНО: получение активного турнира с правильной обработкой режима и призов
+   * Получение активного турнира с правильной обработкой режима и призов
    */
   async getActiveTournament(): Promise<Tournament | null> {
     try {
@@ -160,8 +147,7 @@ export const serverTournamentService = {
         name: data.name,
         game_mode: data.game_mode,
         status: data.status,
-        prizes_count: data.prizes?.length || 0,
-        prizes_structure: data.prizes?.[0] // Показываем структуру первого приза
+        prizes_count: data.prizes?.length || 0
       });
 
       const transformed = transformTournament(data);
@@ -171,8 +157,7 @@ export const serverTournamentService = {
         name: transformed.name,
         mode: transformed.mode,
         status: transformed.status,
-        prizes_count: transformed.prizes?.length || 0,
-        first_prize: transformed.prizes?.[0] // Показываем первый трансформированный приз
+        prizes_count: transformed.prizes?.length || 0
       });
 
       return transformed;
@@ -241,13 +226,6 @@ export const serverTournamentService = {
         throw error;
       }
 
-      console.log(`[TournamentService] Raw tournament by ID:`, {
-        id: data.id,
-        name: data.name,
-        game_mode: data.game_mode,
-        prizes_count: data.prizes?.length || 0
-      });
-
       const transformed = transformTournament(data);
       
       console.log(`[TournamentService] Transformed tournament by ID:`, {
@@ -264,37 +242,9 @@ export const serverTournamentService = {
   },
 
   /**
-   * Получение ПОЛНОГО лидерборда турнира (для внутреннего использования)
+   * УПРОЩЕНО: получение только публичного лидерборда (БЕЗ персонализации)
    */
-  async getTournamentLeaderboard(
-    tournamentId: string,
-    limit: number = 100,
-  ): Promise<FullTournamentLeaderboardEntry[]> {
-    try {
-      const { data, error } = await supabaseServer
-        .from("tournament_leaderboard")
-        .select("*") // Полные данные для внутреннего использования
-        .eq("tournament_id", tournamentId)
-        .order("best_score", { ascending: false })
-        .order("last_participation_at", { ascending: true })
-        .limit(limit);
-
-      if (error) {
-        console.error("Error fetching tournament leaderboard:", error);
-        throw error;
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error("Error in getTournamentLeaderboard:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Получение оптимизированного лидерборда (только необходимые поля)
-   */
-  async getOptimizedTournamentLeaderboard(
+  async getPublicTournamentLeaderboard(
     tournamentId: string,
     limit: number = 100,
   ): Promise<OptimizedTournamentLeaderboardEntry[]> {
@@ -307,38 +257,18 @@ export const serverTournamentService = {
           username,
           best_score,
           updated_at
-        `) // ТОЛЬКО необходимые поля
+        `) // ТОЛЬКО публичные поля
         .eq("tournament_id", tournamentId)
         .order("best_score", { ascending: false })
         .order("updated_at", { ascending: true })
         .limit(limit);
 
       if (error) {
-        console.error("Error fetching optimized tournament leaderboard:", error);
+        console.error("Error fetching public tournament leaderboard:", error);
         throw error;
       }
 
       return data || [];
-    } catch (error) {
-      console.error("Error in getOptimizedTournamentLeaderboard:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * LEGACY: получение публичного лидерборда (используется старым кодом)
-   */
-  async getPublicTournamentLeaderboard(
-    tournamentId: string,
-    limit: number = 100,
-  ): Promise<OptimizedTournamentLeaderboardEntry[]> {
-    try {
-      const leaderboard = await this.getTournamentLeaderboard(
-        tournamentId,
-        limit,
-      );
-
-      return leaderboard.map(sanitizeLeaderboardEntry);
     } catch (error) {
       console.error("Error in getPublicTournamentLeaderboard:", error);
       throw error;
@@ -346,7 +276,67 @@ export const serverTournamentService = {
   },
 
   /**
-   * Обновление лидерборда турнира
+   * НОВАЯ ФУНКЦИЯ: получение базовой статистики участия пользователя БЕЗ позиции
+   */
+  async getUserTournamentStats(
+    tournamentId: string,
+    telegramId: number,
+  ): Promise<{
+    is_participating: boolean;
+    user_score?: number;
+    games_played?: number;
+    user_data?: {
+      first_name: string;
+      last_name?: string;
+      username?: string;
+      best_score: number;
+      updated_at: string;
+    };
+  }> {
+    try {
+      const { data: userEntry, error } = await supabaseServer
+        .from("tournament_leaderboard")
+        .select(`
+          first_name,
+          last_name,
+          username,
+          best_score,
+          total_games,
+          updated_at
+        `)
+        .eq("tournament_id", tournamentId)
+        .eq("telegram_id", telegramId)
+        .single();
+
+      if (error || !userEntry) {
+        console.log(`[TournamentService] User not participating in tournament: ${telegramId}`);
+        return {
+          is_participating: false,
+        };
+      }
+
+      return {
+        is_participating: true,
+        user_score: userEntry.best_score,
+        games_played: userEntry.total_games,
+        user_data: {
+          first_name: userEntry.first_name,
+          last_name: userEntry.last_name,
+          username: userEntry.username,
+          best_score: userEntry.best_score,
+          updated_at: userEntry.updated_at,
+        }
+      };
+    } catch (error) {
+      console.error("Error in getUserTournamentStats:", error);
+      return {
+        is_participating: false,
+      };
+    }
+  },
+
+  /**
+   * Обновление лидерборда турнира (без изменений логики)
    */
   async updateTournamentLeaderboard(
     tournamentId: string,
@@ -501,72 +491,7 @@ export const serverTournamentService = {
     }
   },
 
-  /**
-   * ИСПРАВЛЕНО: Получение позиции пользователя (работает для любых позиций, включая 15432)
-   */
-  async getUserTournamentPosition(
-    tournamentId: string,
-    telegramId: number,
-  ): Promise<{
-    position: number;
-    entry: OptimizedTournamentLeaderboardEntry;
-  } | null> {
-    try {
-      // Сначала находим пользователя
-      const { data: userEntry, error } = await supabaseServer
-        .from("tournament_leaderboard")
-        .select(`
-          first_name,
-          last_name,
-          username,
-          best_score,
-          updated_at
-        `)
-        .eq("tournament_id", tournamentId)
-        .eq("telegram_id", telegramId)
-        .single();
-
-      if (error || !userEntry) {
-        console.log(`[TournamentService] User not found in tournament: ${telegramId}`);
-        return null;
-      }
-
-      // ИСПРАВЛЕНО: Правильный расчет позиции для ЛЮБОГО места (включая 15432)
-      // Подсчитываем количество игроков с лучшим результатом
-      const { count: betterPlayersCount, error: countError } = await supabaseServer
-        .from("tournament_leaderboard")
-        .select("*", { count: "exact", head: true })
-        .eq("tournament_id", tournamentId)
-        .or(`best_score.gt.${userEntry.best_score},and(best_score.eq.${userEntry.best_score},updated_at.lt.${userEntry.updated_at})`);
-
-      if (countError) {
-        console.error("Error calculating user position:", countError);
-        return null;
-      }
-
-      const position = (betterPlayersCount || 0) + 1;
-
-      console.log(`[TournamentService] User position calculated:`, {
-        telegram_id: telegramId,
-        user_score: userEntry.best_score,
-        better_players: betterPlayersCount,
-        final_position: position
-      });
-
-      return {
-        position,
-        entry: {
-          first_name: userEntry.first_name,
-          last_name: userEntry.last_name,
-          username: userEntry.username,
-          best_score: userEntry.best_score,
-          updated_at: userEntry.updated_at,
-          isCurrentUser: true,
-        },
-      };
-    } catch (error) {
-      console.error("Error in getUserTournamentPosition:", error);
-      return null;
-    }
-  },
+  // УБРАНО: getUserTournamentPosition - теперь позиции рассчитываются на клиенте
+  // УБРАНО: getTournamentLeaderboard - заменено на getPublicTournamentLeaderboard
+  // УБРАНО: getOptimizedTournamentLeaderboard - не нужно из-за упрощения
 };
