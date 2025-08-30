@@ -1,4 +1,4 @@
-// src/app/tournaments/page.tsx - ИСПРАВЛЕНО: упрощенная страница БЕЗ автообновления
+// src/app/tournaments/page.tsx - ИСПРАВЛЕНО: устранены null pointer exceptions
 
 "use client";
 
@@ -42,7 +42,7 @@ interface TournamentPageState {
 }
 
 // Future Tech цвета для режимов
-function getFutureTechModeColors(mode: string) {
+function getFutureTechModeColors(mode?: string) {
   switch (mode) {
     case "survival":
       return {
@@ -91,8 +91,8 @@ function getFutureTechModeColors(mode: string) {
   }
 }
 
-// Получение иконки режима
-function getModeIcon(mode: string) {
+// Получение иконки режима - с защитой от undefined
+function getModeIcon(mode?: string) {
   switch (mode) {
     case "survival":
       return "⚡";
@@ -241,7 +241,7 @@ function TournamentsPageContent() {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      const endpoint = force ? "/api/tournaments" : "/api/tournaments";
+      const endpoint = "/api/tournaments";
       const response = await makeAuthenticatedRequest(endpoint, {
         method: force ? "POST" : "GET",
       });
@@ -329,7 +329,7 @@ function TournamentsPageContent() {
     }
   }, [makeAuthenticatedRequest]);
 
-  // Обновление таймера
+  // Обновление таймера - с защитой от null
   useEffect(() => {
     if (!state.activeTournament) return;
 
@@ -349,8 +349,6 @@ function TournamentsPageContent() {
   useEffect(() => {
     fetchActiveTournament();
   }, [fetchActiveTournament]);
-
-  // ✅ УБРАНО: автообновление каждые 30 секунд
 
   // Обработчики
   const handlePlayTournament = useCallback(() => {
@@ -383,10 +381,8 @@ function TournamentsPageContent() {
     }
   }, [router]);
 
-  // Определение цветов активного турнира
-  const colors = state.activeTournament 
-    ? getFutureTechModeColors(state.activeTournament.mode)
-    : getFutureTechModeColors("survival");
+  // ✅ ИСПРАВЛЕНО: безопасное определение цветов активного турнира
+  const colors = getFutureTechModeColors(state.activeTournament?.mode);
 
   if (state.isLoading) {
     return (
@@ -496,7 +492,7 @@ function TournamentsPageContent() {
                         className="text-sm font-mono"
                         style={{ color: colors.primary }}
                       >
-                        {state.activeTournament.mode.toUpperCase()} MODE
+                        {state.activeTournament.mode?.toUpperCase() || "UNKNOWN"} MODE
                       </p>
                     </div>
                   </div>

@@ -1,9 +1,9 @@
-// src/components/Tournaments/TournamentButton.tsx - ИСПРАВЛЕН: устранены ошибки типов и крашинг
+// src/components/Tournaments/TournamentButton.tsx - ИСПРАВЛЕН: корректное отображение активных турниров
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Trophy, Target } from "lucide-react";
+import { Trophy, Target, Zap } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -88,35 +88,51 @@ export default function TournamentButton({
   const { makeAuthenticatedRequest } = useUser();
   const t = useT();
 
-  // ✅ ИСПРАВЛЕНО: правильный тип состояния
+  // ✅ ИСПРАВЛЕНО: правильное состояние
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [timeDisplay, setTimeDisplay] = useState<string>("");
+  const [hasError, setHasError] = useState<boolean>(false);
 
-  // ✅ ИСПРАВЛЕНО: упрощенная функция получения данных
+  // ✅ ИСПРАВЛЕНО: функция получения данных турнира с подробной отладкой
   const fetchTournamentData = useCallback(async () => {
     try {
       setIsLoading(true);
+      setHasError(false);
+
+      console.log("[TournamentButton] Fetching tournament data...");
 
       const response = await makeAuthenticatedRequest("/api/tournaments");
 
+      console.log("[TournamentButton] Response status:", response.status);
+
       if (!response.ok) {
-        console.error("Failed to fetch tournament data for button");
+        console.error("[TournamentButton] Failed response:", response.status, response.statusText);
         setActiveTournament(null);
+        setHasError(true);
         return;
       }
 
       const result = await response.json();
+      console.log("[TournamentButton] API result:", result);
 
-      if (result.success && result.tournament) {
-        setActiveTournament(result.tournament);
+      if (result.success) {
+        if (result.tournament) {
+          console.log("[TournamentButton] Active tournament found:", result.tournament.name, result.tournament.mode);
+          setActiveTournament(result.tournament);
+        } else {
+          console.log("[TournamentButton] No active tournament");
+          setActiveTournament(null);
+        }
       } else {
-        // No active tournament
+        console.error("[TournamentButton] API error:", result.error);
         setActiveTournament(null);
+        setHasError(true);
       }
     } catch (error) {
-      console.error("Error fetching tournament data for button:", error);
+      console.error("[TournamentButton] Error fetching tournament data:", error);
       setActiveTournament(null);
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -127,11 +143,13 @@ export default function TournamentButton({
     fetchTournamentData();
   }, [fetchTournamentData]);
 
-  // ✅ ИСПРАВЛЕНО: правильное использование activeTournament
+  // ✅ ИСПРАВЛЕНО: обновление времени с проверками
   useEffect(() => {
-    if (activeTournament?.status === "active") {
+    if (activeTournament?.status === "active" && activeTournament.end_time) {
       const updateTimeDisplay = () => {
-        setTimeDisplay(formatTimeRemaining(activeTournament.end_time));
+        const timeLeft = formatTimeRemaining(activeTournament.end_time);
+        setTimeDisplay(timeLeft);
+        console.log("[TournamentButton] Time updated:", timeLeft);
       };
 
       updateTimeDisplay();
@@ -143,20 +161,70 @@ export default function TournamentButton({
     }
   }, [activeTournament]);
 
-  // Auto-refresh tournament data every 5 minutes
+  // Refresh tournament data every 2 minutes (reduced from 5 minutes)
   useEffect(() => {
     const refreshInterval = setInterval(() => {
+      console.log("[TournamentButton] Auto-refreshing tournament data...");
       fetchTournamentData();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 2 * 60 * 1000); // 2 minutes
 
     return () => clearInterval(refreshInterval);
   }, [fetchTournamentData]);
 
-  // ✅ ИСПРАВЛЕНО: упрощенная логика определения активности
+  // ✅ ИСПРАВЛЕНО: более надежная логика определения состояния
   const isActive = activeTournament?.status === "active";
+  const hasTournament = !!activeTournament;
 
-  if (!activeTournament) {
-    // No active tournament - show default tournament button
+  console.log("[TournamentButton] Current state:", {
+    hasTournament,
+    isActive,
+    mode: activeTournament?.mode,
+    name: activeTournament?.name,
+    isLoading,
+    hasError
+  });
+
+  // Error state - still show button but with error indicator
+  if (hasError && !hasTournament) {
+    return (
+      <button
+        aria-label="Tournaments (Error)"
+        className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-red-600/50 text-white rounded-lg hover:border-red-500 hover:bg-black/90 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+        disabled={isTransitioning || isLoading}
+        onClick={() => {
+          // Try to refresh and then navigate
+          fetchTournamentData();
+          onClick();
+        }}
+      >
+        {/* Main icon */}
+        <div className="relative z-10 flex items-center justify-center w-full h-full">
+          <Trophy
+            className="text-red-400 group-hover:text-white transition-colors duration-300"
+            size={18}
+          />
+        </div>
+
+        {/* Error indicator */}
+        <div className="absolute top-1 right-1 z-20">
+          <Zap className="text-red-400 animate-pulse" size={6} />
+        </div>
+
+        {/* Hover effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+        {/* "Error" indicator */}
+        <div className="absolute bottom-0 left-0 right-0 z-20">
+          <div className="text-[6px] font-mono leading-none py-0.5 text-center text-red-500">
+            ERR
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  // No active tournament - show default tournament button
+  if (!hasTournament) {
     return (
       <button
         aria-label="Tournaments"
@@ -195,13 +263,13 @@ export default function TournamentButton({
     );
   }
 
-  // ✅ ИСПРАВЛЕНО: безопасное получение цветов и иконки
+  // ✅ АКТИВНЫЙ ТУРНИР: правильное отображение с режимными цветами и иконками
   const colors = getFutureTechModeColors(activeTournament.mode);
   const modeIcon = getModeIcon(activeTournament.mode);
 
   return (
     <button
-      aria-label={`Active Tournament: ${activeTournament.mode}`}
+      aria-label={`Active Tournament: ${activeTournament.mode} - ${activeTournament.name}`}
       className="group relative w-12 h-12 bg-black/90 backdrop-blur-sm border text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
       disabled={isTransitioning || isLoading}
       style={{
@@ -229,7 +297,7 @@ export default function TournamentButton({
         />
       )}
 
-      {/* Main icon */}
+      {/* Main mode icon - КЛЮЧЕВОЕ ИЗМЕНЕНИЕ */}
       <div className="relative z-10 flex items-center justify-center w-full h-full">
         <span className="text-lg group-hover:scale-110 transition-transform duration-300">
           {modeIcon}
