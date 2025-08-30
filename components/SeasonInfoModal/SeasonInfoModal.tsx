@@ -1,31 +1,28 @@
-// src/components/SeasonInfoModal/SeasonInfoModal.tsx - FIXED VERSION with proper caching
-import type { CompleteSeasonData } from "@/hooks/modules/useSeasons";
-
+// src/components/SeasonInfoModal/SeasonInfoModal.tsx - FIXED TypeScript errors
 import React, { useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
-import { useUser } from "@/hooks/useUser"; // NEW: Use useUser hook
+import { useUser } from "@/hooks/useUser";
 
 interface SeasonInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  makeAuthenticatedRequest: (
+  makeAuthenticatedRequest?: (
     endpoint: string,
     options?: RequestInit,
-  ) => Promise<Response>;
+  ) => Promise<Response>; // Optional since we're not using it
 }
 
 export default function SeasonInfoModal({
   isOpen,
   onClose,
-  makeAuthenticatedRequest, // Keep for backwards compatibility but won't use directly
 }: SeasonInfoModalProps) {
   const router = useRouter();
   const t = useT();
   
-  // NEW: Use the seasons module from useUser
+  // Use the seasons module from useUser
   const { seasons } = useUser();
   const {
     seasonData,
@@ -36,7 +33,7 @@ export default function SeasonInfoModal({
     cacheManagement,
   } = seasons;
 
-  // Load season data when modal opens - using the caching hook
+  // Load season data when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
@@ -59,18 +56,12 @@ export default function SeasonInfoModal({
     loadSeasonData();
   }, [isOpen, fetchCurrentSeason, clearError]);
 
-  // Handle view details (redirect to leaderboard page)
-  const handleViewDetails = () => {
-    onClose();
-    router.push("/leaderboard");
-  };
-
   // Get cache info for display (memoized to prevent re-renders)
   const cacheInfo = useMemo(() => {
     return cacheManagement.getCacheInfo();
-  }, [cacheManagement, seasonData]); // Re-compute when seasonData changes
+  }, [cacheManagement, seasonData]);
 
-  // Handle force refresh (for debugging or when user wants fresh data)
+  // Handle force refresh (for debugging)
   const handleForceRefresh = useCallback(async () => {
     console.log('[SEASON_MODAL] Force refreshing season data...');
     await cacheManagement.forceRefresh();
@@ -103,31 +94,6 @@ export default function SeasonInfoModal({
     });
   };
 
-  const getSeasonStatus = () => {
-    if (!seasonData) return null;
-
-    const now = new Date();
-    const startDate = new Date(seasonData.season.start_date);
-    const endDate = new Date(seasonData.season.end_date);
-
-    if (now < startDate) {
-      return {
-        text: t("main.seasonModal.upcomingSeason"),
-        color: "text-yellow-400",
-      };
-    } else if (now >= startDate && now <= endDate) {
-      return {
-        text: t("main.seasonModal.activeSeason"),
-        color: "text-green-400",
-      };
-    } else {
-      return {
-        text: t("main.seasonModal.endedSeason"),
-        color: "text-red-400",
-      };
-    }
-  };
-
   return (
     <>
       {/* Backdrop */}
@@ -137,12 +103,6 @@ export default function SeasonInfoModal({
         role="button"
         tabIndex={0}
         onClick={onClose}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onClose();
-          }
-        }}
       />
 
       {/* Modal */}
@@ -220,25 +180,37 @@ export default function SeasonInfoModal({
                 </div>
               )}
 
-              {/* Season Data */}
+              {/* Season Data - SIMPLIFIED: Only static data */}
               {!isLoading && !error && seasonData && (
                 <div className="space-y-6">
-                  {/* Cache Status Indicator (for debugging, can be removed in production) */}
-                  {process.env.NODE_ENV === 'development' && cacheInfo?.hasCached && (
-                    <div className="text-xs text-green-400/60 text-center">
-                      📦 Cached data: {cacheInfo.cachedSeasonName}
-                    </div>
-                  )}
 
-                  {/* Season Name and Status */}
+                  {/* Season Name and Status - calculated client-side */}
                   <div className="text-center">
                     <h3 className="text-2xl font-mono tracking-widest text-white mb-2">
-                      {seasonData.season.name}
+                      {seasonData.name}
                     </h3>
                     {(() => {
-                      const status = getSeasonStatus();
+                      const now = new Date();
+                      const startDate = new Date(seasonData.start_date);
+                      const endDate = new Date(seasonData.end_date);
 
-                      if (!status) return null;
+                      let status;
+                      if (now < startDate) {
+                        status = {
+                          text: t("main.seasonModal.upcomingSeason"),
+                          color: "text-yellow-400",
+                        };
+                      } else if (now >= startDate && now <= endDate) {
+                        status = {
+                          text: t("main.seasonModal.activeSeason"),
+                          color: "text-green-400",
+                        };
+                      } else {
+                        status = {
+                          text: t("main.seasonModal.endedSeason"),
+                          color: "text-red-400",
+                        };
+                      }
 
                       return (
                         <div
@@ -263,8 +235,8 @@ export default function SeasonInfoModal({
                       </span>
                     </div>
                     <div className="font-mono text-sm text-white/80 tracking-wider pl-6">
-                      {formatDate(seasonData.season.start_date)} – {" "}
-                      {formatDate(seasonData.season.end_date)}
+                      {formatDate(seasonData.start_date)} – {" "}
+                      {formatDate(seasonData.end_date)}
                     </div>
                   </div>
 
@@ -272,7 +244,7 @@ export default function SeasonInfoModal({
                   <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
                   {/* Prizes */}
-                  {seasonData.season.prizes.length > 0 && (
+                  {seasonData.prizes.length > 0 && (
                     <>
                       <div>
                         <div className="mb-4">
@@ -281,7 +253,7 @@ export default function SeasonInfoModal({
                           </span>
                         </div>
                         <div className="pl-6">
-                          {renderPrizes(seasonData.season.prizes)}
+                          {renderPrizes(seasonData.prizes)}
                         </div>
                       </div>
                     </>
@@ -369,7 +341,10 @@ export default function SeasonInfoModal({
                   clipPath:
                     "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)",
                 }}
-                onClick={handleViewDetails}
+                onClick={() => {
+                  onClose();
+                  router.push("/leaderboard");
+                }}
               >
                 <span className="font-mono text-sm tracking-[0.15em] uppercase text-white">
                   {t("main.seasonModal.viewDetails")}

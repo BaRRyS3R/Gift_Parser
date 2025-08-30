@@ -1,4 +1,4 @@
-// src/lib/supabase_server.ts - Updated with game session service integration
+// src/lib/supabase_server.ts - Updated with simplified season service integration
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -14,9 +14,9 @@ import {
 } from "./server/userProfileService";
 import {
   serverSeasonService,
-  type CompleteSeasonData,
+  type Season, // SIMPLIFIED: Only static season data
 } from "./server/seasonService";
-import { serverGameSessionService } from "./server/gameSessionService"; // NEW: Game session service
+import { serverGameSessionService } from "./server/gameSessionService";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -96,7 +96,7 @@ export interface ServerTelegramUser {
   is_premium?: boolean;
 }
 
-// Enhanced server-side user service with session integration
+// Server-side user service
 export const serverUserService = {
   async findByTelegramId(telegramId: number): Promise<ServerUser | null> {
     const { data, error } = await supabaseServer
@@ -315,15 +315,20 @@ export const serverUserService = {
     return serverUserProfileService.getUserProfileData(telegramId);
   },
 
-  // Delegate season operations to season service
-  async getCurrentSeasonData(
-    userId: string,
-    telegramId: number,
-  ): Promise<CompleteSeasonData | null> {
-    return serverSeasonService.getCompleteSeasonData(userId, telegramId);
+  // SIMPLIFIED: Only static season data methods
+  async getCurrentSeasonData(userId: string, telegramId: number): Promise<Season | null> {
+    return serverSeasonService.getCurrentSeason();
   },
 
-  // NEW: Game session management methods
+  async getSeasonById(seasonId: string): Promise<Season | null> {
+    return serverSeasonService.getSeasonById(seasonId);
+  },
+
+  async hasActiveSeason(): Promise<boolean> {
+    return serverSeasonService.hasActiveSeason();
+  },
+
+  // Game session management methods
   async createGameSession(userId: string, telegramId: number, gameMode: any) {
     return serverGameSessionService.createSession(userId, telegramId, gameMode);
   },
@@ -352,10 +357,10 @@ export const serverUserService = {
   },
 };
 
-// Export specialized services (including the new game session service)
+// Export specialized services
 export { serverAttemptsService };
 export { serverGameService };
 export { serverLeaderboardService };
 export { serverUserProfileService };
 export { serverSeasonService };
-export { serverGameSessionService }; // NEW: Export game session service
+export { serverGameSessionService };
