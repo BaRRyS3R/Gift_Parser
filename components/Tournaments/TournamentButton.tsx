@@ -1,4 +1,4 @@
-// src/components/Tournaments/TournamentButton.tsx - Исправленная кнопка без лишних индикаторов
+// src/components/Tournaments/TournamentButton.tsx - ИСПРАВЛЕН: устранены ошибки типов и крашинг
 
 "use client";
 
@@ -7,52 +7,7 @@ import { Trophy, Target } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-
-// Tournament interfaces matching new API structure
-interface Tournament {
-  id: string;
-  name: string;
-  description?: string;
-  mode: "survival" | "physics" | "rotation";
-  start_time: string;
-  end_time: string;
-  status: "upcoming" | "active" | "completed" | "cancelled";
-  prizes: Array<{
-    place: number | string;
-    prize: string;
-  }>;
-  created_at: string;
-  updated_at: string;
-}
-
-interface TournamentStats {
-  totalParticipants: number;
-  totalGames: number;
-  averageScore: number;
-  highestScore: number;
-}
-
-interface PublicTournamentData {
-  tournament: Tournament;
-  leaderboard: Array<{
-    tournament_id: string;
-    first_name: string;
-    last_name?: string;
-    username?: string;
-    best_score: number;
-  }>;
-  userPosition?: {
-    position: number;
-    entry: {
-      tournament_id: string;
-      first_name: string;
-      last_name?: string;
-      username?: string;
-      best_score: number;
-    };
-  };
-  stats: TournamentStats;
-}
+import type { Tournament } from "@/types/tournaments";
 
 interface TournamentButtonProps {
   isTransitioning?: boolean;
@@ -133,11 +88,12 @@ export default function TournamentButton({
   const { makeAuthenticatedRequest } = useUser();
   const t = useT();
 
-  const [tournamentData, setTournamentData] = useState<PublicTournamentData | null>(null);
+  // ✅ ИСПРАВЛЕНО: правильный тип состояния
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [timeDisplay, setTimeDisplay] = useState<string>("");
 
-  // Fetch tournament data using new simplified API
+  // ✅ ИСПРАВЛЕНО: упрощенная функция получения данных
   const fetchTournamentData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -146,20 +102,21 @@ export default function TournamentButton({
 
       if (!response.ok) {
         console.error("Failed to fetch tournament data for button");
+        setActiveTournament(null);
         return;
       }
 
       const result = await response.json();
 
       if (result.success && result.tournament) {
-        setTournamentData(result.tournament);
+        setActiveTournament(result.tournament);
       } else {
         // No active tournament
-        setTournamentData(null);
+        setActiveTournament(null);
       }
     } catch (error) {
       console.error("Error fetching tournament data for button:", error);
-      setTournamentData(null);
+      setActiveTournament(null);
     } finally {
       setIsLoading(false);
     }
@@ -170,11 +127,11 @@ export default function TournamentButton({
     fetchTournamentData();
   }, [fetchTournamentData]);
 
-  // Update time display for active tournaments
+  // ✅ ИСПРАВЛЕНО: правильное использование activeTournament
   useEffect(() => {
-    if (tournamentData?.tournament.status === "active") {
+    if (activeTournament?.status === "active") {
       const updateTimeDisplay = () => {
-        setTimeDisplay(formatTimeRemaining(tournamentData.tournament.end_time));
+        setTimeDisplay(formatTimeRemaining(activeTournament.end_time));
       };
 
       updateTimeDisplay();
@@ -184,7 +141,7 @@ export default function TournamentButton({
     } else {
       setTimeDisplay("");
     }
-  }, [tournamentData]);
+  }, [activeTournament]);
 
   // Auto-refresh tournament data every 5 minutes
   useEffect(() => {
@@ -195,7 +152,7 @@ export default function TournamentButton({
     return () => clearInterval(refreshInterval);
   }, [fetchTournamentData]);
 
-  const activeTournament = tournamentData?.tournament;
+  // ✅ ИСПРАВЛЕНО: упрощенная логика определения активности
   const isActive = activeTournament?.status === "active";
 
   if (!activeTournament) {
@@ -227,10 +184,18 @@ export default function TournamentButton({
             SOON
           </div>
         </div>
+
+        {/* Loading state overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-30 rounded-lg">
+            <div className="w-3 h-3 border border-transparent border-t-slate-400 rounded-full animate-spin" />
+          </div>
+        )}
       </button>
     );
   }
 
+  // ✅ ИСПРАВЛЕНО: безопасное получение цветов и иконки
   const colors = getFutureTechModeColors(activeTournament.mode);
   const modeIcon = getModeIcon(activeTournament.mode);
 
@@ -323,7 +288,7 @@ export default function TournamentButton({
       {isLoading && (
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-30 rounded-lg">
           <div
-            className="w-3 h-3 border border-transparent border-t-white rounded-full animate-spin"
+            className="w-3 h-3 border border-transparent rounded-full animate-spin"
             style={{ borderTopColor: colors.primary }}
           />
         </div>
