@@ -1,5 +1,5 @@
-// src/components/SeasonInfoModal/SeasonInfoModal.tsx - FIXED TypeScript errors
-import React, { useEffect, useMemo, useCallback } from "react";
+// src/components/SeasonInfoModal/SeasonInfoModal.tsx - FIXED TypeScript errors + Visual Debug
+import React, { useEffect, useMemo, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
 
@@ -33,28 +33,50 @@ export default function SeasonInfoModal({
     cacheManagement,
   } = seasons;
 
+  // Debug state for visual logging
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
+
+  // Add debug message
+  const addDebug = useCallback((message: string) => {
+    setDebugInfo(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${message}`]);
+  }, []);
+
   // Load season data when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
     const loadSeasonData = async () => {
       try {
-        console.log('[SEASON_MODAL] Modal opened, fetching season data with caching...');
+        addDebug('Modal opened - starting season data fetch');
+        
+        // Check cache before API call
+        const cacheInfo = cacheManagement.getCacheInfo();
+        if (cacheInfo?.hasCached) {
+          addDebug(`Cache found: ${cacheInfo.cachedSeasonName}`);
+        } else {
+          addDebug('No cache found - will make API request');
+        }
         
         // Clear any previous errors
         clearError();
         
         // This will use cache if available, or fetch from API if needed
-        await fetchCurrentSeason();
+        const result = await fetchCurrentSeason();
+        
+        if (result) {
+          addDebug(`Success: Got data for ${result.name}`);
+        } else {
+          addDebug('No season data returned');
+        }
         
       } catch (err) {
         console.error("Error loading season data:", err);
-        // Error is handled by the seasons hook
+        addDebug(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     };
 
     loadSeasonData();
-  }, [isOpen, fetchCurrentSeason, clearError]);
+  }, [isOpen, fetchCurrentSeason, clearError, cacheManagement, addDebug]);
 
   // Get cache info for display (memoized to prevent re-renders)
   const cacheInfo = useMemo(() => {
@@ -103,6 +125,12 @@ export default function SeasonInfoModal({
         role="button"
         tabIndex={0}
         onClick={onClose}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClose();
+          }
+        }}
       />
 
       {/* Modal */}
@@ -141,6 +169,37 @@ export default function SeasonInfoModal({
           {/* Scrollable Content */}
           <div className="relative z-10 flex-1 overflow-y-auto">
             <div className="p-6 pt-4">
+              {/* Visual Debug Info - Always visible in development */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mb-4 p-3 bg-gray-900/50 border border-gray-600/50 rounded text-xs">
+                  <div className="text-green-400 mb-2 font-mono">🐛 Debug Info:</div>
+                  {debugInfo.length === 0 ? (
+                    <div className="text-gray-400">No debug info yet...</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {debugInfo.map((info, index) => (
+                        <div key={index} className="text-gray-300 font-mono text-xs">
+                          {info}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {cacheInfo && (
+                    <div className="mt-2 pt-2 border-t border-gray-600/50">
+                      <div className="text-blue-400 mb-1">Cache Status:</div>
+                      <div className="text-gray-300 font-mono text-xs">
+                        Has cached: {cacheInfo.hasCached ? '✅ YES' : '❌ NO'}
+                      </div>
+                      {cacheInfo.hasCached && (
+                        <div className="text-gray-300 font-mono text-xs">
+                          Season: {cacheInfo.cachedSeasonName}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Loading State */}
               {isLoading && (
                 <div className="text-center py-8">
@@ -183,6 +242,12 @@ export default function SeasonInfoModal({
               {/* Season Data - SIMPLIFIED: Only static data */}
               {!isLoading && !error && seasonData && (
                 <div className="space-y-6">
+                  {/* Cache Status Indicator (for debugging) */}
+                  {process.env.NODE_ENV === 'development' && cacheInfo?.hasCached && (
+                    <div className="text-xs text-green-400/60 text-center">
+                      Cached data: {cacheInfo.cachedSeasonName}
+                    </div>
+                  )}
 
                   {/* Season Name and Status - calculated client-side */}
                   <div className="text-center">

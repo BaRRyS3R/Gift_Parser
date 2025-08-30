@@ -47,26 +47,47 @@ const seasonCache = {
   },
 
   /**
-   * Check if season has expired
+   * Check if season has expired (with buffer time)
    */
   isSeasonExpired(endDate: string): boolean {
     const endTime = new Date(endDate).getTime();
     const currentTime = Date.now();
-    return currentTime >= endTime;
+    
+    // Add 5 minute buffer to prevent premature expiration
+    const bufferTime = 5 * 60 * 1000; // 5 minutes
+    const isExpired = currentTime > (endTime + bufferTime);
+    
+    console.log(`[SEASONS_CACHE] Season expiration check:`, {
+      endDate,
+      endTime: new Date(endTime).toISOString(),
+      currentTime: new Date(currentTime).toISOString(),
+      difference: Math.round((endTime - currentTime) / 1000 / 60), // minutes
+      isExpired
+    });
+    
+    return isExpired;
   },
 
   /**
    * Save ONLY static season data to localStorage
    */
   setCachedSeason(season: Season): boolean {
-    if (!this.isAvailable()) return false;
+    if (!this.isAvailable()) {
+      console.warn('[SEASONS_CACHE] localStorage not available, cannot cache');
+      return false;
+    }
 
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(season));
-      console.log(`[SEASONS_CACHE] Cached static season data for "${season.name}" until ${season.end_date}`);
+      const cacheData = {
+        ...season,
+        cachedAt: Date.now(),
+      };
+      
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheData));
+      console.log(`[SEASONS_CACHE] ✅ Successfully cached season "${season.name}" until ${season.end_date}`);
       return true;
     } catch (error) {
-      console.warn('[SEASONS_CACHE] Failed to cache season:', error);
+      console.warn('[SEASONS_CACHE] ❌ Failed to cache season:', error);
       return false;
     }
   },
@@ -75,28 +96,34 @@ const seasonCache = {
    * Get ONLY static season data from localStorage with time validation
    */
   getCachedSeason(): Season | null {
-    if (!this.isAvailable()) return null;
+    if (!this.isAvailable()) {
+      console.log('[SEASONS_CACHE] localStorage not available');
+      return null;
+    }
 
     try {
       const cached = window.localStorage.getItem(STORAGE_KEY);
       if (!cached) {
-        console.log('[SEASONS_CACHE] No cached static season data found');
+        console.log('[SEASONS_CACHE] ❌ No cached season data found');
         return null;
       }
 
-      const season: Season = JSON.parse(cached);
+      const cacheData = JSON.parse(cached);
+      const season: Season = cacheData;
+
+      console.log(`[SEASONS_CACHE] Found cached data for "${season.name}"`);
 
       // Check if season has expired
       if (this.isSeasonExpired(season.end_date)) {
-        console.log(`[SEASONS_CACHE] Season "${season.name}" expired, clearing cache`);
+        console.log(`[SEASONS_CACHE] ⚠️ Season "${season.name}" expired, clearing cache`);
         this.clearCache();
         return null;
       }
 
-      console.log(`[SEASONS_CACHE] Using cached static season data "${season.name}"`);
+      console.log(`[SEASONS_CACHE] ✅ Using valid cached season "${season.name}"`);
       return season;
     } catch (error) {
-      console.warn('[SEASONS_CACHE] Failed to retrieve cached season:', error);
+      console.warn('[SEASONS_CACHE] ❌ Failed to retrieve cached season:', error);
       this.clearCache(); // Clear corrupted data
       return null;
     }
@@ -110,7 +137,7 @@ const seasonCache = {
 
     try {
       window.localStorage.removeItem(STORAGE_KEY);
-      console.log('[SEASONS_CACHE] Cache cleared');
+      console.log('[SEASONS_CACHE] 🗑️ Cache cleared');
       return true;
     } catch (error) {
       console.warn('[SEASONS_CACHE] Failed to clear cache:', error);
@@ -156,16 +183,18 @@ export function useSeasons(
       });
     }
 
-    console.log('[SEASONS_HOOK] Starting static season data fetch...');
+    console.log('[SEASONS_HOOK] 🚀 Starting static season data fetch...');
     fetchingRef.current = true;
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
+      console.log('[SEASONS_HOOK] 🔍 Checking cache for static season data...');
+      
       // 1️⃣ PRIORITY: Check cache for static season data (auto-clears if expired)
       const cachedSeason = seasonCache.getCachedSeason();
       
       if (cachedSeason) {
-        console.log(`[SEASONS_HOOK] ✅ Using CACHED static season data "${cachedSeason.name}" - NO API REQUEST!`);
+        console.log(`[SEASONS_HOOK] ✅ CACHE HIT! Using cached data for "${cachedSeason.name}" - NO API REQUEST!`);
         
         setState({
           seasonData: cachedSeason,
@@ -173,11 +202,12 @@ export function useSeasons(
           error: null,
         });
 
+        fetchingRef.current = false;
         return cachedSeason;
       }
 
       // 2️⃣ No cache - make SINGLE API request for static season data only
-      console.log('[SEASONS_HOOK] 📡 No cached data found, fetching static data from API...');
+      console.log('[SEASONS_HOOK] ❌ CACHE MISS - No cached data found, making API request...');
       
       const response = await makeAuthenticatedRequest("/api/seasons/current");
 
@@ -189,6 +219,7 @@ export function useSeasons(
             isLoading: false,
             error: null,
           });
+          fetchingRef.current = false;
           return null;
         }
         throw new Error(`Server error: ${response.status}`);
@@ -200,11 +231,13 @@ export function useSeasons(
         throw new Error(result.error || "Failed to fetch season data");
       }
 
-      const seasonData: Season = result.data; // API now returns only static season data
+      const seasonData: Season = result.data;
+
+      console.log(`[SEASONS_HOOK] 📡 API data received for season: ${seasonData.name}`);
 
       // 3️⃣ Cache ONLY static season data for future requests
-      seasonCache.setCachedSeason(seasonData);
-      console.log(`[SEASONS_HOOK] 💾 Cached static season data: ${seasonData.name}`);
+      const cacheSuccess = seasonCache.setCachedSeason(seasonData);
+      console.log(`[SEASONS_HOOK] ${cacheSuccess ? '✅' : '❌'} Cache operation ${cacheSuccess ? 'successful' : 'failed'}`);
 
       setState({
         seasonData: seasonData,
@@ -212,10 +245,11 @@ export function useSeasons(
         error: null,
       });
 
+      fetchingRef.current = false;
       return seasonData;
 
     } catch (error) {
-      console.error("Error fetching season data:", error);
+      console.error("[SEASONS_HOOK] ❌ Error fetching season data:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
       setState((prev) => ({
@@ -224,10 +258,8 @@ export function useSeasons(
         error: errorMessage,
       }));
 
-      return null;
-    } finally {
       fetchingRef.current = false;
-      console.log('[SEASONS_HOOK] Fetch completed');
+      return null;
     }
   }, [makeAuthenticatedRequest]);
 
