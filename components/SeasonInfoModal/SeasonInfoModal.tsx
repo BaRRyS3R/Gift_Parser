@@ -1,7 +1,7 @@
 // src/components/SeasonInfoModal/SeasonInfoModal.tsx - FIXED VERSION with proper caching
 import type { CompleteSeasonData } from "@/hooks/modules/useSeasons";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
 
@@ -50,14 +50,6 @@ export default function SeasonInfoModal({
         // This will use cache if available, or fetch from API if needed
         await fetchCurrentSeason();
         
-        // Log cache status for debugging
-        const cacheInfo = cacheManagement.getCacheInfo();
-        if (cacheInfo?.hasCached) {
-          console.log(`[SEASON_MODAL] Using cached data for season: ${cacheInfo.cachedSeasonName}`);
-        } else {
-          console.log('[SEASON_MODAL] No cache available, data fetched from API');
-        }
-        
       } catch (err) {
         console.error("Error loading season data:", err);
         // Error is handled by the seasons hook
@@ -65,7 +57,7 @@ export default function SeasonInfoModal({
     };
 
     loadSeasonData();
-  }, [isOpen, fetchCurrentSeason, clearError, cacheManagement]);
+  }, [isOpen, fetchCurrentSeason, clearError]);
 
   // Handle view details (redirect to leaderboard page)
   const handleViewDetails = () => {
@@ -73,11 +65,16 @@ export default function SeasonInfoModal({
     router.push("/leaderboard");
   };
 
+  // Get cache info for display (memoized to prevent re-renders)
+  const cacheInfo = useMemo(() => {
+    return cacheManagement.getCacheInfo();
+  }, [cacheManagement, seasonData]); // Re-compute when seasonData changes
+
   // Handle force refresh (for debugging or when user wants fresh data)
-  const handleForceRefresh = async () => {
+  const handleForceRefresh = useCallback(async () => {
     console.log('[SEASON_MODAL] Force refreshing season data...');
     await cacheManagement.forceRefresh();
-  };
+  }, [cacheManagement]);
 
   if (!isOpen) return null;
 
@@ -227,14 +224,11 @@ export default function SeasonInfoModal({
               {!isLoading && !error && seasonData && (
                 <div className="space-y-6">
                   {/* Cache Status Indicator (for debugging, can be removed in production) */}
-                  {process.env.NODE_ENV === 'development' && (() => {
-                    const cacheInfo = cacheManagement.getCacheInfo();
-                    return cacheInfo?.hasCached && (
-                      <div className="text-xs text-green-400/60 text-center">
-                        📦 Cached data: {cacheInfo.cachedSeasonName}
-                      </div>
-                    );
-                  })()}
+                  {process.env.NODE_ENV === 'development' && cacheInfo?.hasCached && (
+                    <div className="text-xs text-green-400/60 text-center">
+                      📦 Cached data: {cacheInfo.cachedSeasonName}
+                    </div>
+                  )}
 
                   {/* Season Name and Status */}
                   <div className="text-center">
