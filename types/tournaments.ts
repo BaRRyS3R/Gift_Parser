@@ -1,4 +1,4 @@
-// src/types/tournaments.ts - Исправленные типы турниров с корректной структурой призов
+// src/types/tournaments.ts - ИСПРАВЛЕНО: оптимизированы типы для уменьшения нагрузки на Redis
 
 // Tournament status enum
 export enum TournamentStatus {
@@ -8,20 +8,23 @@ export enum TournamentStatus {
   CANCELLED = "cancelled",
 }
 
-// Tournament mode enum (subset of GameMode for tournaments only)
+// Tournament mode enum
 export enum TournamentMode {
   SURVIVAL = "survival",
   PHYSICS = "physics",
   ROTATION = "rotation",
 }
 
-// ✅ ИСПРАВЛЕННЫЙ Prize interface - соответствует структуре БД
+// Prize interface
 export interface Prize {
-  place: number | string; // БД может содержать как числа, так и строки типа "4-10"
-  prize: string; // Полное описание приза из БД
+  position: number;
+  description: string;
+  attempts?: number;
+  special_title?: string;
+  reward_type?: "attempts" | "title" | "custom";
 }
 
-// Tournament interface
+// Основной интерфейс турнира (остается без изменений)
 export interface Tournament {
   id: string;
   name: string;
@@ -30,13 +33,13 @@ export interface Tournament {
   start_time: string;
   end_time: string;
   status: TournamentStatus;
-  prizes: Prize[]; // ✅ Исправлено: теперь соответствует структуре БД
+  prizes: Prize[];
   created_at: string;
   updated_at: string;
 }
 
-// Full tournament leaderboard entry interface (internal use only)
-export interface TournamentLeaderboardEntry {
+// 🚨 ИЗБЫТОЧНАЯ структура для внутренних операций (НЕ для кеширования)
+export interface FullTournamentLeaderboardEntry {
   id: string;
   tournament_id: string;
   user_id: string;
@@ -58,36 +61,45 @@ export interface TournamentLeaderboardEntry {
   updated_at: string;
 }
 
-// Sanitized tournament leaderboard entry interface (public API)
-export interface PublicTournamentLeaderboardEntry {
-  tournament_id: string;
+// ✅ ОПТИМИЗИРОВАННАЯ структура для кеширования (только необходимые поля)
+export interface OptimizedTournamentLeaderboardEntry {
   first_name: string;
   last_name?: string;
   username?: string;
   best_score: number;
+  updated_at: string; // Для разрешения ничьих по времени
+  isCurrentUser?: boolean; // Добавляется при персонализации
 }
 
-// Tournament user position interface with sanitized entry
+// ✅ ПУБЛИЧНАЯ структура для API ответов (БЕЗ чувствительных данных)
+export interface PublicTournamentLeaderboardEntry {
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  best_score: number;
+  position?: number; // Добавляется при обработке
+}
+
+// Позиция пользователя в турнире (оптимизированная)
 export interface TournamentUserPosition {
   position: number;
-  entry: PublicTournamentLeaderboardEntry;
+  entry: OptimizedTournamentLeaderboardEntry;
 }
 
-// Tournament data groupings
+// Упрощенная структура данных турниров (только активный)
 export interface TournamentsData {
   active?: Tournament;
-  upcoming: Tournament[];
-  completed: Tournament[];
+  // УБРАНО: upcoming и completed для упрощения
 }
 
-// Tournament leaderboard response with sanitized data
+// Данные лидерборда турнира с оптимизацией
 export interface TournamentLeaderboardData {
   tournament: Tournament;
-  leaderboard: PublicTournamentLeaderboardEntry[];
+  leaderboard: OptimizedTournamentLeaderboardEntry[];
   userPosition?: TournamentUserPosition;
 }
 
-// Tournament participation info
+// Информация об участии в турнире (упрощенная)
 export interface TournamentParticipation {
   isParticipating: boolean;
   userPosition?: TournamentUserPosition;
@@ -97,20 +109,15 @@ export interface TournamentParticipation {
   lastGameAt?: string;
 }
 
-// Tournament statistics
+// Упрощенная статистика турнира
 export interface TournamentStats {
   totalParticipants: number;
   totalGames: number;
   averageScore: number;
   highestScore: number;
-  mostActivePlayer?: {
-    name: string;
-    username?: string;
-    gamesPlayed: number;
-  };
 }
 
-// Tournament result update interface
+// Результат обновления турнира
 export interface TournamentResultUpdate {
   tournamentId: string;
   tournamentName: string;
@@ -121,7 +128,7 @@ export interface TournamentResultUpdate {
   scoreImprovement?: number;
 }
 
-// API Response interfaces with sanitized data
+// API ответы с оптимизированными данными
 export interface TournamentsApiResponse {
   success: boolean;
   data?: TournamentsData;
@@ -131,42 +138,21 @@ export interface TournamentsApiResponse {
 export interface TournamentLeaderboardApiResponse {
   success: boolean;
   tournament?: Tournament;
-  leaderboard?: PublicTournamentLeaderboardEntry[];
+  leaderboard?: OptimizedTournamentLeaderboardEntry[];
   userPosition?: TournamentUserPosition;
   stats?: TournamentStats;
   error?: string;
 }
 
-// Tournament query parameters
+// Упрощенные запросы
 export interface TournamentQuery {
-  tournament?: string;
+  tournamentId?: string;
   mode?: TournamentMode;
   status?: TournamentStatus;
   limit?: number;
-  offset?: number;
 }
 
-// Tournament creation interface (for future admin functionality)
-export interface CreateTournamentRequest {
-  name: string;
-  description?: string;
-  mode: TournamentMode;
-  start_time: string;
-  end_time: string;
-  prizes: Prize[];
-}
-
-// Tournament update interface (for future admin functionality)
-export interface UpdateTournamentRequest {
-  name?: string;
-  description?: string;
-  start_time?: string;
-  end_time?: string;
-  status?: TournamentStatus;
-  prizes?: Prize[];
-}
-
-// Tournament time remaining interface
+// Информация о времени турнира
 export interface TournamentTimeInfo {
   isActive: boolean;
   timeRemaining?: number;
@@ -175,7 +161,7 @@ export interface TournamentTimeInfo {
   formattedTime: string;
 }
 
-// Tournament mode mapping utilities
+// Маппинг режимов (остается без изменений)
 export const TOURNAMENT_MODE_TO_GAME_MODE: Record<TournamentMode, string> = {
   [TournamentMode.SURVIVAL]: "survival",
   [TournamentMode.PHYSICS]: "physics",
@@ -186,26 +172,41 @@ export const GAME_MODE_TO_TOURNAMENT_MODE: Record<
   string,
   TournamentMode | null
 > = {
-  reaction: null, // Reaction mode doesn't have tournaments
+  reaction: null,
   survival: TournamentMode.SURVIVAL,
   physics: TournamentMode.PHYSICS,
   rotation: TournamentMode.ROTATION,
 };
 
-// Data sanitization utility
+// ✅ ОПТИМИЗИРОВАННАЯ функция санитизации (минимум полей)
 export function sanitizeLeaderboardEntry(
-  entry: TournamentLeaderboardEntry,
-): PublicTournamentLeaderboardEntry {
+  entry: FullTournamentLeaderboardEntry,
+): OptimizedTournamentLeaderboardEntry {
   return {
-    tournament_id: entry.tournament_id,
     first_name: entry.first_name,
     last_name: entry.last_name,
     username: entry.username,
     best_score: entry.best_score,
+    updated_at: entry.updated_at,
+    // isCurrentUser добавляется при персонализации
   };
 }
 
-// Tournament validation utilities
+// ✅ ФУНКЦИЯ для создания публичной записи из оптимизированной
+export function createPublicEntry(
+  entry: OptimizedTournamentLeaderboardEntry,
+  position: number,
+): PublicTournamentLeaderboardEntry {
+  return {
+    first_name: entry.first_name,
+    last_name: entry.last_name,
+    username: entry.username,
+    best_score: entry.best_score,
+    position,
+  };
+}
+
+// Валидация (остается без изменений)
 export function isValidTournamentMode(mode: string): mode is TournamentMode {
   return Object.values(TournamentMode).includes(mode as TournamentMode);
 }
@@ -216,28 +217,7 @@ export function isValidTournamentStatus(
   return Object.values(TournamentStatus).includes(status as TournamentStatus);
 }
 
-// ✅ ИСПРАВЛЕННЫЕ утилиты для работы с призами
-export function getPrizePosition(prize: Prize): string {
-  if (typeof prize.place === "string") {
-    return prize.place; // Для диапазонов типа "4-10"
-  }
-  return `#${prize.place}`; // Для конкретных позиций
-}
-
-export function getPrizeDescription(prize: Prize): string {
-  return prize.prize;
-}
-
-export function extractAttemptsFromPrize(prize: Prize): number | undefined {
-  const match = prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i);
-  return match ? parseInt(match[1]) : undefined;
-}
-
-export function hasBadgeReward(prize: Prize): boolean {
-  return prize.prize.toLowerCase().includes("badge");
-}
-
-// Tournament time calculation utilities
+// Расчет времени турнира (остается без изменений)
 export function calculateTournamentTimeInfo(
   tournament: Tournament,
 ): TournamentTimeInfo {
@@ -279,7 +259,7 @@ export function calculateTournamentTimeInfo(
   };
 }
 
-// Tournament position utilities
+// Утилиты позиций (остается без изменений)
 export function getTournamentPositionColor(position: number): string {
   switch (position) {
     case 1:
@@ -306,7 +286,7 @@ export function getTournamentPositionTitle(position: number): string {
   }
 }
 
-// Tournament scoring utilities
+// ✅ ОПТИМИЗИРОВАННАЯ функция подсчета очков (без изменений логики)
 export function calculateTournamentScore(
   gameMode: string,
   baseScore: number,

@@ -1,24 +1,22 @@
-// src/app/api/tournaments/cache-stats/route.ts - Статистика кеша турниров
+// src/app/api/tournaments/cache-stats/route.ts - Статистика кеша турниров БЕЗ утечки данных
 
 import { NextRequest, NextResponse } from "next/server";
-import { serverTournamentService } from "@/lib/server/tournamentService";
+import { tournamentCacheService } from "@/lib/server/tournamentCacheService";
 import { checkRedisConnection } from "@/lib/redis";
 
 // ✅ БЕЗОПАСНЫЙ Response interface (БЕЗ чувствительных данных)
 interface TournamentCacheStatsResponse {
   success: boolean;
   redis_available: boolean;
-  cache_stats?: {
-    active_tournament_cached: boolean;
-    tournament_cache_age_seconds?: number;
-    tournament_time_until_expiry_seconds?: number;
-    leaderboard_caches_count: number;
-    last_update_timestamp?: number;
+  tournament_cache_stats?: {
+    has_active_tournament_cache: boolean;
+    cached_tournament_id?: string;
+    cache_age_seconds?: number;
   };
   optimization_info?: {
-    single_active_tournament: boolean;
-    cached_leaderboards: boolean;
-    personalized_user_positions: boolean;
+    single_tournament_focus: boolean;
+    minimal_fields_cached: boolean;
+    leaderboard_optimized: boolean;
     security_measures: {
       uuid_exposure_prevented: boolean;
       telegram_id_secured: boolean;
@@ -30,7 +28,7 @@ interface TournamentCacheStatsResponse {
 
 /**
  * GET /api/tournaments/cache-stats
- * ✅ Статистика кеша турниров БЕЗ утечки чувствительных данных
+ * ✅ БЕЗОПАСНАЯ статистика кеша турниров БЕЗ утечки чувствительных данных
  */
 export async function GET(
   request: NextRequest,
@@ -62,14 +60,13 @@ export async function GET(
       return NextResponse.json({
         success: true,
         redis_available: false,
-        cache_stats: {
-          active_tournament_cached: false,
-          leaderboard_caches_count: 0,
+        tournament_cache_stats: {
+          has_active_tournament_cache: false,
         },
         optimization_info: {
-          single_active_tournament: true,
-          cached_leaderboards: true,
-          personalized_user_positions: true,
+          single_tournament_focus: true,
+          minimal_fields_cached: true,
+          leaderboard_optimized: true,
           security_measures: {
             uuid_exposure_prevented: true, // ✅ UUID не передаются на клиент
             telegram_id_secured: true,     // ✅ telegram_id не передаются на клиент
@@ -80,25 +77,23 @@ export async function GET(
     }
 
     // ✅ ПОЛУЧАЕМ БЕЗОПАСНУЮ СТАТИСТИКУ (без пользовательских данных)
-    const cacheStats = await serverTournamentService.getTournamentCacheStats();
+    const cacheStats = await tournamentCacheService.getCacheStats();
 
     return NextResponse.json({
       success: true,
       redis_available: true,
-      cache_stats: {
-        active_tournament_cached: cacheStats.active_tournament_cached,
-        tournament_cache_age_seconds: cacheStats.tournament_cache_age_seconds,
-        tournament_time_until_expiry_seconds: cacheStats.tournament_time_until_expiry_seconds,
-        leaderboard_caches_count: cacheStats.leaderboard_caches_count,
-        last_update_timestamp: cacheStats.last_update_timestamp,
+      tournament_cache_stats: {
+        has_active_tournament_cache: cacheStats.has_active_tournament_cache,
+        cached_tournament_id: cacheStats.cached_tournament_id, // Только ID турнира
+        cache_age_seconds: cacheStats.cache_age_seconds,
       },
       optimization_info: {
-        single_active_tournament: true,        // ✅ Только один активный турнир
-        cached_leaderboards: true,             // ✅ Кешированные лидерборды
-        personalized_user_positions: true,    // ✅ Персональные позиции для каждого пользователя
+        single_tournament_focus: cacheStats.optimization_info.single_tournament_focus,
+        minimal_fields_cached: cacheStats.optimization_info.minimal_fields_cached,
+        leaderboard_optimized: cacheStats.optimization_info.leaderboard_optimized,
         security_measures: {
-          uuid_exposure_prevented: true, // ✅ UUID надежно скрыты от клиента
-          telegram_id_secured: true,     // ✅ telegram_id не передаются на клиент
+          uuid_exposure_prevented: cacheStats.optimization_info.uuid_exposure_prevented,
+          telegram_id_secured: true,     // ✅ telegram_id надежно скрыты от клиента
           client_data_filtered: true,    // ✅ Строгая фильтрация данных
         },
       },
@@ -112,9 +107,9 @@ export async function GET(
         success: false,
         redis_available: false,
         optimization_info: {
-          single_active_tournament: true,
-          cached_leaderboards: true,
-          personalized_user_positions: true,
+          single_tournament_focus: true,
+          minimal_fields_cached: true,
+          leaderboard_optimized: true,
           security_measures: {
             uuid_exposure_prevented: true,
             telegram_id_secured: true,

@@ -1,87 +1,47 @@
-// src/hooks/modules/useTournaments.ts - Упрощенный хук для работы с активным турниром
+// src/hooks/modules/useTournaments.ts - ИСПРАВЛЕНО: убрано автообновление, оптимизированы типы данных
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import type {
+  Tournament,
+  TournamentsData,
+  OptimizedTournamentLeaderboardEntry,
+  TournamentQuery,
+  TournamentTimeInfo,
+} from "@/types/tournaments";
 
-// Tournament interfaces
-export interface Tournament {
-  id: string;
-  name: string;
-  description?: string;
-  mode: "survival" | "physics" | "rotation";
-  start_time: string;
-  end_time: string;
-  status: "upcoming" | "active" | "completed" | "cancelled";
-  prizes: Prize[];
-  created_at: string;
-  updated_at: string;
-}
+import { useState, useCallback, useRef } from "react";
 
-export interface Prize {
+import { calculateTournamentTimeInfo } from "@/types/tournaments";
+
+// Оптимизированные типы для уменьшения нагрузки на Redis
+export interface OptimizedTournamentUserPosition {
   position: number;
-  description: string;
-  attempts?: number;
-  special_title?: string;
-  reward_type?: "attempts" | "title" | "custom";
+  entry: OptimizedTournamentLeaderboardEntry;
 }
 
-export interface PublicTournamentLeaderboardEntry {
-  tournament_id: string;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  best_score: number;
-}
-
-export interface TournamentUserPosition {
-  position: number;
-  entry: PublicTournamentLeaderboardEntry;
-}
-
-export interface TournamentStats {
-  totalParticipants: number;
-  totalGames: number;
-  averageScore: number;
-  highestScore: number;
-}
-
-export interface PublicTournamentData {
+export interface OptimizedTournamentLeaderboardData {
   tournament: Tournament;
-  leaderboard: PublicTournamentLeaderboardEntry[];
-  userPosition?: TournamentUserPosition;
-  stats: TournamentStats;
+  leaderboard: OptimizedTournamentLeaderboardEntry[];
+  userPosition?: OptimizedTournamentUserPosition;
 }
 
-export interface TournamentCacheInfo {
-  is_from_cache: boolean;
-  cached_at?: number;
-  cache_age_seconds?: number;
-  next_update_in_seconds?: number;
-}
-
-// Hook state interface
+// Упрощенная структура состояния хука
 interface TournamentsState {
-  activeTournament: PublicTournamentData | null;
+  tournament: Tournament | null; // Только один активный турнир
+  leaderboard: OptimizedTournamentLeaderboardEntry[];
+  userPosition: OptimizedTournamentUserPosition | null;
   isLoading: boolean;
-  isRefreshing: boolean;
+  isLeaderboardLoading: boolean;
   error: string | null;
-  cacheInfo: TournamentCacheInfo | null;
+  leaderboardError: string | null;
   lastFetchTime: number | null;
 }
 
-// API Response interface
-interface TournamentResponse {
-  success: boolean;
-  tournament?: PublicTournamentData;
-  cache_info?: TournamentCacheInfo;
-  error?: string;
-}
-
-// Cache configuration
-const CACHE_DURATION = 30 * 1000; // 30 seconds for active tournament
-const AUTO_REFRESH_INTERVAL = 60 * 1000; // 1 minute auto-refresh for active tournament
+// Кеш конфигурация - оптимизированная
+const TOURNAMENT_CACHE_DURATION = 60 * 60 * 1000; // 1 час для турнира
+const LEADERBOARD_CACHE_DURATION = 5 * 60 * 1000; // 5 минут для лидерборда
 
 /**
- * Simplified tournaments hook focused on active tournament only
+ * ИСПРАВЛЕННЫЙ хук управления турниром БЕЗ автообновления
  */
 export function useTournaments(
   makeAuthenticatedRequest: (
@@ -90,187 +50,52 @@ export function useTournaments(
   ) => Promise<Response>,
 ) {
   const [state, setState] = useState<TournamentsState>({
-    activeTournament: null,
+    tournament: null,
+    leaderboard: [],
+    userPosition: null,
     isLoading: false,
-    isRefreshing: false,
+    isLeaderboardLoading: false,
     error: null,
-    cacheInfo: null,
+    leaderboardError: null,
     lastFetchTime: null,
   });
 
   const fetchingRef = useRef<boolean>(false);
-  const autoRefreshRef = useRef<NodeJS.Timeout | null>(null);
+  const leaderboardFetchingRef = useRef<boolean>(false);
+  
+  // Оптимизированный кеш только для активного турнира
+  const tournamentCache = useRef<{
+    data: Tournament;
+    timestamp: number;
+  } | null>(null);
+  
+  const leaderboardCache = useRef<{
+    data: OptimizedTournamentLeaderboardData;
+    timestamp: number;
+  } | null>(null);
 
   /**
-   * Check if we need to fetch data
+   * Проверка валидности кеша
    */
-  const shouldFetch = useCallback((): boolean => {
-    if (!state.lastFetchTime) return true;
-    
-    const timeSinceLastFetch = Date.now() - state.lastFetchTime;
-    return timeSinceLastFetch > CACHE_DURATION;
-  }, [state.lastFetchTime]);
-
-  /**
-   * Fetch active tournament with leaderboard
-   */
-  const fetchActiveTournament = useCallback(
-    async (force: boolean = false): Promise<PublicTournamentData | null> => {
-      // Prevent concurrent requests
-      if (fetchingRef.current && !force) {
-        return state.activeTournament;
-      }
-
-      // Check if we should fetch
-      if (!force && !shouldFetch() && state.activeTournament) {
-        return state.activeTournament;
-      }
-
-      fetchingRef.current = true;
-      setState((prev) => ({ 
-        ...prev, 
-        isLoading: !prev.activeTournament, // Don't show loading if we have data
-        isRefreshing: !!prev.activeTournament, // Show refreshing if we have existing data
-        error: null 
-      }));
-
-      try {
-        const endpoint = force 
-          ? "/api/tournaments?force_refresh=true"
-          : "/api/tournaments";
-
-        const response = await makeAuthenticatedRequest(endpoint);
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            errorData.error || `Server error: ${response.status}`,
-          );
-        }
-
-        const result: TournamentResponse = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch tournament data");
-        }
-
-        const tournamentData = result.tournament || null;
-
-        setState((prev) => ({
-          ...prev,
-          activeTournament: tournamentData,
-          cacheInfo: result.cache_info || null,
-          isLoading: false,
-          isRefreshing: false,
-          error: null,
-          lastFetchTime: Date.now(),
-        }));
-
-        // Setup auto-refresh for active tournament
-        if (tournamentData?.tournament.status === "active") {
-          setupAutoRefresh();
-        } else {
-          clearAutoRefresh();
-        }
-
-        return tournamentData;
-      } catch (error) {
-        console.error("Error fetching tournament:", error);
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch tournament data";
-
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          isRefreshing: false,
-          error: errorMessage,
-        }));
-
-        return null;
-      } finally {
-        fetchingRef.current = false;
-      }
+  const isCacheValid = useCallback(
+    (timestamp: number, duration: number): boolean => {
+      return Date.now() - timestamp < duration;
     },
-    [makeAuthenticatedRequest, shouldFetch, state.activeTournament],
+    [],
   );
 
   /**
-   * Force refresh tournament data
+   * Получение статуса и времени турнира
    */
-  const forceRefresh = useCallback(() => {
-    return fetchActiveTournament(true);
-  }, [fetchActiveTournament]);
+  const getTournamentStatus = useCallback(
+    (tournament: Tournament): TournamentTimeInfo => {
+      return calculateTournamentTimeInfo(tournament);
+    },
+    [],
+  );
 
   /**
-   * Setup auto-refresh for active tournaments
-   */
-  const setupAutoRefresh = useCallback(() => {
-    clearAutoRefresh();
-    
-    autoRefreshRef.current = setInterval(() => {
-      if (state.activeTournament?.tournament.status === "active") {
-        fetchActiveTournament(false);
-      } else {
-        clearAutoRefresh();
-      }
-    }, AUTO_REFRESH_INTERVAL);
-  }, [fetchActiveTournament, state.activeTournament]);
-
-  /**
-   * Clear auto-refresh
-   */
-  const clearAutoRefresh = useCallback(() => {
-    if (autoRefreshRef.current) {
-      clearInterval(autoRefreshRef.current);
-      autoRefreshRef.current = null;
-    }
-  }, []);
-
-  /**
-   * Get tournament status and time information
-   */
-  const getTournamentTimeInfo = useCallback((tournament: Tournament) => {
-    const now = new Date().getTime();
-    const start = new Date(tournament.start_time).getTime();
-    const end = new Date(tournament.end_time).getTime();
-
-    const isActive = now >= start && now <= end;
-    const hasEnded = now > end;
-    const timeRemaining = isActive ? Math.max(0, end - now) : undefined;
-    const timeUntilStart = !isActive && !hasEnded ? Math.max(0, start - now) : undefined;
-
-    let formattedTime = "";
-    const timeToFormat = timeRemaining || timeUntilStart;
-
-    if (timeToFormat) {
-      const days = Math.floor(timeToFormat / (1000 * 60 * 60 * 24));
-      const hours = Math.floor(
-        (timeToFormat % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-      );
-      const minutes = Math.floor((timeToFormat % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((timeToFormat % (1000 * 60)) / 1000);
-
-      if (days > 0) formattedTime = `${days}d ${hours}h`;
-      else if (hours > 0) formattedTime = `${hours}h ${minutes}m`;
-      else if (minutes > 0) formattedTime = `${minutes}m ${seconds}s`;
-      else formattedTime = `${seconds}s`;
-    } else if (hasEnded) {
-      formattedTime = "Ended";
-    }
-
-    return {
-      isActive,
-      timeRemaining,
-      timeUntilStart,
-      hasEnded,
-      formattedTime,
-    };
-  }, []);
-
-  /**
-   * Format time remaining for display
+   * Форматирование оставшегося времени
    */
   const formatTimeRemaining = useCallback((endTime: string): string => {
     const now = new Date().getTime();
@@ -289,123 +114,287 @@ export function useTournaments(
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${minutes}m`;
     if (minutes > 0) return `${minutes}m ${seconds}s`;
+
     return `${seconds}s`;
   }, []);
 
   /**
-   * Get game mode icon name
+   * ИСПРАВЛЕНО: получение активного турнира БЕЗ автообновления
    */
-  const getGameModeIcon = useCallback((mode: string): string => {
-    switch (mode) {
-      case "survival":
-        return "Crosshair";
-      case "physics":
-        return "Atom";
-      case "rotation":
-        return "RotateCw";
-      default:
-        return "Target";
-    }
-  }, []);
+  const fetchActiveTournament = useCallback(
+    async (force: boolean = false): Promise<Tournament | null> => {
+      // Проверяем кеш турнира
+      if (
+        !force &&
+        tournamentCache.current &&
+        isCacheValid(tournamentCache.current.timestamp, TOURNAMENT_CACHE_DURATION)
+      ) {
+        setState((prev) => ({
+          ...prev,
+          tournament: tournamentCache.current!.data,
+        }));
+        return tournamentCache.current.data;
+      }
+
+      if (fetchingRef.current && !force) {
+        return state.tournament;
+      }
+
+      fetchingRef.current = true;
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      try {
+        const response = await makeAuthenticatedRequest("/api/tournaments/active");
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `Server error: ${response.status}`,
+          );
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to fetch active tournament");
+        }
+
+        const tournament = result.tournament;
+
+        // Обновляем кеш только если турнир существует
+        if (tournament) {
+          tournamentCache.current = {
+            data: tournament,
+            timestamp: Date.now(),
+          };
+        } else {
+          tournamentCache.current = null;
+        }
+
+        setState((prev) => ({
+          ...prev,
+          tournament: tournament || null,
+          isLoading: false,
+          error: null,
+          lastFetchTime: Date.now(),
+        }));
+
+        return tournament || null;
+      } catch (error) {
+        console.error("Error fetching active tournament:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch tournament";
+
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errorMessage,
+        }));
+
+        return null;
+      } finally {
+        fetchingRef.current = false;
+      }
+    },
+    [makeAuthenticatedRequest, isCacheValid, state.tournament],
+  );
 
   /**
-   * Check if user is participating in the tournament
+   * ИСПРАВЛЕНО: получение лидерборда турнира с оптимизированными данными
    */
-  const isUserParticipating = useCallback((): boolean => {
-    return !!state.activeTournament?.userPosition;
-  }, [state.activeTournament]);
+  const fetchTournamentLeaderboard = useCallback(
+    async (
+      tournamentId: string,
+      force: boolean = false,
+    ): Promise<OptimizedTournamentLeaderboardData | null> => {
+      // Проверяем кеш лидерборда
+      const cacheKey = tournamentId;
+      
+      if (
+        !force &&
+        leaderboardCache.current &&
+        leaderboardCache.current.data.tournament.id === cacheKey &&
+        isCacheValid(leaderboardCache.current.timestamp, LEADERBOARD_CACHE_DURATION)
+      ) {
+        setState((prev) => ({
+          ...prev,
+          leaderboard: leaderboardCache.current!.data.leaderboard,
+          userPosition: leaderboardCache.current!.data.userPosition || null,
+        }));
+        return leaderboardCache.current.data;
+      }
+
+      if (leaderboardFetchingRef.current && !force) {
+        return null;
+      }
+
+      leaderboardFetchingRef.current = true;
+      setState((prev) => ({
+        ...prev,
+        isLeaderboardLoading: true,
+        leaderboardError: null,
+      }));
+
+      try {
+        const response = await makeAuthenticatedRequest(
+          `/api/tournaments/leaderboard?tournamentId=${encodeURIComponent(tournamentId)}`,
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `Server error: ${response.status}`,
+          );
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(
+            result.error || "Failed to fetch tournament leaderboard",
+          );
+        }
+
+        const leaderboardData: OptimizedTournamentLeaderboardData = {
+          tournament: result.tournament,
+          leaderboard: result.leaderboard || [],
+          userPosition: result.userPosition,
+        };
+
+        // Обновляем кеш
+        leaderboardCache.current = {
+          data: leaderboardData,
+          timestamp: Date.now(),
+        };
+
+        setState((prev) => ({
+          ...prev,
+          leaderboard: leaderboardData.leaderboard,
+          userPosition: leaderboardData.userPosition || null,
+          isLeaderboardLoading: false,
+          leaderboardError: null,
+        }));
+
+        return leaderboardData;
+      } catch (error) {
+        console.error("Error fetching tournament leaderboard:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch tournament leaderboard";
+
+        setState((prev) => ({
+          ...prev,
+          isLeaderboardLoading: false,
+          leaderboardError: errorMessage,
+        }));
+
+        return null;
+      } finally {
+        leaderboardFetchingRef.current = false;
+      }
+    },
+    [makeAuthenticatedRequest, isCacheValid],
+  );
 
   /**
-   * Get user's position in tournament
+   * Обновление данных турнира
    */
-  const getUserPosition = useCallback((): TournamentUserPosition | null => {
-    return state.activeTournament?.userPosition || null;
-  }, [state.activeTournament]);
+  const refreshTournament = useCallback(() => {
+    tournamentCache.current = null;
+    return fetchActiveTournament(true);
+  }, [fetchActiveTournament]);
 
   /**
-   * Check if tournament is active
+   * Обновление лидерборда
    */
-  const isTournamentActive = useCallback((): boolean => {
-    return state.activeTournament?.tournament.status === "active";
-  }, [state.activeTournament]);
+  const refreshLeaderboard = useCallback(
+    (tournamentId: string) => {
+      leaderboardCache.current = null;
+      return fetchTournamentLeaderboard(tournamentId, true);
+    },
+    [fetchTournamentLeaderboard],
+  );
 
   /**
-   * Clear error state
+   * Очистка ошибок
    */
   const clearError = useCallback(() => {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
 
+  const clearLeaderboardError = useCallback(() => {
+    setState((prev) => ({ ...prev, leaderboardError: null }));
+  }, []);
+
   /**
-   * Reset tournament state
+   * Сброс состояния
    */
   const resetTournamentState = useCallback(() => {
-    clearAutoRefresh();
     setState({
-      activeTournament: null,
+      tournament: null,
+      leaderboard: [],
+      userPosition: null,
       isLoading: false,
-      isRefreshing: false,
+      isLeaderboardLoading: false,
       error: null,
-      cacheInfo: null,
+      leaderboardError: null,
       lastFetchTime: null,
     });
-  }, [clearAutoRefresh]);
+
+    tournamentCache.current = null;
+    leaderboardCache.current = null;
+  }, []);
 
   /**
-   * Get cache status information
+   * Проверка участия пользователя
    */
-  const getCacheStatus = useCallback(() => {
-    return state.cacheInfo;
-  }, [state.cacheInfo]);
+  const isUserParticipating = useCallback((): boolean => {
+    return state.userPosition !== null;
+  }, [state.userPosition]);
 
   /**
-   * Check if data is from cache
+   * Получение позиции пользователя
    */
-  const isDataFromCache = useCallback(() => {
-    return state.cacheInfo?.is_from_cache || false;
-  }, [state.cacheInfo]);
+  const getUserPosition = useCallback((): OptimizedTournamentUserPosition | null => {
+    return state.userPosition;
+  }, [state.userPosition]);
 
-  // Cleanup auto-refresh on unmount
-  useEffect(() => {
-    return () => {
-      clearAutoRefresh();
-    };
-  }, [clearAutoRefresh]);
+  // УБРАНО: автообновление для активных турниров
+  // Теперь обновления происходят только по требованию пользователя
 
   return {
-    // State
-    activeTournament: state.activeTournament,
-    tournament: state.activeTournament?.tournament || null,
-    leaderboard: state.activeTournament?.leaderboard || [],
-    userPosition: state.activeTournament?.userPosition || null,
-    stats: state.activeTournament?.stats || null,
+    // Состояние
+    tournament: state.tournament,
+    leaderboard: state.leaderboard,
+    userPosition: state.userPosition,
     isLoading: state.isLoading,
-    isRefreshing: state.isRefreshing,
+    isLeaderboardLoading: state.isLeaderboardLoading,
     error: state.error,
-    cacheInfo: state.cacheInfo,
+    leaderboardError: state.leaderboardError,
     lastFetchTime: state.lastFetchTime,
 
-    // Computed values
-    isParticipating: isUserParticipating(),
-    isActive: isTournamentActive(),
-    hasActiveTournament: !!state.activeTournament,
+    // Вычисляемые значения
+    isParticipating: state.userPosition !== null,
+    hasActiveTournament: state.tournament !== null,
 
-    // Actions
+    // Действия
     fetchActiveTournament: () => fetchActiveTournament(false),
-    forceRefresh,
-    clearError,
-    resetTournamentState,
+    fetchTournamentLeaderboard: (tournamentId: string) => fetchTournamentLeaderboard(tournamentId, false),
+    refreshTournament,
+    refreshLeaderboard,
 
-    // Utilities
-    getTournamentTimeInfo,
-    formatTimeRemaining,
-    getGameModeIcon,
+    // Утилиты
     isUserParticipating,
     getUserPosition,
-    isTournamentActive,
+    getTournamentStatus,
+    formatTimeRemaining,
 
-    // Cache-related functions
-    getCacheStatus,
-    isDataFromCache,
+    // Обработка ошибок
+    clearError,
+    clearLeaderboardError,
+    resetTournamentState,
   };
 }

@@ -1,13 +1,31 @@
-// src/app/api/tournaments/route.ts - API турниров с Redis кешированием
+// src/app/api/tournaments/route.ts - ИСПРАВЛЕНО: оптимизированный API с кешированием
 
 import { NextRequest, NextResponse } from "next/server";
-import { serverTournamentService } from "@/lib/server/tournamentService";
-import type { PublicTournamentData, TournamentResponseWithCache } from "@/lib/server/tournamentCacheService";
+import { tournamentCacheService } from "@/lib/server/tournamentCacheService";
+import type { 
+  Tournament,
+  OptimizedTournamentLeaderboardEntry,
+  TournamentUserPosition 
+} from "@/types/tournaments";
 
-// Response interfaces using sanitized data
-interface TournamentsResponse {
+// ✅ УПРОЩЕННЫЕ response интерфейсы (только активный турнир)
+interface ActiveTournamentResponse {
   success: boolean;
-  tournament?: PublicTournamentData;
+  tournament?: Tournament | null;
+  cache_info?: {
+    is_from_cache: boolean;
+    cached_at?: number;
+    cache_age_seconds?: number;
+    next_update_in_seconds?: number;
+  };
+  error?: string;
+}
+
+interface TournamentLeaderboardResponse {
+  success: boolean;
+  tournament?: Tournament;
+  leaderboard?: OptimizedTournamentLeaderboardEntry[];
+  userPosition?: TournamentUserPosition;
   cache_info?: {
     is_from_cache: boolean;
     cached_at?: number;
@@ -19,83 +37,91 @@ interface TournamentsResponse {
 
 /**
  * GET /api/tournaments
- * ✅ УПРОЩЕННАЯ ВЕРСИЯ: возвращает только активный турнир с лидербордом
- * Больше не возвращает upcoming/completed турниры
+ * ✅ ИСПРАВЛЕНО: только активный турнир с оптимизированным кешированием
  */
 export async function GET(
   request: NextRequest,
-): Promise<NextResponse<TournamentsResponse>> {
+): Promise<NextResponse<ActiveTournamentResponse | TournamentLeaderboardResponse>> {
   try {
+    const { searchParams } = new URL(request.url);
+    const tournamentId = searchParams.get("tournamentId");
     const telegramId = request.headers.get("X-Telegram-ID");
     const userId = request.headers.get("X-User-ID");
 
-    if (!telegramId || !userId) {
-      console.error("Missing authentication headers for tournaments API");
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication required",
-        },
-        { status: 401 }
-      );
-    }
+    console.log("Tournaments API called:", { tournamentId, hasAuth: !!telegramId });
 
-    const telegramIdNumber = parseInt(telegramId);
+    // Если запрашивается лидерборд конкретного турнира
+    if (tournamentId && telegramId && userId) {
+      try {
+        console.log("Fetching tournament leaderboard:", tournamentId);
 
-    if (isNaN(telegramIdNumber)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid user ID format",
-        },
-        { status: 400 }
-      );
-    }
+        const telegramIdNumber = parseInt(telegramId);
+        if (isNaN(telegramIdNumber)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Invalid telegram ID",
+            },
+            { status: 400 },
+          );
+        }
 
-    console.log(`[TOURNAMENTS_API] Getting active tournament for telegram_id: ${telegramIdNumber}`);
-
-    // Извлекаем параметры
-    const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 100);
-    const forceRefresh = searchParams.get("force_refresh") === "true";
-
-    try {
-      let result: TournamentResponseWithCache;
-
-      if (forceRefresh) {
-        console.log("[TOURNAMENTS_API] Force refresh requested");
-        // Принудительно обновляем кеш
-        await serverTournamentService.forceRefreshTournamentCache();
-        
-        // Получаем свежие данные
-        result = await serverTournamentService.getActiveTournamentWithLeaderboard(
-          userId, // 🔒 UUID остается на сервере
+        // ✅ ИСПОЛЬЗУЕМ ОПТИМИЗИРОВАННЫЙ КЕШИРУЮЩИЙ СЕРВИС
+        const { leaderboard, cache_info } = await tournamentCacheService.getTournamentLeaderboard(
+          tournamentId,
+          userId, // 🔒 UUID остается ТОЛЬКО на сервере
           telegramIdNumber,
-          limit
+          100 // limit
         );
-      } else {
-        // Обычный запрос с кешированием
-        result = await serverTournamentService.getActiveTournamentWithLeaderboard(
-          userId, // 🔒 UUID остается на сервере  
-          telegramIdNumber,
-          limit
-        );
-      }
 
-      // Логируем информацию о кеше
-      if (result.cache_info) {
-        console.log(`[TOURNAMENTS_API] Tournament data served:`, {
-          has_tournament: !!result.tournament,
-          from_cache: result.cache_info.is_from_cache,
-          cache_age: result.cache_info.cache_age_seconds,
-          participants: result.tournament?.stats.totalParticipants || 0
+        console.log("Tournament leaderboard fetched:", {
+          tournament_id: leaderboard.tournament.id,
+          entries_count: leaderboard.leaderboard.length,
+          user_position: leaderboard.userPosition?.position,
+          from_cache: cache_info.is_from_cache
         });
+
+        return NextResponse.json({
+          success: true,
+          tournament: leaderboard.tournament,
+          leaderboard: leaderboard.leaderboard, // ✅ БЕЗ UUID
+          userPosition: leaderboard.userPosition,
+          cache_info,
+        });
+
+      } catch (error) {
+        console.error("Error fetching tournament leaderboard:", error);
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Failed to fetch tournament leaderboard: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+          { status: 500 },
+        );
       }
+    }
+
+    // По умолчанию возвращаем активный турнир
+    try {
+      console.log("Fetching active tournament");
+
+      // ✅ ИСПОЛЬЗУЕМ ОПТИМИЗИРОВАННЫЙ КЕШИРУЮЩИЙ СЕРВИС
+      const { tournament, cache_info } = await tournamentCacheService.getActiveTournament();
+
+      console.log("Active tournament fetched:", {
+        tournament_id: tournament?.id || 'null',
+        tournament_name: tournament?.name || 'none',
+        status: tournament?.status || 'none',
+        from_cache: cache_info.is_from_cache
+      });
 
       return NextResponse.json({
         success: true,
-        tournament: result.tournament || undefined,
-        cache_info: result.cache_info,
+        tournament, // Может быть null если нет активного турнира
+        cache_info,
       });
 
     } catch (error) {
@@ -104,9 +130,11 @@ export async function GET(
       return NextResponse.json(
         {
           success: false,
-          error: `Failed to fetch tournament: ${error instanceof Error ? error.message : "Unknown error"}`,
+          error: `Failed to fetch active tournament: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
   } catch (error) {
@@ -117,19 +145,20 @@ export async function GET(
         success: false,
         error: "Internal server error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 /**
  * POST /api/tournaments
- * Принудительное обновление кеша турниров
+ * ✅ Принудительное обновление кеша турниров
  */
 export async function POST(
   request: NextRequest,
-): Promise<NextResponse<TournamentsResponse>> {
+): Promise<NextResponse<ActiveTournamentResponse>> {
   try {
+    // Проверка аутентификации
     const telegramId = request.headers.get("X-Telegram-ID");
     const userId = request.headers.get("X-User-ID");
 
@@ -139,61 +168,38 @@ export async function POST(
           success: false,
           error: "Authentication required",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    const telegramIdNumber = parseInt(telegramId);
+    console.log("Manual tournament cache refresh requested");
 
-    if (isNaN(telegramIdNumber)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid user ID format",
-        },
-        { status: 400 }
-      );
-    }
+    // Инвалидируем существующий кеш
+    await tournamentCacheService.invalidateActiveTournament();
 
-    console.log(`[TOURNAMENTS_API] Manual cache refresh requested by telegram_id: ${telegramIdNumber}`);
+    // Получаем свежие данные
+    const { tournament, cache_info } = await tournamentCacheService.getActiveTournament();
 
-    try {
-      // Принудительно обновляем кеш
-      await serverTournamentService.forceRefreshTournamentCache();
+    console.log("Tournament cache refreshed:", {
+      tournament_id: tournament?.id || 'null',
+      from_cache: cache_info.is_from_cache
+    });
 
-      // Получаем свежие данные
-      const result = await serverTournamentService.getActiveTournamentWithLeaderboard(
-        userId, // 🔒 UUID остается на сервере
-        telegramIdNumber,
-        100
-      );
+    return NextResponse.json({
+      success: true,
+      tournament,
+      cache_info,
+    });
 
-      return NextResponse.json({
-        success: true,
-        tournament: result.tournament || undefined,
-        cache_info: result.cache_info,
-      });
-
-    } catch (error) {
-      console.error("Error in manual tournament cache refresh:", error);
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to refresh tournament cache",
-        },
-        { status: 500 }
-      );
-    }
   } catch (error) {
-    console.error("Unexpected error in tournaments POST API:", error);
+    console.error("Error refreshing tournament cache:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: "Internal server error",
+        error: "Failed to refresh tournament cache",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

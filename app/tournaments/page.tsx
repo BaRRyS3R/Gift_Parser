@@ -1,89 +1,47 @@
-// src/app/tournaments/page.tsx - Упрощенная страница турниров с активным турниром
+// src/app/tournaments/page.tsx - ИСПРАВЛЕНО: упрощенная страница БЕЗ автообновления
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardHeader, CardBody, Button, Spinner, Avatar } from "@nextui-org/react";
+import { Card, CardHeader, CardBody, Button, Spinner } from "@nextui-org/react";
 import {
   Trophy,
-  Target,
-  Crown,
-  Medal,
-  Award,
+  Clock,
   AlertTriangle,
-  Star,
-  TrendingUp,
-  Zap,
-  Users,
   ArrowLeft,
   Play,
-  Clock,
-  Calendar,
-  Info,
+  Target,
+  Users,
+  Zap,
+  RefreshCw,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useT } from "@/contexts/LocalizationContext";
+import type {
+  Tournament,
+  OptimizedTournamentLeaderboardEntry,
+  TournamentUserPosition,
+} from "@/types/tournaments";
 
-// Tournament interfaces
-interface Tournament {
-  id: string;
-  name: string;
-  description?: string;
-  mode: "survival" | "physics" | "rotation";
-  start_time: string;
-  end_time: string;
-  status: "upcoming" | "active" | "completed" | "cancelled";
-  prizes: Prize[];
-  created_at: string;
-  updated_at: string;
-}
-
-interface Prize {
-  place: number | string;
-  prize: string;
-}
-
-interface PublicTournamentLeaderboardEntry {
-  tournament_id: string;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  best_score: number;
-}
-
-interface TournamentUserPosition {
-  position: number;
-  entry: PublicTournamentLeaderboardEntry;
-}
-
-interface TournamentStats {
-  totalParticipants: number;
-  totalGames: number;
-  averageScore: number;
-  highestScore: number;
-}
-
-interface PublicTournamentData {
-  tournament: Tournament;
-  leaderboard: PublicTournamentLeaderboardEntry[];
-  userPosition?: TournamentUserPosition;
-  stats: TournamentStats;
-}
-
-interface TournamentResponse {
-  success: boolean;
-  tournament?: PublicTournamentData;
-  cache_info?: {
-    is_from_cache: boolean;
-    cached_at?: number;
+// ✅ УПРОЩЕННЫЕ интерфейсы (только активный турнир)
+interface TournamentPageState {
+  activeTournament: Tournament | null;
+  leaderboard: OptimizedTournamentLeaderboardEntry[];
+  userPosition: TournamentUserPosition | null;
+  isLoading: boolean;
+  isLeaderboardLoading: boolean;
+  error: string | null;
+  leaderboardError: string | null;
+  cacheInfo: {
+    tournament_from_cache?: boolean;
+    leaderboard_from_cache?: boolean;
     cache_age_seconds?: number;
-    next_update_in_seconds?: number;
   };
-  error?: string;
 }
 
-// Future Tech colors for game modes
+// Future Tech цвета для режимов
 function getFutureTechModeColors(mode: string) {
   switch (mode) {
     case "survival":
@@ -133,7 +91,7 @@ function getFutureTechModeColors(mode: string) {
   }
 }
 
-// Get mode icon
+// Получение иконки режима
 function getModeIcon(mode: string) {
   switch (mode) {
     case "survival":
@@ -147,7 +105,7 @@ function getModeIcon(mode: string) {
   }
 }
 
-// Format time remaining
+// Форматирование времени
 function formatTimeRemaining(endTime: string): string {
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
@@ -157,402 +115,258 @@ function formatTimeRemaining(endTime: string): string {
 
   const hours = Math.floor(remaining / (1000 * 60 * 60));
   const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
 
   if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
+  return `${minutes}m`;
 }
 
-// Format large numbers
+// Форматирование больших чисел
 function formatNumber(num: number): string {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + "M";
-  }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + "K";
-  }
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
   return num.toString();
 }
 
-// Get position icon
-function getPositionIcon(position: number): React.ComponentType<any> | null {
-  switch (position) {
-    case 1:
-      return Crown;
-    case 2:
-    case 3:
-      return Medal;
-    default:
-      return position <= 10 ? Award : null;
-  }
-}
-
-// Get position color
+// Получение цвета позиции
 function getPositionColor(position: number): string {
   switch (position) {
-    case 1:
-      return "#ffd700";
-    case 2:
-      return "#c0c0c0";
-    case 3:
-      return "#cd7f32";
-    default:
-      return position <= 10 ? "#3b82f6" : "#64748b";
+    case 1: return "#ffd700";
+    case 2: return "#c0c0c0";
+    case 3: return "#cd7f32";
+    default: return position <= 10 ? "#3b82f6" : "#64748b";
   }
 }
 
-// Check if entry belongs to current user
-function isCurrentUserEntry(
-  entry: PublicTournamentLeaderboardEntry,
-  user: any,
-): boolean {
-  if (!user) return false;
-
-  const entryFullName = `${entry.first_name} ${entry.last_name || ""}`.trim();
-  const userFullName = `${user.first_name} ${user.last_name || ""}`.trim();
-
-  if (entry.username && user.username) {
-    return entry.username === user.username;
-  }
-
-  return entryFullName === userFullName;
-}
-
-// Tournament Status Component
-function TournamentStatus({ status, colors }: { status: string; colors: any }) {
-  const statusConfig = {
-    active: { icon: "🟢", text: "ACTIVE", pulse: true },
-    upcoming: { icon: "🔵", text: "UPCOMING", pulse: false },
-    completed: { icon: "⚫", text: "COMPLETED", pulse: false },
-    cancelled: { icon: "🔴", text: "CANCELLED", pulse: false },
-  };
-
-  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.upcoming;
-
-  return (
-    <div
-      className={`inline-flex items-center gap-2 px-3 py-1 rounded border ${colors.border} ${colors.bg}`}
-    >
-      <span className={config.pulse ? "animate-pulse" : ""}>{config.icon}</span>
-      <span className={`text-xs font-mono ${colors.text}`}>{config.text}</span>
-    </div>
-  );
-}
-
-// Tournament Stats Component
-function TournamentStatsDisplay({
-  tournament,
-  stats,
-  colors,
-}: {
-  tournament: Tournament;
-  stats: TournamentStats;
-  colors: any;
-}) {
-  const statsData = [
-    {
-      label: "PARTICIPANTS",
-      value: stats.totalParticipants.toString(),
-      icon: Users,
-    },
-    {
-      label: "TOTAL GAMES",
-      value: stats.totalGames.toString(),
-      icon: Target,
-    },
-    {
-      label: "HIGH SCORE",
-      value: formatNumber(stats.highestScore),
-      icon: Trophy,
-    },
-    {
-      label: "AVG SCORE",
-      value: formatNumber(stats.averageScore),
-      icon: TrendingUp,
-    },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-      {statsData.map((stat, index) => {
-        const IconComponent = stat.icon;
-        return (
-          <div
-            key={index}
-            className="p-3 rounded border bg-black/40 text-center"
-            style={{
-              borderColor: colors.primary + "30",
-              backgroundColor: colors.primary + "05",
-            }}
-          >
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <IconComponent size={12} style={{ color: colors.primary }} />
-              <span className="text-xs font-mono text-white/60">{stat.label}</span>
-            </div>
-            <div className="text-lg font-mono font-bold text-white">{stat.value}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// Prizes Display Component
-function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
-  if (!prizes || prizes.length === 0) return null;
-
-  const prizeIcons = ["🥇", "🥈", "🥉", "🏆", "💎"];
-
-  return (
-    <div className="space-y-3 mb-6">
-      <div className="flex items-center gap-2 text-xs font-mono text-white/60">
-        <Trophy size={12} />
-        <span>PRIZE POOL ({prizes.length} POSITIONS)</span>
-      </div>
-      
-      <div className="space-y-2 max-h-60 overflow-y-auto">
-        {prizes.map((prize, index) => {
-          const prizeColor = getPositionColor(index + 1);
-          const prizeIcon = prizeIcons[index] || "🎁";
-
-          // Extract attempts from prize description if mentioned
-          const attemptsMatch = prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i);
-          const attempts = attemptsMatch ? parseInt(attemptsMatch[1]) : null;
-
-          return (
-            <div
-              key={index}
-              className="flex items-center justify-between p-3 rounded border bg-black/40"
-              style={{
-                borderColor: prizeColor + "40",
-                boxShadow: `0 0 8px ${prizeColor}20`,
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">{prizeIcon}</span>
-                <div>
-                  <div
-                    className="text-sm font-mono font-bold"
-                    style={{ color: prizeColor }}
-                  >
-                    {typeof prize.place === "string" ? prize.place : `#${prize.place}`}
-                  </div>
-                  <div className="text-xs text-white/60 font-mono">PLACE</div>
-                </div>
-              </div>
-              <div className="text-right max-w-[200px]">
-                <div className="text-sm text-white font-mono text-right break-words">
-                  {prize.prize}
-                </div>
-                {attempts && (
-                  <div
-                    className="text-xs font-mono mt-1"
-                    style={{ color: colors.primary }}
-                  >
-                    +{attempts} ATTEMPTS
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// Leaderboard Entry Component
+// Компонент записи лидерборда
 function LeaderboardEntry({
   entry,
   position,
   colors,
-  isCurrentUser = false,
 }: {
-  entry: PublicTournamentLeaderboardEntry;
+  entry: OptimizedTournamentLeaderboardEntry;
   position: number;
   colors: any;
-  isCurrentUser?: boolean;
 }) {
-  const PositionIcon = getPositionIcon(position);
   const positionColor = getPositionColor(position);
+  const positionIcons = ["👑", "🥈", "🥉"];
 
   return (
-    <Card
-      className={`bg-black/60 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.01] ${
-        isCurrentUser
-          ? `border-2 ${colors.border}`
-          : "border-white/10 hover:border-white/20"
+    <div
+      className={`flex items-center justify-between p-3 rounded border transition-all duration-300 ${
+        entry.isCurrentUser
+          ? `border-2 ${colors.border} bg-gradient-to-r ${colors.bg}`
+          : "border-white/10 hover:border-white/20 bg-black/40"
       }`}
       style={{
-        boxShadow: isCurrentUser ? `0 0 15px ${colors.glow}` : "none",
+        boxShadow: entry.isCurrentUser ? `0 0 15px ${colors.glow}` : "none",
       }}
     >
-      <CardBody className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Position */}
-            <div
-              className="flex items-center justify-center w-10 h-10 rounded border"
-              style={{
-                borderColor: positionColor + "60",
-                backgroundColor: positionColor + "20",
-              }}
+      <div className="flex items-center gap-3">
+        {/* Position */}
+        <div
+          className="flex items-center justify-center w-8 h-8 rounded border"
+          style={{
+            borderColor: positionColor + "60",
+            backgroundColor: positionColor + "20",
+          }}
+        >
+          {position <= 3 ? (
+            <span className="text-sm">{positionIcons[position - 1]}</span>
+          ) : (
+            <span
+              className="text-xs font-mono font-bold"
+              style={{ color: positionColor }}
             >
-              {PositionIcon ? (
-                <PositionIcon
-                  className="text-sm"
-                  size={16}
-                  style={{ color: positionColor }}
-                />
-              ) : (
-                <span
-                  className="text-sm font-mono font-bold"
-                  style={{ color: positionColor }}
-                >
-                  {position}
-                </span>
-              )}
-            </div>
+              {position}
+            </span>
+          )}
+        </div>
 
-            {/* User info */}
-            <div className="flex items-center gap-3">
-              <Avatar
-                className="bg-white/20 text-white border"
-                name={entry.first_name.charAt(0)}
-                size="sm"
-                style={{
-                  borderColor: isCurrentUser ? colors.primary : "transparent",
-                }}
-              />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-mono text-base truncate">
-                    {entry.first_name}
-                    {entry.last_name && ` ${entry.last_name.charAt(0)}.`}
-                  </span>
-                  {isCurrentUser && (
-                    <Star className="text-yellow-400 fill-current" size={12} />
-                  )}
-                </div>
-                {entry.username && (
-                  <span className="text-white/50 text-sm font-mono">
-                    @{entry.username.length > 15 ? entry.username.substring(0, 15) + "..." : entry.username}
-                  </span>
-                )}
-              </div>
-            </div>
+        {/* User info */}
+        <div>
+          <div className="flex items-center gap-1">
+            <span className="text-white font-mono text-sm">
+              {entry.first_name}
+              {entry.last_name && ` ${entry.last_name.charAt(0)}.`}
+            </span>
+            {entry.isCurrentUser && (
+              <span className="text-yellow-400">⭐</span>
+            )}
           </div>
+          {entry.username && (
+            <span className="text-white/50 text-xs font-mono">
+              @{entry.username.length > 12
+                ? entry.username.substring(0, 12) + "..."
+                : entry.username}
+            </span>
+          )}
+        </div>
+      </div>
 
-          {/* Score */}
-          <div className="text-right">
-            <div
-              className="text-lg font-mono font-bold"
-              style={{ color: isCurrentUser ? colors.primary : "#ffffff" }}
-            >
-              {formatNumber(entry.best_score)}
-            </div>
-            <div className="text-xs text-white/50 font-mono">POINTS</div>
-          </div>
+      {/* Score */}
+      <div className="text-right">
+        <div
+          className="text-sm font-mono font-bold"
+          style={{ color: entry.isCurrentUser ? colors.primary : "#ffffff" }}
+        >
+          {formatNumber(entry.best_score)}
         </div>
-      </CardBody>
-    </Card>
-  );
-}
-
-// Empty State Component
-function EmptyTournamentState() {
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center safe-area-inset">
-      <div className="text-center space-y-6 p-6">
-        <div className="relative mb-6">
-          <Trophy className="text-white/20 mx-auto" size={80} />
-          <div className="absolute inset-0 bg-white/5 blur-xl rounded-full" />
-        </div>
-        <div className="space-y-3">
-          <h1 className="text-2xl font-bold text-white font-mono">NO ACTIVE TOURNAMENT</h1>
-          <p className="text-white/60 font-mono text-sm max-w-md">
-            There are currently no active tournaments. Check back soon for upcoming competitions and challenges!
-          </p>
-        </div>
-        <div className="pt-4">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded border border-blue-500/30 bg-blue-500/10">
-            <Clock className="text-blue-400" size={16} />
-            <span className="text-blue-400 font-mono text-sm">COMING SOON</span>
-          </div>
-        </div>
+        <div className="text-xs text-white/50 font-mono">PTS</div>
       </div>
     </div>
   );
 }
 
+// Главный компонент страницы
 function TournamentsPageContent() {
   const router = useRouter();
-  const { user, makeAuthenticatedRequest } = useUser();
+  const { makeAuthenticatedRequest } = useUser();
+  const t = useT();
 
-  const [tournamentData, setTournamentData] = useState<PublicTournamentData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<TournamentPageState>({
+    activeTournament: null,
+    leaderboard: [],
+    userPosition: null,
+    isLoading: true,
+    isLeaderboardLoading: false,
+    error: null,
+    leaderboardError: null,
+    cacheInfo: {},
+  });
+
   const [timeLeft, setTimeLeft] = useState<string>("");
-  const [cacheInfo, setCacheInfo] = useState<any>(null);
 
-  const fetchTournamentData = useCallback(async () => {
+  // ✅ ИСПРАВЛЕНО: получение активного турнира БЕЗ автообновления
+  const fetchActiveTournament = useCallback(async (force: boolean = false) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      const response = await makeAuthenticatedRequest("/api/tournaments");
+      const endpoint = force ? "/api/tournaments" : "/api/tournaments";
+      const response = await makeAuthenticatedRequest(endpoint, {
+        method: force ? "POST" : "GET",
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch tournament data");
+        throw new Error("Failed to fetch active tournament");
       }
 
-      const result: TournamentResponse = await response.json();
+      const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || "Failed to fetch tournament data");
+        throw new Error(result.error || "Failed to fetch tournament");
       }
 
-      setTournamentData(result.tournament || null);
-      setCacheInfo(result.cache_info || null);
+      setState(prev => ({
+        ...prev,
+        activeTournament: result.tournament,
+        isLoading: false,
+        error: null,
+        cacheInfo: {
+          ...prev.cacheInfo,
+          tournament_from_cache: result.cache_info?.is_from_cache,
+          cache_age_seconds: result.cache_info?.cache_age_seconds,
+        },
+      }));
+
+      // Если есть активный турнир, загружаем его лидерборд
+      if (result.tournament) {
+        await fetchTournamentLeaderboard(result.tournament.id, force);
+      }
 
     } catch (error) {
-      console.error("Error fetching tournament data:", error);
-      setError(error instanceof Error ? error.message : "Failed to fetch tournament data");
-    } finally {
-      setIsLoading(false);
+      console.error("Error fetching active tournament:", error);
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : "Failed to fetch tournament",
+      }));
     }
   }, [makeAuthenticatedRequest]);
 
-  const handlePlayNow = useCallback(() => {
-    router.push("/game");
-  }, [router]);
+  // ✅ ИСПРАВЛЕНО: получение лидерборда БЕЗ автообновления
+  const fetchTournamentLeaderboard = useCallback(async (
+    tournamentId: string,
+    force: boolean = false
+  ) => {
+    try {
+      setState(prev => ({ ...prev, isLeaderboardLoading: true, leaderboardError: null }));
 
-  const handleRetry = useCallback(() => {
-    setError(null);
-    fetchTournamentData();
-  }, [fetchTournamentData]);
+      const endpoint = `/api/tournaments/leaderboard?tournamentId=${encodeURIComponent(tournamentId)}${
+        force ? "&force_refresh=true" : ""
+      }`;
 
-  // Fetch data on mount
+      const response = await makeAuthenticatedRequest(endpoint);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch tournament leaderboard");
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch leaderboard");
+      }
+
+      setState(prev => ({
+        ...prev,
+        leaderboard: result.leaderboard || [],
+        userPosition: result.userPosition || null,
+        isLeaderboardLoading: false,
+        leaderboardError: null,
+        cacheInfo: {
+          ...prev.cacheInfo,
+          leaderboard_from_cache: result.cache_info?.is_from_cache,
+        },
+      }));
+
+    } catch (error) {
+      console.error("Error fetching tournament leaderboard:", error);
+      setState(prev => ({
+        ...prev,
+        isLeaderboardLoading: false,
+        leaderboardError: error instanceof Error ? error.message : "Failed to fetch leaderboard",
+      }));
+    }
+  }, [makeAuthenticatedRequest]);
+
+  // Обновление таймера
   useEffect(() => {
-    fetchTournamentData();
-  }, [fetchTournamentData]);
-
-  // Update countdown timer
-  useEffect(() => {
-    if (!tournamentData?.tournament || tournamentData.tournament.status !== "active") return;
+    if (!state.activeTournament) return;
 
     const updateTimer = () => {
-      setTimeLeft(formatTimeRemaining(tournamentData.tournament.end_time));
+      if (state.activeTournament?.status === "active") {
+        setTimeLeft(formatTimeRemaining(state.activeTournament.end_time));
+      }
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 1000);
+    const interval = setInterval(updateTimer, 60000); // Обновление каждую минуту
 
     return () => clearInterval(interval);
-  }, [tournamentData]);
+  }, [state.activeTournament]);
 
-  // Setup Telegram Back Button
+  // Начальная загрузка
+  useEffect(() => {
+    fetchActiveTournament();
+  }, [fetchActiveTournament]);
+
+  // ✅ УБРАНО: автообновление каждые 30 секунд
+
+  // Обработчики
+  const handlePlayTournament = useCallback(() => {
+    router.push("/game");
+  }, [router]);
+
+  const handleRefresh = useCallback(() => {
+    fetchActiveTournament(true); // Force refresh
+  }, [fetchActiveTournament]);
+
+  const handleRetry = useCallback(() => {
+    setState(prev => ({ ...prev, error: null, leaderboardError: null }));
+    fetchActiveTournament();
+  }, [fetchActiveTournament]);
+
+  // Telegram WebApp back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -569,18 +383,12 @@ function TournamentsPageContent() {
     }
   }, [router]);
 
-  // Auto-refresh every 30 seconds for active tournaments
-  useEffect(() => {
-    if (tournamentData?.tournament?.status === "active") {
-      const interval = setInterval(() => {
-        fetchTournamentData();
-      }, 30000);
+  // Определение цветов активного турнира
+  const colors = state.activeTournament 
+    ? getFutureTechModeColors(state.activeTournament.mode)
+    : getFutureTechModeColors("survival");
 
-      return () => clearInterval(interval);
-    }
-  }, [tournamentData?.tournament?.status, fetchTournamentData]);
-
-  if (isLoading) {
+  if (state.isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center safe-area-inset">
         <div className="text-center space-y-4">
@@ -588,13 +396,15 @@ function TournamentsPageContent() {
             <Spinner color="primary" size="lg" />
             <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
           </div>
-          <p className="text-white/80 font-mono text-sm">LOADING TOURNAMENT DATA...</p>
+          <p className="text-white/80 font-mono text-sm">
+            LOADING TOURNAMENT DATA...
+          </p>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (state.error) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center safe-area-inset">
         <div className="text-center space-y-6 p-6">
@@ -603,8 +413,10 @@ function TournamentsPageContent() {
             <div className="absolute inset-0 bg-red-500/20 rounded-full blur-xl" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white font-mono">SYSTEM ERROR</h2>
-            <p className="text-red-400 font-mono text-sm">{error}</p>
+            <h2 className="text-xl font-bold text-white font-mono">
+              SYSTEM ERROR
+            </h2>
+            <p className="text-red-400 font-mono text-sm">{state.error}</p>
           </div>
           <div className="flex gap-3 justify-center">
             <Button
@@ -627,192 +439,209 @@ function TournamentsPageContent() {
     );
   }
 
-  if (!tournamentData) {
-    return <EmptyTournamentState />;
-  }
-
-  const { tournament, leaderboard, userPosition, stats } = tournamentData;
-  const colors = getFutureTechModeColors(tournament.mode);
-  const modeIcon = getModeIcon(tournament.mode);
-
   return (
     <div className="min-h-screen bg-black safe-area-inset-bottom safe-area-inset">
       <div className="px-4 pb-8">
-        {/* Tournament Header */}
-        <div className="mb-6 pt-4">
-          <Card
-            className="bg-black/80 backdrop-blur-sm border-2"
-            style={{
-              borderColor: colors.primary + "60",
-              boxShadow: `0 0 30px ${colors.glow}`,
-            }}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-16 h-16 rounded border flex items-center justify-center"
-                    style={{
-                      backgroundColor: colors.primary + "20",
-                      borderColor: colors.primary + "60",
-                      boxShadow: `0 0 15px ${colors.glow}`,
-                    }}
-                  >
-                    <span className="text-2xl">{modeIcon}</span>
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-white font-mono">
-                      {tournament.name}
-                    </h1>
-                    <p
-                      className="text-sm font-mono capitalize"
-                      style={{ color: colors.primary }}
-                    >
-                      {tournament.mode} TOURNAMENT
-                    </p>
-                    <div className="mt-2">
-                      <TournamentStatus colors={colors} status={tournament.status} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Time Display */}
-                {tournament.status === "active" && timeLeft && (
-                  <div className="text-right">
-                    <div className="text-xs text-white/60 font-mono">ENDS IN</div>
-                    <div
-                      className="text-xl font-mono font-bold"
-                      style={{ color: colors.primary }}
-                    >
-                      {timeLeft}
-                    </div>
-                  </div>
-                )}
+        {/* Header */}
+        <div className="text-center space-y-3 mb-8 pt-6">
+          <div className="relative">
+            <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">
+              TOURNAMENT
+            </h1>
+            <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full animate-pulse" />
+          </div>
+          <div className="h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+          <div className="flex items-center justify-center gap-2">
+            <p className="text-blue-400/80 text-xs font-mono tracking-widest">
+              COMPETE FOR GLORY
+            </p>
+            {/* Cache indicator */}
+            {state.cacheInfo.tournament_from_cache && (
+              <div className="text-xs text-green-400/60 font-mono">
+                [CACHED]
               </div>
-            </CardHeader>
+            )}
+          </div>
+        </div>
 
-            <CardBody className="pt-0">
-              {tournament.description && (
-                <p className="text-sm text-white/80 font-mono mb-4">
-                  {tournament.description}
-                </p>
-              )}
-              
-              {/* Play Button */}
-              {tournament.status === "active" && (
-                <div className="mb-4">
+        {/* Active Tournament */}
+        {state.activeTournament ? (
+          <div className="space-y-6">
+            {/* Tournament Info */}
+            <Card
+              className="bg-black/80 backdrop-blur-sm border-2"
+              style={{
+                borderColor: colors.primary + "60",
+                boxShadow: `0 0 30px ${colors.glow}`,
+              }}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-12 h-12 rounded border flex items-center justify-center"
+                      style={{
+                        backgroundColor: colors.primary + "20",
+                        borderColor: colors.primary + "60",
+                        boxShadow: `0 0 15px ${colors.glow}`,
+                      }}
+                    >
+                      <span className="text-xl">{getModeIcon(state.activeTournament.mode)}</span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white font-mono">
+                        {state.activeTournament.name}
+                      </h2>
+                      <p
+                        className="text-sm font-mono"
+                        style={{ color: colors.primary }}
+                      >
+                        {state.activeTournament.mode.toUpperCase()} MODE
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Time Display */}
+                  {state.activeTournament.status === "active" && timeLeft && (
+                    <div className="text-right">
+                      <div className="text-xs text-white/60 font-mono">ENDS IN</div>
+                      <div
+                        className="text-lg font-mono font-bold"
+                        style={{ color: colors.primary }}
+                      >
+                        {timeLeft}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardBody className="pt-0">
+                <div className="flex gap-3">
                   <Button
-                    className="w-full bg-transparent border-2 font-mono"
-                    size="lg"
-                    startContent={<Play size={20} />}
+                    className="flex-1 bg-transparent border font-mono"
+                    startContent={<Play size={16} />}
                     style={{
-                      borderColor: colors.primary + "80",
+                      borderColor: colors.primary + "60",
                       color: colors.primary,
                     }}
-                    onClick={handlePlayNow}
+                    onClick={handlePlayTournament}
                   >
                     PLAY NOW
                   </Button>
+                  <Button
+                    className="bg-transparent border border-white/30 text-white font-mono"
+                    startContent={<RefreshCw size={16} />}
+                    onClick={handleRefresh}
+                  >
+                    REFRESH
+                  </Button>
                 </div>
-              )}
-            </CardBody>
-          </Card>
-        </div>
+              </CardBody>
+            </Card>
 
-        {/* Tournament Stats */}
-        <TournamentStatsDisplay colors={colors} stats={stats} tournament={tournament} />
+            {/* User Position */}
+            {state.userPosition && (
+              <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+                <CardBody className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Trophy className="text-yellow-400" size={20} />
+                      <div>
+                        <div className="text-yellow-400 font-mono text-sm font-bold">
+                          YOUR POSITION
+                        </div>
+                        <div className="text-white font-mono text-xs">
+                          {state.userPosition.entry.best_score} POINTS
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className="text-2xl font-bold font-mono"
+                      style={{ color: getPositionColor(state.userPosition.position) }}
+                    >
+                      #{state.userPosition.position}
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
 
-        {/* User Position (if participating) */}
-        {userPosition && (
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp size={12} style={{ color: colors.primary }} />
-                <h2
-                  className="text-xs font-mono tracking-wider"
-                  style={{ color: colors.primary }}
-                >
-                  YOUR POSITION
-                </h2>
-              </div>
-              <div
-                className="flex-1 h-px bg-gradient-to-r to-transparent"
-                style={{
-                  backgroundImage: `linear-gradient(to right, ${colors.primary}60, transparent)`,
-                }}
-              />
-            </div>
-            <LeaderboardEntry
-              colors={colors}
-              entry={userPosition.entry}
-              isCurrentUser={true}
-              position={userPosition.position}
-            />
+            {/* Leaderboard */}
+            <Card className="bg-black/60 border border-white/20">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="text-yellow-400" size={16} />
+                    <h3 className="text-lg font-bold text-white font-mono">
+                      LEADERBOARD
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-white/60 font-mono">
+                    <Users size={12} />
+                    <span>{state.leaderboard.length}</span>
+                    {state.cacheInfo.leaderboard_from_cache && (
+                      <div className="text-xs text-green-400/60">[CACHED]</div>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardBody className="pt-0">
+                {state.isLeaderboardLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Spinner color="primary" size="sm" />
+                  </div>
+                ) : state.leaderboardError ? (
+                  <div className="text-center py-8">
+                    <p className="text-red-400 font-mono text-sm">
+                      {state.leaderboardError}
+                    </p>
+                  </div>
+                ) : state.leaderboard.length > 0 ? (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {state.leaderboard.map((entry, index) => (
+                      <LeaderboardEntry
+                        key={`${entry.first_name}-${index}`}
+                        entry={entry}
+                        position={index + 1}
+                        colors={colors}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Target className="text-white/20 mx-auto mb-2" size={32} />
+                    <p className="text-white/60 font-mono text-sm">
+                      NO PARTICIPANTS YET
+                    </p>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
           </div>
-        )}
-
-        {/* Prizes */}
-        {tournament.prizes && tournament.prizes.length > 0 && (
-          <PrizesDisplay colors={colors} prizes={tournament.prizes} />
-        )}
-
-        {/* Leaderboard */}
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Trophy className="text-yellow-400" size={12} />
-              <h2 className="text-xs font-mono text-yellow-400 tracking-wider">
-                LEADERBOARD
-              </h2>
+        ) : (
+          // No Active Tournament
+          <div className="text-center py-12">
+            <div className="relative mb-6">
+              <Trophy className="text-white/20 mx-auto" size={64} />
+              <div className="absolute inset-0 bg-white/5 blur-xl rounded-full" />
             </div>
-            <div className="flex-1 h-px bg-gradient-to-r from-yellow-500/50 to-transparent" />
-            <div className="flex items-center gap-1 text-xs font-mono text-white/50">
-              <Users size={10} />
-              <span>{leaderboard.length}</span>
-            </div>
-          </div>
-
-          {leaderboard.length > 0 ? (
             <div className="space-y-2">
-              {leaderboard.map((entry, index) => {
-                const position = index + 1;
-                const isCurrentUser = isCurrentUserEntry(entry, user);
-
-                return (
-                  <LeaderboardEntry
-                    key={`${entry.tournament_id}-${entry.first_name}-${position}`}
-                    colors={colors}
-                    entry={entry}
-                    isCurrentUser={isCurrentUser}
-                    position={position}
-                  />
-                );
-              })}
+              <h2 className="text-xl font-bold text-white font-mono">
+                NO ACTIVE TOURNAMENT
+              </h2>
+              <p className="text-white/60 font-mono text-sm">
+                CHECK BACK SOON FOR THE NEXT COMPETITION
+              </p>
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="relative mb-6">
-                <Trophy className="text-white/20 mx-auto" size={48} />
-                <div className="absolute inset-0 bg-white/5 blur-xl rounded-full" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold text-white font-mono">NO PARTICIPANTS YET</h3>
-                <p className="text-white/60 font-mono text-sm">
-                  Be the first to join this tournament!
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Cache Info (for debugging) */}
-        {cacheInfo && process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-2 rounded bg-black/40 border border-white/10">
-            <div className="text-xs font-mono text-white/50">
-              Cache: {cacheInfo.is_from_cache ? "HIT" : "MISS"} | 
-              Age: {cacheInfo.cache_age_seconds}s | 
-              Next: {cacheInfo.next_update_in_seconds}s
-            </div>
+            <Button
+              className="mt-6 bg-white/10 border border-white/30 text-white font-mono"
+              startContent={<RefreshCw size={16} />}
+              onClick={handleRefresh}
+            >
+              CHECK FOR UPDATES
+            </Button>
           </div>
         )}
       </div>

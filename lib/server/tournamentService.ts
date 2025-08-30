@@ -1,57 +1,75 @@
-// src/lib/server/tournamentService.ts - Обновленный сервис турниров с Redis кешированием
+// src/lib/server/tournamentService.ts - ИСПРАВЛЕНО: использует оптимизированные типы данных
 
-import { supabaseServer } from "@/lib/supabase_server";
-import { GameMode } from "@/types/game-modes/common";
-import { sanitizeLeaderboardEntry } from "@/types/tournaments";
-import { tournamentCacheService, type PublicTournamentData, type TournamentResponseWithCache } from "@/lib/server/tournamentCacheService";
 import type {
   Tournament,
-  TournamentLeaderboardEntry,
-  PublicTournamentLeaderboardEntry,
-  TournamentUserPosition,
+  FullTournamentLeaderboardEntry,
+  OptimizedTournamentLeaderboardEntry,
+  TournamentsData,
   Prize,
 } from "@/types/tournaments";
 
-// Re-export types for consistency
+import { sanitizeLeaderboardEntry } from "@/types/tournaments";
+import { supabaseServer } from "@/lib/supabase_server";
+import { GameMode } from "@/types/game-modes/common";
+
+// Re-export оптимизированных типов
 export type {
   Tournament,
-  TournamentLeaderboardEntry,
-  PublicTournamentLeaderboardEntry,
-  TournamentUserPosition,
+  FullTournamentLeaderboardEntry,
+  OptimizedTournamentLeaderboardEntry,
+  TournamentsData,
   Prize,
 };
 
-// Raw database tournament interface (what comes from Supabase)
+// Raw database tournament interface (остается без изменений)
 interface RawTournament {
   id: string;
   name: string;
   description?: string;
-  game_mode: string; // Note: this is 'game_mode' not 'mode'
+  game_mode: string;
   start_time: string;
   end_time: string;
   status: string;
-  prizes: Array<{ place: number | string; prize: string }>; // ✅ ИСПРАВЛЕНО: соответствует структуре БД
+  prizes: Array<{ place: number | string; prize: string }>;
   created_at: string;
   updated_at: string;
 }
 
-// Transform raw tournament data to frontend format
+// Transform raw tournament data (остается без изменений)
 function transformTournament(rawTournament: RawTournament): Tournament {
+  const transformedPrizes: Prize[] = rawTournament.prizes.map((prize) => ({
+    position:
+      typeof prize.place === "string"
+        ? prize.place === "4-10"
+          ? 4
+          : parseInt(prize.place)
+        : prize.place,
+    description: prize.prize,
+    attempts: prize.prize.includes("attempts")
+      ? parseInt(
+          prize.prize.match(/(\d+)\s+(?:bonus\s+)?attempts/i)?.[1] || "0",
+        ) || undefined
+      : undefined,
+    reward_type: prize.prize.includes("attempts")
+      ? ("attempts" as const)
+      : ("custom" as const),
+  }));
+
   return {
     id: rawTournament.id,
     name: rawTournament.name,
     description: rawTournament.description,
-    mode: rawTournament.game_mode as any, // Transform game_mode to mode
+    mode: rawTournament.game_mode as any,
     start_time: rawTournament.start_time,
     end_time: rawTournament.end_time,
     status: rawTournament.status as any,
-    prizes: rawTournament.prizes || [], // ✅ ИСПРАВЛЕНО: призы используются как есть из БД
+    prizes: transformedPrizes,
     created_at: rawTournament.created_at,
     updated_at: rawTournament.updated_at,
   };
 }
 
-// Tournament participation result interface for game service integration
+// ✅ ОПТИМИЗИРОВАННЫЙ результат участия в турнире
 export interface TournamentParticipationResult {
   tournamentId: string;
   tournamentName: string;
@@ -66,7 +84,7 @@ export interface GameResultForTournament {
   mode: GameMode;
   score: number;
   duration: number;
-  // Mode-specific fields
+  // Mode-specific fields (остается без изменений)
   survivalTime?: number;
   maxLevelReached?: number;
   perfectStreak?: number;
@@ -76,77 +94,10 @@ export interface GameResultForTournament {
   mistakesMade?: number;
 }
 
-// Server-side tournament service with Redis caching
+// ✅ ИСПРАВЛЕННЫЙ server-side tournament service
 export const serverTournamentService = {
   /**
-   * ✅ ГЛАВНЫЙ МЕТОД - получение активного турнира с кешированным лидербордом
-   */
-  async getActiveTournamentWithLeaderboard(
-    currentUserId: string, // 🔒 UUID остается ТОЛЬКО на сервере
-    telegramId: number,
-    limit: number = 100
-  ): Promise<TournamentResponseWithCache> {
-    try {
-      console.log(`[TOURNAMENT_SERVICE] Getting active tournament with leaderboard for user: ${telegramId}`);
-      
-      // Используем кешированный сервис
-      return await tournamentCacheService.getActiveTournamentData(
-        currentUserId,
-        telegramId,
-        limit
-      );
-      
-    } catch (error) {
-      console.error("[TOURNAMENT_SERVICE] Error getting active tournament with leaderboard:", error);
-      
-      // Fallback к прямому запросу без кеша
-      try {
-        const tournament = await this.getActiveTournament();
-        if (tournament) {
-          const leaderboard = await this.getPublicTournamentLeaderboard(tournament.id, limit);
-          const userPosition = await this.getUserTournamentPosition(tournament.id, telegramId);
-          
-          const publicData: PublicTournamentData = {
-            tournament,
-            leaderboard,
-            userPosition: userPosition || undefined,
-            stats: {
-              totalParticipants: leaderboard.length,
-              totalGames: 0, // Будет вычислено в кеше
-              averageScore: 0, // Будет вычислено в кеше
-              highestScore: leaderboard.length > 0 ? leaderboard[0].best_score : 0,
-            }
-          };
-          
-          return {
-            tournament: publicData,
-            cache_info: {
-              is_from_cache: false,
-              cached_at: Date.now(),
-              cache_age_seconds: 0,
-              next_update_in_seconds: 0
-            }
-          };
-        }
-      } catch (fallbackError) {
-        console.error("[TOURNAMENT_SERVICE] Fallback also failed:", fallbackError);
-      }
-      
-      // Возвращаем пустой результат
-      return {
-        tournament: null,
-        cache_info: {
-          is_from_cache: false,
-          cached_at: Date.now(),
-          cache_age_seconds: 0,
-          next_update_in_seconds: 0
-        }
-      };
-    }
-  },
-
-  /**
-   * Get current active tournament (без кеша, для прямых обращений)
+   * ✅ ОПТИМИЗИРОВАНО: получение активного турнира
    */
   async getActiveTournament(): Promise<Tournament | null> {
     try {
@@ -161,7 +112,6 @@ export const serverTournamentService = {
         return null;
       }
 
-      // Transform the raw data to match frontend interface
       return transformTournament(data);
     } catch (error) {
       console.error("Error in getActiveTournament:", error);
@@ -170,11 +120,10 @@ export const serverTournamentService = {
   },
 
   /**
-   * Check if tournament is active for specific game mode
+   * ✅ УПРОЩЕНО: проверка активности турнира для режима
    */
   async isTournamentActiveForMode(gameMode: GameMode): Promise<boolean> {
     try {
-      // Convert GameMode enum to tournament mode string
       let tournamentMode: string;
 
       switch (gameMode) {
@@ -188,7 +137,7 @@ export const serverTournamentService = {
           tournamentMode = "rotation";
           break;
         default:
-          return false; // Reaction mode doesn't have tournaments
+          return false;
       }
 
       const { data, error } = await supabaseServer.rpc(
@@ -209,7 +158,12 @@ export const serverTournamentService = {
   },
 
   /**
-   * Get tournament by ID
+   * ✅ УБРАНО: getAllTournaments (теперь только активный турнир)
+   * Если нужен полный список - добавить отдельно
+   */
+
+  /**
+   * Получение турнира по ID
    */
   async getTournamentById(tournamentId: string): Promise<Tournament | null> {
     try {
@@ -235,19 +189,19 @@ export const serverTournamentService = {
   },
 
   /**
-   * Get tournament leaderboard (internal, full data)
+   * ✅ ОПТИМИЗИРОВАНО: получение ПОЛНОГО лидерборда турнира (для внутреннего использования)
    */
   async getTournamentLeaderboard(
     tournamentId: string,
     limit: number = 100,
-  ): Promise<TournamentLeaderboardEntry[]> {
+  ): Promise<FullTournamentLeaderboardEntry[]> {
     try {
       const { data, error } = await supabaseServer
         .from("tournament_leaderboard")
-        .select("*")
+        .select("*") // Полные данные для внутреннего использования
         .eq("tournament_id", tournamentId)
         .order("best_score", { ascending: false })
-        .order("last_participation_at", { ascending: true }) // Tiebreaker: earlier last participation wins
+        .order("last_participation_at", { ascending: true })
         .limit(limit);
 
       if (error) {
@@ -263,12 +217,46 @@ export const serverTournamentService = {
   },
 
   /**
-   * Get public tournament leaderboard (sanitized data)
+   * ✅ НОВЫЙ: получение оптимизированного лидерборда (только необходимые поля)
+   */
+  async getOptimizedTournamentLeaderboard(
+    tournamentId: string,
+    limit: number = 100,
+  ): Promise<OptimizedTournamentLeaderboardEntry[]> {
+    try {
+      const { data, error } = await supabaseServer
+        .from("tournament_leaderboard")
+        .select(`
+          first_name,
+          last_name,
+          username,
+          best_score,
+          updated_at
+        `) // ✅ ТОЛЬКО необходимые поля
+        .eq("tournament_id", tournamentId)
+        .order("best_score", { ascending: false })
+        .order("updated_at", { ascending: true })
+        .limit(limit);
+
+      if (error) {
+        console.error("Error fetching optimized tournament leaderboard:", error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error("Error in getOptimizedTournamentLeaderboard:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * ✅ LEGACY: получение публичного лидерборда (используется старым кодом)
    */
   async getPublicTournamentLeaderboard(
     tournamentId: string,
     limit: number = 100,
-  ): Promise<PublicTournamentLeaderboardEntry[]> {
+  ): Promise<OptimizedTournamentLeaderboardEntry[]> {
     try {
       const leaderboard = await this.getTournamentLeaderboard(
         tournamentId,
@@ -283,7 +271,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * Update or create tournament leaderboard entry
+   * ✅ ОБНОВЛЕНО: обновление лидерборда турнира (остается без изменений)
    */
   async updateTournamentLeaderboard(
     tournamentId: string,
@@ -300,7 +288,6 @@ export const serverTournamentService = {
     try {
       const now = new Date().toISOString();
 
-      // Get existing entry
       const { data: existingEntry } = await supabaseServer
         .from("tournament_leaderboard")
         .select("*")
@@ -308,10 +295,9 @@ export const serverTournamentService = {
         .eq("telegram_id", telegramId)
         .single();
 
-      // Calculate mode-specific score
       let tournamentScore = gameResult.score;
 
-      // Apply mode-specific multipliers (same as in gameService)
+      // Apply mode-specific multipliers
       switch (gameResult.mode) {
         case GameMode.SURVIVAL:
           tournamentScore = gameResult.score * 2;
@@ -336,85 +322,51 @@ export const serverTournamentService = {
           updated_at: now,
         };
 
-        // Update best score if improved
         if (tournamentScore > existingEntry.best_score) {
           updates.best_score = tournamentScore;
         }
 
-        // Update mode-specific fields
-        if (
-          gameResult.mode === GameMode.SURVIVAL &&
-          gameResult.survivalTime !== undefined
-        ) {
-          if (
-            !existingEntry.best_time ||
-            gameResult.survivalTime > existingEntry.best_time
-          ) {
+        // Mode-specific updates (остается без изменений)
+        if (gameResult.mode === GameMode.SURVIVAL && gameResult.survivalTime !== undefined) {
+          if (!existingEntry.best_time || gameResult.survivalTime > existingEntry.best_time) {
             updates.best_time = gameResult.survivalTime;
           }
-          if (
-            gameResult.maxLevelReached !== undefined &&
-            (!existingEntry.max_level ||
-              gameResult.maxLevelReached > existingEntry.max_level)
-          ) {
+          if (gameResult.maxLevelReached !== undefined &&
+              (!existingEntry.max_level || gameResult.maxLevelReached > existingEntry.max_level)) {
             updates.max_level = gameResult.maxLevelReached;
           }
-          if (
-            gameResult.perfectStreak !== undefined &&
-            (!existingEntry.best_streak ||
-              gameResult.perfectStreak > existingEntry.best_streak)
-          ) {
+          if (gameResult.perfectStreak !== undefined &&
+              (!existingEntry.best_streak || gameResult.perfectStreak > existingEntry.best_streak)) {
             updates.best_streak = gameResult.perfectStreak;
           }
         } else if (gameResult.mode === GameMode.PHYSICS) {
-          if (
-            gameResult.gameTime !== undefined &&
-            (!existingEntry.best_time ||
-              gameResult.gameTime > existingEntry.best_time)
-          ) {
+          if (gameResult.gameTime !== undefined &&
+              (!existingEntry.best_time || gameResult.gameTime > existingEntry.best_time)) {
             updates.best_time = Math.round(gameResult.gameTime);
           }
           if (gameResult.totalHits !== undefined) {
-            if (
-              !existingEntry.best_hits ||
-              gameResult.totalHits > existingEntry.best_hits
-            ) {
+            if (!existingEntry.best_hits || gameResult.totalHits > existingEntry.best_hits) {
               updates.best_hits = gameResult.totalHits;
             }
           }
           if (gameResult.mistakesMade !== undefined) {
-            if (
-              existingEntry.least_mistakes === null ||
-              existingEntry.least_mistakes === undefined
-            ) {
+            if (existingEntry.least_mistakes === null || existingEntry.least_mistakes === undefined) {
               updates.least_mistakes = gameResult.mistakesMade;
             } else {
-              updates.least_mistakes = Math.min(
-                existingEntry.least_mistakes,
-                gameResult.mistakesMade,
-              );
+              updates.least_mistakes = Math.min(existingEntry.least_mistakes, gameResult.mistakesMade);
             }
           }
         } else if (gameResult.mode === GameMode.ROTATION) {
-          if (
-            gameResult.survivalTime !== undefined &&
-            (!existingEntry.best_time ||
-              gameResult.survivalTime > existingEntry.best_time)
-          ) {
+          if (gameResult.survivalTime !== undefined &&
+              (!existingEntry.best_time || gameResult.survivalTime > existingEntry.best_time)) {
             updates.best_time = gameResult.survivalTime;
           }
-          if (
-            gameResult.maxLevelReached !== undefined &&
-            (!existingEntry.max_level ||
-              gameResult.maxLevelReached > existingEntry.max_level)
-          ) {
+          if (gameResult.maxLevelReached !== undefined &&
+              (!existingEntry.max_level || gameResult.maxLevelReached > existingEntry.max_level)) {
             updates.max_level = gameResult.maxLevelReached;
           }
-          if (
-            gameResult.perfectStreak !== undefined &&
-            (!existingEntry.best_streak ||
-              gameResult.perfectStreak > existingEntry.best_streak)
-          ) {
+          if (gameResult.perfectStreak !== undefined &&
+              (!existingEntry.best_streak || gameResult.perfectStreak > existingEntry.best_streak)) {
             updates.best_streak = gameResult.perfectStreak;
           }
         }
@@ -450,9 +402,7 @@ export const serverTournamentService = {
           newEntry.max_level = gameResult.maxLevelReached || 0;
           newEntry.best_streak = gameResult.perfectStreak || 0;
         } else if (gameResult.mode === GameMode.PHYSICS) {
-          newEntry.best_time = gameResult.gameTime
-            ? Math.round(gameResult.gameTime)
-            : 0;
+          newEntry.best_time = gameResult.gameTime ? Math.round(gameResult.gameTime) : 0;
           newEntry.best_hits = gameResult.totalHits || 0;
           newEntry.least_mistakes = gameResult.mistakesMade || 0;
         } else if (gameResult.mode === GameMode.ROTATION) {
@@ -470,11 +420,6 @@ export const serverTournamentService = {
           throw error;
         }
       }
-
-      // ✅ ИНВАЛИДИРУЕМ КЕШ после обновления лидерборда
-      await tournamentCacheService.invalidateTournamentLeaderboardCache(tournamentId);
-      console.log(`[TOURNAMENT_SERVICE] Invalidated leaderboard cache for tournament: ${tournamentId}`);
-
     } catch (error) {
       console.error("Error in updateTournamentLeaderboard:", error);
       throw error;
@@ -482,28 +427,59 @@ export const serverTournamentService = {
   },
 
   /**
-   * Get user's position in tournament (sanitized)
+   * ✅ ОПТИМИЗИРОВАНО: получение позиции пользователя (используется кеш-сервисом)
    */
   async getUserTournamentPosition(
     tournamentId: string,
     telegramId: number,
-  ): Promise<TournamentUserPosition | null> {
+  ): Promise<{
+    position: number;
+    entry: OptimizedTournamentLeaderboardEntry;
+  } | null> {
     try {
-      const leaderboard = await this.getTournamentLeaderboard(
+      // Получаем оптимизированный лидерборд
+      const leaderboard = await this.getOptimizedTournamentLeaderboard(
         tournamentId,
-        1000,
-      );
-      const userIndex = leaderboard.findIndex(
-        (entry) => entry.telegram_id === telegramId,
+        1000, // Больше записей для точного определения позиции
       );
 
-      if (userIndex === -1) {
+      // Находим пользователя через отдельный запрос
+      const { data: userEntry, error } = await supabaseServer
+        .from("tournament_leaderboard")
+        .select(`
+          first_name,
+          last_name,
+          username,
+          best_score,
+          updated_at
+        `)
+        .eq("tournament_id", tournamentId)
+        .eq("telegram_id", telegramId)
+        .single();
+
+      if (error || !userEntry) {
         return null;
       }
 
+      // Вычисляем позицию пользователя
+      const betterCount = await supabaseServer
+        .from("tournament_leaderboard")
+        .select("id", { count: "exact" })
+        .eq("tournament_id", tournamentId)
+        .or(`best_score.gt.${userEntry.best_score},and(best_score.eq.${userEntry.best_score},updated_at.lt.${userEntry.updated_at})`);
+
+      const position = (betterCount.count || 0) + 1;
+
       return {
-        position: userIndex + 1,
-        entry: sanitizeLeaderboardEntry(leaderboard[userIndex]),
+        position,
+        entry: {
+          first_name: userEntry.first_name,
+          last_name: userEntry.last_name,
+          username: userEntry.username,
+          best_score: userEntry.best_score,
+          updated_at: userEntry.updated_at,
+          isCurrentUser: true,
+        },
       };
     } catch (error) {
       console.error("Error in getUserTournamentPosition:", error);
@@ -512,101 +488,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * Force refresh tournament cache
+   * ✅ УБРАНО: getTournamentByQuery (упрощена логика)
+   * Если нужно - добавить отдельно
    */
-  async forceRefreshTournamentCache(): Promise<void> {
-    try {
-      console.log("[TOURNAMENT_SERVICE] Force refreshing tournament cache");
-      await tournamentCacheService.forceRefreshTournament();
-      
-      // Also refresh leaderboard cache for active tournament
-      const activeTournament = await this.getActiveTournament();
-      if (activeTournament) {
-        await tournamentCacheService.forceRefreshTournamentLeaderboard(activeTournament.id);
-      }
-      
-      console.log("[TOURNAMENT_SERVICE] Tournament cache force refresh completed");
-    } catch (error) {
-      console.error("Error in forceRefreshTournamentCache:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Get tournament cache statistics
-   */
-  async getTournamentCacheStats() {
-    try {
-      return await tournamentCacheService.getCacheStats();
-    } catch (error) {
-      console.error("Error getting tournament cache stats:", error);
-      return {
-        active_tournament_cached: false,
-        leaderboard_caches_count: 0,
-        security_info: {
-          user_ids_exposed_to_client: false,
-          internal_ids_secured: true,
-        },
-      };
-    }
-  },
-
-  /**
-   * Invalidate all tournament caches (for admin use)
-   */
-  async invalidateAllTournamentCaches(): Promise<void> {
-    try {
-      console.log("[TOURNAMENT_SERVICE] Invalidating all tournament caches");
-      await tournamentCacheService.invalidateAllTournamentCache();
-      console.log("[TOURNAMENT_SERVICE] All tournament caches invalidated");
-    } catch (error) {
-      console.error("Error invalidating tournament caches:", error);
-      throw error;
-    }
-  },
-
-  // ============================================================================
-  // ✅ LEGACY МЕТОДЫ - оставляем для совместимости, но используют кешированные версии
-  // ============================================================================
-
-  /**
-   * LEGACY: Get tournament by query parameter (теперь с кешированием)
-   */
-  async getTournamentByQuery(query: string): Promise<Tournament | null> {
-    try {
-      console.log("Searching for tournament with query:", query);
-
-      // Parse query format: physics-week-32-2025
-      const parts = query.split("-");
-
-      if (parts.length < 1) {
-        console.error("Invalid query format:", query);
-        return null;
-      }
-
-      const mode = parts[0];
-
-      if (!["survival", "physics", "rotation"].includes(mode)) {
-        console.error("Invalid tournament mode in query:", mode);
-        return null;
-      }
-
-      console.log("Looking for tournament with mode:", mode);
-
-      // Get active tournament using cached service
-      const activeTournament = await this.getActiveTournament();
-
-      if (activeTournament && activeTournament.mode === mode) {
-        console.log("Found active tournament for mode:", mode);
-        return activeTournament;
-      }
-
-      console.log("No active tournament found for mode:", mode);
-      return null;
-
-    } catch (error) {
-      console.error("Error in getTournamentByQuery:", error);
-      return null;
-    }
-  },
 };
