@@ -1,4 +1,4 @@
-// src/app/tournaments/page.tsx - ИСПРАВЛЕНО: устранены null pointer exceptions
+// src/app/tournaments/page.tsx - ИСПРАВЛЕНО: добавлены призы, убрано кеширование, исправлен режим
 
 "use client";
 
@@ -15,6 +15,9 @@ import {
   Users,
   Zap,
   RefreshCw,
+  Gift,
+  Award,
+  Star,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -23,9 +26,10 @@ import type {
   Tournament,
   OptimizedTournamentLeaderboardEntry,
   TournamentUserPosition,
+  Prize,
 } from "@/types/tournaments";
 
-// ✅ УПРОЩЕННЫЕ интерфейсы (только активный турнир)
+// Упрощенные интерфейсы (только активный турнир)
 interface TournamentPageState {
   activeTournament: Tournament | null;
   leaderboard: OptimizedTournamentLeaderboardEntry[];
@@ -34,16 +38,13 @@ interface TournamentPageState {
   isLeaderboardLoading: boolean;
   error: string | null;
   leaderboardError: string | null;
-  cacheInfo: {
-    tournament_from_cache?: boolean;
-    leaderboard_from_cache?: boolean;
-    cache_age_seconds?: number;
-  };
 }
 
-// Future Tech цвета для режимов
+// Future Tech цвета для режимов with better fallback
 function getFutureTechModeColors(mode?: string) {
-  switch (mode) {
+  const normalizedMode = mode?.toLowerCase();
+  
+  switch (normalizedMode) {
     case "survival":
       return {
         primary: "#ff0040",
@@ -91,9 +92,11 @@ function getFutureTechModeColors(mode?: string) {
   }
 }
 
-// Получение иконки режима - с защитой от undefined
+// Получение иконки режима с защитой от undefined
 function getModeIcon(mode?: string) {
-  switch (mode) {
+  const normalizedMode = mode?.toLowerCase();
+  
+  switch (normalizedMode) {
     case "survival":
       return "⚡";
     case "physics":
@@ -102,6 +105,22 @@ function getModeIcon(mode?: string) {
       return "🔄";
     default:
       return "🎯";
+  }
+}
+
+// Получение названия режима
+function getModeName(mode?: string) {
+  const normalizedMode = mode?.toLowerCase();
+  
+  switch (normalizedMode) {
+    case "survival":
+      return "SURVIVAL";
+    case "physics":
+      return "PHYSICS";
+    case "rotation":
+      return "ROTATION";
+    default:
+      return "GAME";
   }
 }
 
@@ -135,6 +154,90 @@ function getPositionColor(position: number): string {
     case 3: return "#cd7f32";
     default: return position <= 10 ? "#3b82f6" : "#64748b";
   }
+}
+
+// Компонент отображения призов
+function PrizesSection({ prizes, colors }: { prizes: Prize[]; colors: any }) {
+  if (!prizes || prizes.length === 0) return null;
+
+  const getPrizeIcon = (position: number, rewardType?: string) => {
+    if (position === 1) return "👑";
+    if (position === 2) return "🥈";
+    if (position === 3) return "🥉";
+    if (rewardType === "attempts") return "⚡";
+    return "🎁";
+  };
+
+  const getPrizeColor = (position: number) => {
+    if (position === 1) return "text-yellow-400";
+    if (position === 2) return "text-gray-300";
+    if (position === 3) return "text-orange-400";
+    return "text-blue-400";
+  };
+
+  return (
+    <Card className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Gift className="text-yellow-400" size={16} />
+          <h3 className="text-lg font-bold text-white font-mono">PRIZES</h3>
+        </div>
+      </CardHeader>
+      
+      <CardBody className="pt-0">
+        <div className="grid gap-3">
+          {prizes.map((prize, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/10"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-8 h-8">
+                  <span className="text-lg">
+                    {getPrizeIcon(prize.position, prize.reward_type)}
+                  </span>
+                </div>
+                
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-mono text-sm font-bold ${getPrizeColor(prize.position)}`}>
+                      {typeof prize.position === 'number' 
+                        ? (prize.position <= 3 
+                            ? `${prize.position}${prize.position === 1 ? 'st' : prize.position === 2 ? 'nd' : 'rd'} PLACE`
+                            : `${prize.position}th PLACE`)
+                        : `${prize.position} PLACE`}
+                    </span>
+                  </div>
+                  
+                  <div className="text-white/80 text-xs font-mono mt-1">
+                    {prize.description}
+                  </div>
+                  
+                  {prize.special_title && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <Star className="text-yellow-400" size={10} />
+                      <span className="text-yellow-400 text-xs font-mono">
+                        {prize.special_title}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {prize.attempts && (
+                <div className="text-right">
+                  <div className="text-blue-400 font-mono text-sm font-bold">
+                    +{prize.attempts}
+                  </div>
+                  <div className="text-white/50 text-xs font-mono">ATTEMPTS</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardBody>
+    </Card>
+  );
 }
 
 // Компонент записи лидерборда
@@ -231,12 +334,11 @@ function TournamentsPageContent() {
     isLeaderboardLoading: false,
     error: null,
     leaderboardError: null,
-    cacheInfo: {},
   });
 
   const [timeLeft, setTimeLeft] = useState<string>("");
 
-  // ✅ ИСПРАВЛЕНО: получение активного турнира БЕЗ автообновления
+  // Получение активного турнира БЕЗ автообновления
   const fetchActiveTournament = useCallback(async (force: boolean = false) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -256,21 +358,34 @@ function TournamentsPageContent() {
         throw new Error(result.error || "Failed to fetch tournament");
       }
 
+      // Normalize tournament mode for consistent handling
+      let tournament = result.tournament;
+      if (tournament) {
+        // Ensure mode is properly set
+        tournament = {
+          ...tournament,
+          mode: tournament.mode || tournament.game_mode || 'unknown'
+        };
+        
+        console.log("[TournamentsPage] Tournament loaded:", {
+          id: tournament.id,
+          name: tournament.name,
+          mode: tournament.mode,
+          status: tournament.status,
+          prizes_count: tournament.prizes?.length || 0
+        });
+      }
+
       setState(prev => ({
         ...prev,
-        activeTournament: result.tournament,
+        activeTournament: tournament,
         isLoading: false,
         error: null,
-        cacheInfo: {
-          ...prev.cacheInfo,
-          tournament_from_cache: result.cache_info?.is_from_cache,
-          cache_age_seconds: result.cache_info?.cache_age_seconds,
-        },
       }));
 
       // Если есть активный турнир, загружаем его лидерборд
-      if (result.tournament) {
-        await fetchTournamentLeaderboard(result.tournament.id, force);
+      if (tournament) {
+        await fetchTournamentLeaderboard(tournament.id, force);
       }
 
     } catch (error) {
@@ -283,7 +398,7 @@ function TournamentsPageContent() {
     }
   }, [makeAuthenticatedRequest]);
 
-  // ✅ ИСПРАВЛЕНО: получение лидерборда БЕЗ автообновления
+  // Получение лидерборда турнира БЕЗ автообновления
   const fetchTournamentLeaderboard = useCallback(async (
     tournamentId: string,
     force: boolean = false
@@ -313,10 +428,6 @@ function TournamentsPageContent() {
         userPosition: result.userPosition || null,
         isLeaderboardLoading: false,
         leaderboardError: null,
-        cacheInfo: {
-          ...prev.cacheInfo,
-          leaderboard_from_cache: result.cache_info?.is_from_cache,
-        },
       }));
 
     } catch (error) {
@@ -334,7 +445,7 @@ function TournamentsPageContent() {
     if (!state.activeTournament) return;
 
     const updateTimer = () => {
-      if (state.activeTournament?.status === "active") {
+      if (state.activeTournament?.status === "active" && state.activeTournament?.end_time) {
         setTimeLeft(formatTimeRemaining(state.activeTournament.end_time));
       }
     };
@@ -381,8 +492,9 @@ function TournamentsPageContent() {
     }
   }, [router]);
 
-  // ✅ ИСПРАВЛЕНО: безопасное определение цветов активного турнира
+  // Безопасное определение цветов активного турнира
   const colors = getFutureTechModeColors(state.activeTournament?.mode);
+  const tournamentMode = state.activeTournament?.mode;
 
   if (state.isLoading) {
     return (
@@ -451,12 +563,6 @@ function TournamentsPageContent() {
             <p className="text-blue-400/80 text-xs font-mono tracking-widest">
               COMPETE FOR GLORY
             </p>
-            {/* Cache indicator */}
-            {state.cacheInfo.tournament_from_cache && (
-              <div className="text-xs text-green-400/60 font-mono">
-                [CACHED]
-              </div>
-            )}
           </div>
         </div>
 
@@ -482,7 +588,7 @@ function TournamentsPageContent() {
                         boxShadow: `0 0 15px ${colors.glow}`,
                       }}
                     >
-                      <span className="text-xl">{getModeIcon(state.activeTournament.mode)}</span>
+                      <span className="text-xl">{getModeIcon(tournamentMode)}</span>
                     </div>
                     <div>
                       <h2 className="text-xl font-bold text-white font-mono">
@@ -492,7 +598,7 @@ function TournamentsPageContent() {
                         className="text-sm font-mono"
                         style={{ color: colors.primary }}
                       >
-                        {state.activeTournament.mode?.toUpperCase() || "UNKNOWN"} MODE
+                        {getModeName(tournamentMode)} MODE
                       </p>
                     </div>
                   </div>
@@ -536,6 +642,9 @@ function TournamentsPageContent() {
               </CardBody>
             </Card>
 
+            {/* Prizes Section */}
+            <PrizesSection prizes={state.activeTournament.prizes || []} colors={colors} />
+
             {/* User Position */}
             {state.userPosition && (
               <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
@@ -576,9 +685,6 @@ function TournamentsPageContent() {
                   <div className="flex items-center gap-2 text-sm text-white/60 font-mono">
                     <Users size={12} />
                     <span>{state.leaderboard.length}</span>
-                    {state.cacheInfo.leaderboard_from_cache && (
-                      <div className="text-xs text-green-400/60">[CACHED]</div>
-                    )}
                   </div>
                 </div>
               </CardHeader>

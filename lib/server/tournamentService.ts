@@ -1,7 +1,8 @@
-// src/lib/server/tournamentService.ts - ИСПРАВЛЕНО: использует оптимизированные типы данных
+// src/lib/server/tournamentService.ts - ИСПРАВЛЕНО: правильная обработка режимов турниров
 
 import type {
   Tournament,
+  TournamentMode,
   FullTournamentLeaderboardEntry,
   OptimizedTournamentLeaderboardEntry,
   TournamentsData,
@@ -15,13 +16,14 @@ import { GameMode } from "@/types/game-modes/common";
 // Re-export оптимизированных типов
 export type {
   Tournament,
+  TournamentMode,
   FullTournamentLeaderboardEntry,
   OptimizedTournamentLeaderboardEntry,
   TournamentsData,
   Prize,
 };
 
-// Raw database tournament interface (остается без изменений)
+// Raw database tournament interface
 interface RawTournament {
   id: string;
   name: string;
@@ -35,7 +37,22 @@ interface RawTournament {
   updated_at: string;
 }
 
-// Transform raw tournament data (остается без изменений)
+// ИСПРАВЛЕНО: Правильное маппирование режимов игры
+function mapGameModeToTournamentMode(gameMode: string): TournamentMode {
+  switch (gameMode?.toLowerCase()) {
+    case "survival":
+      return "survival" as TournamentMode;
+    case "physics":
+      return "physics" as TournamentMode;
+    case "rotation":
+      return "rotation" as TournamentMode;
+    default:
+      console.warn(`Unknown game mode: ${gameMode}, defaulting to survival`);
+      return "survival" as TournamentMode;
+  }
+}
+
+// ИСПРАВЛЕНО: Transform raw tournament data with proper mode handling
 function transformTournament(rawTournament: RawTournament): Tournament {
   const transformedPrizes: Prize[] = rawTournament.prizes.map((prize) => ({
     position:
@@ -55,11 +72,22 @@ function transformTournament(rawTournament: RawTournament): Tournament {
       : ("custom" as const),
   }));
 
+  // ИСПРАВЛЕНО: Правильное преобразование режима
+  const mappedMode = mapGameModeToTournamentMode(rawTournament.game_mode);
+
+  console.log(`[TournamentService] Transforming tournament:`, {
+    id: rawTournament.id,
+    name: rawTournament.name,
+    raw_game_mode: rawTournament.game_mode,
+    mapped_mode: mappedMode,
+    prizes_count: transformedPrizes.length
+  });
+
   return {
     id: rawTournament.id,
     name: rawTournament.name,
     description: rawTournament.description,
-    mode: rawTournament.game_mode as any,
+    mode: mappedMode, // ИСПРАВЛЕНО: используем правильный маппинг
     start_time: rawTournament.start_time,
     end_time: rawTournament.end_time,
     status: rawTournament.status as any,
@@ -69,7 +97,7 @@ function transformTournament(rawTournament: RawTournament): Tournament {
   };
 }
 
-// ✅ ОПТИМИЗИРОВАННЫЙ результат участия в турнире
+// Результат участия в турнире
 export interface TournamentParticipationResult {
   tournamentId: string;
   tournamentName: string;
@@ -84,7 +112,7 @@ export interface GameResultForTournament {
   mode: GameMode;
   score: number;
   duration: number;
-  // Mode-specific fields (остается без изменений)
+  // Mode-specific fields
   survivalTime?: number;
   maxLevelReached?: number;
   perfectStreak?: number;
@@ -94,13 +122,15 @@ export interface GameResultForTournament {
   mistakesMade?: number;
 }
 
-// ✅ ИСПРАВЛЕННЫЙ server-side tournament service
+// ИСПРАВЛЕННЫЙ server-side tournament service
 export const serverTournamentService = {
   /**
-   * ✅ ОПТИМИЗИРОВАНО: получение активного турнира
+   * ИСПРАВЛЕНО: получение активного турнира с правильной обработкой режима
    */
   async getActiveTournament(): Promise<Tournament | null> {
     try {
+      console.log("[TournamentService] Fetching active tournament...");
+
       const { data, error } = await supabaseServer.rpc("get_active_tournament");
 
       if (error) {
@@ -109,10 +139,28 @@ export const serverTournamentService = {
       }
 
       if (!data) {
+        console.log("[TournamentService] No active tournament found");
         return null;
       }
 
-      return transformTournament(data);
+      console.log("[TournamentService] Raw tournament data from DB:", {
+        id: data.id,
+        name: data.name,
+        game_mode: data.game_mode,
+        status: data.status
+      });
+
+      const transformed = transformTournament(data);
+      
+      console.log("[TournamentService] Transformed tournament:", {
+        id: transformed.id,
+        name: transformed.name,
+        mode: transformed.mode,
+        status: transformed.status,
+        prizes_count: transformed.prizes?.length || 0
+      });
+
+      return transformed;
     } catch (error) {
       console.error("Error in getActiveTournament:", error);
       return null;
@@ -120,7 +168,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * ✅ УПРОЩЕНО: проверка активности турнира для режима
+   * Проверка активности турнира для режима
    */
   async isTournamentActiveForMode(gameMode: GameMode): Promise<boolean> {
     try {
@@ -158,15 +206,12 @@ export const serverTournamentService = {
   },
 
   /**
-   * ✅ УБРАНО: getAllTournaments (теперь только активный турнир)
-   * Если нужен полный список - добавить отдельно
-   */
-
-  /**
    * Получение турнира по ID
    */
   async getTournamentById(tournamentId: string): Promise<Tournament | null> {
     try {
+      console.log(`[TournamentService] Fetching tournament by ID: ${tournamentId}`);
+
       const { data, error } = await supabaseServer
         .from("tournaments")
         .select("*")
@@ -181,7 +226,20 @@ export const serverTournamentService = {
         throw error;
       }
 
-      return transformTournament(data);
+      console.log(`[TournamentService] Raw tournament by ID:`, {
+        id: data.id,
+        name: data.name,
+        game_mode: data.game_mode
+      });
+
+      const transformed = transformTournament(data);
+      
+      console.log(`[TournamentService] Transformed tournament by ID:`, {
+        id: transformed.id,
+        mode: transformed.mode
+      });
+
+      return transformed;
     } catch (error) {
       console.error("Error in getTournamentById:", error);
       return null;
@@ -189,7 +247,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * ✅ ОПТИМИЗИРОВАНО: получение ПОЛНОГО лидерборда турнира (для внутреннего использования)
+   * Получение ПОЛНОГО лидерборда турнира (для внутреннего использования)
    */
   async getTournamentLeaderboard(
     tournamentId: string,
@@ -217,7 +275,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * ✅ НОВЫЙ: получение оптимизированного лидерборда (только необходимые поля)
+   * Получение оптимизированного лидерборда (только необходимые поля)
    */
   async getOptimizedTournamentLeaderboard(
     tournamentId: string,
@@ -232,7 +290,7 @@ export const serverTournamentService = {
           username,
           best_score,
           updated_at
-        `) // ✅ ТОЛЬКО необходимые поля
+        `) // ТОЛЬКО необходимые поля
         .eq("tournament_id", tournamentId)
         .order("best_score", { ascending: false })
         .order("updated_at", { ascending: true })
@@ -251,7 +309,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * ✅ LEGACY: получение публичного лидерборда (используется старым кодом)
+   * LEGACY: получение публичного лидерборда (используется старым кодом)
    */
   async getPublicTournamentLeaderboard(
     tournamentId: string,
@@ -271,7 +329,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * ✅ ОБНОВЛЕНО: обновление лидерборда турнира (остается без изменений)
+   * Обновление лидерборда турнира
    */
   async updateTournamentLeaderboard(
     tournamentId: string,
@@ -326,7 +384,7 @@ export const serverTournamentService = {
           updates.best_score = tournamentScore;
         }
 
-        // Mode-specific updates (остается без изменений)
+        // Mode-specific updates
         if (gameResult.mode === GameMode.SURVIVAL && gameResult.survivalTime !== undefined) {
           if (!existingEntry.best_time || gameResult.survivalTime > existingEntry.best_time) {
             updates.best_time = gameResult.survivalTime;
@@ -427,7 +485,7 @@ export const serverTournamentService = {
   },
 
   /**
-   * ✅ ОПТИМИЗИРОВАНО: получение позиции пользователя (используется кеш-сервисом)
+   * Получение позиции пользователя (используется кеш-сервисом)
    */
   async getUserTournamentPosition(
     tournamentId: string,
@@ -486,9 +544,4 @@ export const serverTournamentService = {
       return null;
     }
   },
-
-  /**
-   * ✅ УБРАНО: getTournamentByQuery (упрощена логика)
-   * Если нужно - добавить отдельно
-   */
 };
