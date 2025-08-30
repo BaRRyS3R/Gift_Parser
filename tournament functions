@@ -1,0 +1,281 @@
+update_tournament_status
+
+
+BEGIN
+  -- Update status based on current time
+  IF NEW.start_time > NOW() THEN
+    NEW.status = 'upcoming';
+  ELSIF NEW.end_time > NOW() AND NEW.start_time <= NOW() THEN
+    NEW.status = 'active';
+  ELSIF NEW.end_time <= NOW() THEN
+    NEW.status = 'completed';
+  END IF;
+  
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+
+
+update_tournament_leaderboard_atomic
+
+
+DECLARE
+    existing_entry RECORD;
+    server_time TIMESTAMPTZ;
+    score_improved BOOLEAN := FALSE;
+    
+    -- Mode-specific data
+    survival_time INTEGER;
+    max_level_reached INTEGER;
+    perfect_streak INTEGER;
+    game_time INTEGER;
+    total_hits INTEGER;
+    mistakes_made INTEGER;
+BEGIN
+    server_time := NOW();
+    
+    -- Extract mode-specific data from JSONB
+    CASE p_game_mode
+        WHEN 'survival' THEN
+            survival_time := COALESCE((p_game_data->>'survivalTime')::INTEGER, 0);
+            max_level_reached := COALESCE((p_game_data->>'maxLevelReached')::INTEGER, 0);
+            perfect_streak := COALESCE((p_game_data->>'perfectStreak')::INTEGER, 0);
+        WHEN 'physics' THEN
+            game_time := COALESCE((p_game_data->>'gameTime')::INTEGER, 0);
+            total_hits := COALESCE((p_game_data->>'totalHits')::INTEGER, 0);
+            mistakes_made := COALESCE((p_game_data->>'mistakesMade')::INTEGER, 0);
+        WHEN 'rotation' THEN
+            survival_time := COALESCE((p_game_data->>'survivalTime')::INTEGER, 0);
+            max_level_reached := COALESCE((p_game_data->>'maxLevelReached')::INTEGER, 0);
+            perfect_streak := COALESCE((p_game_data->>'perfectStreak')::INTEGER, 0);
+    END CASE;
+    
+    -- Get existing entry
+    SELECT * INTO existing_entry
+    FROM tournament_leaderboard
+    WHERE tournament_id = p_tournament_id AND telegram_id = p_telegram_id;
+    
+    IF FOUND THEN
+        -- Update existing entry
+        score_improved := p_new_score > existing_entry.best_score;
+        
+        UPDATE tournament_leaderboard 
+        SET 
+            first_name = p_first_name,
+            last_name = p_last_name,
+            username = p_username,
+            is_premium = p_is_premium,
+            total_games = total_games + 1,
+            best_score = GREATEST(best_score, p_new_score),
+            last_participation_at = server_time,
+            updated_at = server_time,
+            -- Mode-specific updates
+            best_time = CASE 
+                WHEN p_game_mode IN ('survival', 'rotation') AND survival_time IS NOT NULL
+                THEN GREATEST(COALESCE(best_time, 0), survival_time)
+                WHEN p_game_mode = 'physics' AND game_time IS NOT NULL
+                THEN GREATEST(COALESCE(best_time, 0), game_time)
+                ELSE best_time
+            END,
+            max_level = CASE 
+                WHEN p_game_mode IN ('survival', 'rotation') AND max_level_reached IS NOT NULL
+                THEN GREATEST(COALESCE(max_level, 0), max_level_reached)
+                ELSE max_level
+            END,
+            best_streak = CASE 
+                WHEN p_game_mode IN ('survival', 'rotation') AND perfect_streak IS NOT NULL
+                THEN GREATEST(COALESCE(best_streak, 0), perfect_streak)
+                ELSE best_streak
+            END,
+            best_hits = CASE 
+                WHEN p_game_mode = 'physics' AND total_hits IS NOT NULL
+                THEN GREATEST(COALESCE(best_hits, 0), total_hits)
+                ELSE best_hits
+            END,
+            least_mistakes = CASE 
+                WHEN p_game_mode = 'physics' AND mistakes_made IS NOT NULL
+                THEN CASE 
+                    WHEN least_mistakes IS NULL THEN mistakes_made
+                    ELSE LEAST(least_mistakes, mistakes_made)
+                END
+                ELSE least_mistakes
+            END
+        WHERE id = existing_entry.id;
+        
+        RETURN QUERY SELECT 
+            TRUE as updated,
+            existing_entry.best_score as previous_best_score,
+            GREATEST(existing_entry.best_score, p_new_score) as new_best_score,
+            score_improved;
+    ELSE
+        -- Create new entry
+        INSERT INTO tournament_leaderboard (
+            tournament_id, user_id, telegram_id, first_name, last_name, username, is_premium,
+            best_score, total_games, first_participation_at, last_participation_at,
+            best_time, max_level, best_streak, best_hits, least_mistakes
+        ) VALUES (
+            p_tournament_id, p_user_id, p_telegram_id, p_first_name, p_last_name, p_username, p_is_premium,
+            p_new_score, 1, server_time, server_time,
+            CASE WHEN p_game_mode IN ('survival', 'rotation') THEN survival_time 
+                 WHEN p_game_mode = 'physics' THEN game_time ELSE NULL END,
+            CASE WHEN p_game_mode IN ('survival', 'rotation') THEN max_level_reached ELSE NULL END,
+            CASE WHEN p_game_mode IN ('survival', 'rotation') THEN perfect_streak ELSE NULL END,
+            CASE WHEN p_game_mode = 'physics' THEN total_hits ELSE NULL END,
+            CASE WHEN p_game_mode = 'physics' THEN mistakes_made ELSE NULL END
+        );
+        
+        RETURN QUERY SELECT 
+            TRUE as updated,
+            0 as previous_best_score,
+            p_new_score as new_best_score,
+            TRUE as score_improved;
+    END IF;
+END;
+
+
+is_tournament_active_for_mode
+
+
+DECLARE
+  active_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO active_count
+  FROM tournaments
+  WHERE status = 'active'
+    AND tournaments.game_mode = is_tournament_active_for_mode.game_mode
+    AND start_time <= NOW()
+    AND end_time > NOW();
+  
+  RETURN active_count > 0;
+END;
+
+
+get_tournament_stats
+
+
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*)::INTEGER as total_participants,
+        SUM(tl.total_games)::INTEGER as total_games,
+        MAX(tl.best_score)::INTEGER as highest_score,
+        ROUND(AVG(tl.best_score)::NUMERIC, 2) as average_score,
+        (SELECT CONCAT(first_name, COALESCE(' ' || last_name, '')) 
+         FROM tournament_leaderboard 
+         WHERE tournament_id = p_tournament_id 
+         ORDER BY best_score DESC, last_participation_at ASC 
+         LIMIT 1) as top_player_name
+    FROM tournament_leaderboard tl
+    WHERE tl.tournament_id = p_tournament_id;
+END;
+
+
+get_tournament_leaderboard_top
+
+
+BEGIN
+    RETURN QUERY
+    WITH ranked_leaderboard AS (
+        SELECT 
+            tl.*,
+            ROW_NUMBER() OVER (
+                ORDER BY tl.best_score DESC, tl.last_participation_at ASC
+            ) as calculated_position
+        FROM tournament_leaderboard tl
+        WHERE tl.tournament_id = p_tournament_id
+        ORDER BY tl.best_score DESC, tl.last_participation_at ASC
+        LIMIT p_limit OFFSET p_offset
+    )
+    SELECT 
+        rl.calculated_position::INTEGER as user_position,
+        rl.telegram_id,
+        rl.first_name,
+        rl.last_name,
+        rl.username,
+        rl.is_premium,
+        rl.best_score,
+        rl.total_games,
+        rl.best_time,
+        rl.max_level,
+        rl.best_streak,
+        rl.best_hits,
+        rl.least_mistakes,
+        rl.last_participation_at
+    FROM ranked_leaderboard rl
+    ORDER BY rl.calculated_position;
+END;
+
+
+get_tournament_game_data
+
+
+DECLARE
+    active_tournament RECORD;
+BEGIN
+    -- Получаем активный турнир для режима
+    SELECT t.* INTO active_tournament
+    FROM tournaments t
+    WHERE t.game_mode = p_game_mode 
+    AND t.status = 'active'
+    AND NOW() BETWEEN t.start_time AND t.end_time
+    LIMIT 1;
+    
+    IF NOT FOUND THEN
+        RETURN QUERY SELECT 
+            NULL::UUID as tournament_id,
+            NULL::TEXT as tournament_name,
+            FALSE as tournament_active,
+            NULL::INTEGER as user_position,
+            NULL::INTEGER as user_best_score,
+            NULL::INTEGER as user_total_games;
+        RETURN;
+    END IF;
+    
+    -- Получаем позицию и данные пользователя
+    RETURN QUERY
+    WITH ranked_leaderboard AS (
+        SELECT 
+            tl.*,
+            ROW_NUMBER() OVER (
+                ORDER BY tl.best_score DESC, tl.last_participation_at ASC
+            ) as calculated_position
+        FROM tournament_leaderboard tl
+        WHERE tl.tournament_id = active_tournament.id
+        AND tl.telegram_id = p_telegram_id
+    )
+    SELECT 
+        active_tournament.id as tournament_id,
+        active_tournament.name as tournament_name,
+        TRUE as tournament_active,
+        COALESCE(rl.calculated_position::INTEGER, NULL) as user_position,
+        COALESCE(rl.best_score, NULL) as user_best_score,
+        COALESCE(rl.total_games, NULL) as user_total_games
+    FROM ranked_leaderboard rl
+    UNION ALL
+    SELECT 
+        active_tournament.id as tournament_id,
+        active_tournament.name as tournament_name,
+        TRUE as tournament_active,
+        NULL as user_position,
+        NULL as user_best_score,
+        NULL as user_total_games
+    WHERE NOT EXISTS (SELECT 1 FROM ranked_leaderboard);
+END;
+
+
+get_active_tournament
+
+
+DECLARE
+  active_tournament tournaments;
+BEGIN
+  SELECT * INTO active_tournament
+  FROM tournaments
+  WHERE status = 'active'
+    AND start_time <= NOW()
+    AND end_time > NOW()
+  ORDER BY start_time ASC
+  LIMIT 1;
+  
+  RETURN active_tournament;
+END;

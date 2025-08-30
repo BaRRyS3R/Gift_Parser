@@ -1,0 +1,92 @@
+create table public.tournaments (
+  id uuid not null default gen_random_uuid (),
+  name character varying(255) not null,
+  description text null,
+  game_mode character varying(50) not null,
+  start_time timestamp with time zone not null,
+  end_time timestamp with time zone not null,
+  status character varying(20) not null default 'upcoming'::character varying,
+  prizes jsonb null default '[]'::jsonb,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  created_by uuid null,
+  constraint tournaments_pkey primary key (id),
+  constraint tournaments_game_mode_check check (
+    (
+      (game_mode)::text = any (
+        (
+          array[
+            'survival'::character varying,
+            'physics'::character varying,
+            'rotation'::character varying
+          ]
+        )::text[]
+      )
+    )
+  ),
+  constraint tournaments_status_check check (
+    (
+      (status)::text = any (
+        (
+          array[
+            'upcoming'::character varying,
+            'active'::character varying,
+            'completed'::character varying,
+            'cancelled'::character varying
+          ]
+        )::text[]
+      )
+    )
+  ),
+  constraint no_overlapping_tournaments EXCLUDE using gist (
+    tstzrange (start_time, end_time)
+    with
+      &&
+  )
+  where
+    (((status)::text <> 'cancelled'::text))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_tournaments_status on public.tournaments using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_tournaments_game_mode on public.tournaments using btree (game_mode) TABLESPACE pg_default;
+
+create index IF not exists idx_tournaments_time_range on public.tournaments using btree (start_time, end_time) TABLESPACE pg_default;
+
+create trigger tournament_status_trigger BEFORE INSERT
+or
+update on tournaments for EACH row
+execute FUNCTION update_tournament_status ();
+
+create table public.tournament_leaderboard (
+  id uuid not null default gen_random_uuid (),
+  tournament_id uuid not null,
+  user_id uuid not null,
+  telegram_id bigint not null,
+  first_name character varying(255) not null,
+  last_name character varying(255) null,
+  username character varying(255) null,
+  is_premium boolean null default false,
+  best_score integer null default 0,
+  total_games integer null default 0,
+  best_time integer null,
+  best_hits integer null,
+  best_streak integer null,
+  max_level integer null,
+  least_mistakes integer null,
+  first_participation_at timestamp with time zone null,
+  last_participation_at timestamp with time zone null,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint tournament_leaderboard_pkey primary key (id),
+  constraint tournament_leaderboard_tournament_id_telegram_id_key unique (tournament_id, telegram_id),
+  constraint tournament_leaderboard_tournament_id_user_id_key unique (tournament_id, user_id),
+  constraint tournament_leaderboard_tournament_id_fkey foreign KEY (tournament_id) references tournaments (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_tournament_leaderboard_tournament_id on public.tournament_leaderboard using btree (tournament_id) TABLESPACE pg_default;
+
+create index IF not exists idx_tournament_leaderboard_best_score on public.tournament_leaderboard using btree (tournament_id, best_score desc) TABLESPACE pg_default;
+
+create index IF not exists idx_tournament_leaderboard_telegram_id on public.tournament_leaderboard using btree (telegram_id) TABLESPACE pg_default;
+

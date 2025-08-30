@@ -1,23 +1,29 @@
-// src/app/tournaments/page.tsx - Future Tech стилистика турниров
+// src/app/tournaments/page.tsx - Упрощенная страница турниров с активным турниром
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardHeader, CardBody, Button, Spinner } from "@nextui-org/react";
+import { useRouter } from "next/navigation";
+import { Card, CardHeader, CardBody, Button, Spinner, Avatar } from "@nextui-org/react";
 import {
   Trophy,
-  Clock,
-  Zap,
   Target,
+  Crown,
+  Medal,
+  Award,
   AlertTriangle,
+  Star,
+  TrendingUp,
+  Zap,
+  Users,
   ArrowLeft,
   Play,
+  Clock,
+  Calendar,
+  Info,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { useT } from "@/contexts/LocalizationContext";
-import TournamentLeaderboardModal from "@/components/Tournaments/TournamentLeaderboardModal";
 
 // Tournament interfaces
 interface Tournament {
@@ -28,18 +34,59 @@ interface Tournament {
   start_time: string;
   end_time: string;
   status: "upcoming" | "active" | "completed" | "cancelled";
-  prizes: any[];
+  prizes: Prize[];
   created_at: string;
   updated_at: string;
 }
 
-interface TournamentsData {
-  active?: Tournament;
-  upcoming: Tournament[];
-  completed: Tournament[];
+interface Prize {
+  position: number;
+  description: string;
+  attempts?: number;
+  special_title?: string;
+  reward_type?: "attempts" | "title" | "custom";
 }
 
-// Future Tech цвета для режимов
+interface PublicTournamentLeaderboardEntry {
+  tournament_id: string;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  best_score: number;
+}
+
+interface TournamentUserPosition {
+  position: number;
+  entry: PublicTournamentLeaderboardEntry;
+}
+
+interface TournamentStats {
+  totalParticipants: number;
+  totalGames: number;
+  averageScore: number;
+  highestScore: number;
+}
+
+interface PublicTournamentData {
+  tournament: Tournament;
+  leaderboard: PublicTournamentLeaderboardEntry[];
+  userPosition?: TournamentUserPosition;
+  stats: TournamentStats;
+}
+
+interface TournamentResponse {
+  success: boolean;
+  tournament?: PublicTournamentData;
+  cache_info?: {
+    is_from_cache: boolean;
+    cached_at?: number;
+    cache_age_seconds?: number;
+    next_update_in_seconds?: number;
+  };
+  error?: string;
+}
+
+// Future Tech colors for game modes
 function getFutureTechModeColors(mode: string) {
   switch (mode) {
     case "survival":
@@ -89,7 +136,7 @@ function getFutureTechModeColors(mode: string) {
   }
 }
 
-// Получение иконки режима
+// Get mode icon
 function getModeIcon(mode: string) {
   switch (mode) {
     case "survival":
@@ -103,7 +150,7 @@ function getModeIcon(mode: string) {
   }
 }
 
-// Форматирование времени
+// Format time remaining
 function formatTimeRemaining(endTime: string): string {
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
@@ -113,395 +160,403 @@ function formatTimeRemaining(endTime: string): string {
 
   const hours = Math.floor(remaining / (1000 * 60 * 60));
   const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
 
   if (hours > 0) return `${hours}h ${minutes}m`;
-
-  return `${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
 }
 
-function formatTimeUntilStart(startTime: string): string {
-  const now = new Date().getTime();
-  const start = new Date(startTime).getTime();
-  const remaining = Math.max(0, start - now);
-
-  if (remaining === 0) return "STARTING";
-
-  const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
-  const hours = Math.floor(
-    (remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-  );
-
-  if (days > 0) return `${days}d`;
-
-  return `${hours}h`;
+// Format large numbers
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + "M";
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + "K";
+  }
+  return num.toString();
 }
 
-// Компонент статуса турнира
+// Get position icon
+function getPositionIcon(position: number): React.ComponentType<any> | null {
+  switch (position) {
+    case 1:
+      return Crown;
+    case 2:
+    case 3:
+      return Medal;
+    default:
+      return position <= 10 ? Award : null;
+  }
+}
+
+// Get position color
+function getPositionColor(position: number): string {
+  switch (position) {
+    case 1:
+      return "#ffd700";
+    case 2:
+      return "#c0c0c0";
+    case 3:
+      return "#cd7f32";
+    default:
+      return position <= 10 ? "#3b82f6" : "#64748b";
+  }
+}
+
+// Check if entry belongs to current user
+function isCurrentUserEntry(
+  entry: PublicTournamentLeaderboardEntry,
+  user: any,
+): boolean {
+  if (!user) return false;
+
+  const entryFullName = `${entry.first_name} ${entry.last_name || ""}`.trim();
+  const userFullName = `${user.first_name} ${user.last_name || ""}`.trim();
+
+  if (entry.username && user.username) {
+    return entry.username === user.username;
+  }
+
+  return entryFullName === userFullName;
+}
+
+// Tournament Status Component
 function TournamentStatus({ status, colors }: { status: string; colors: any }) {
-  const t = useT();
-
   const statusConfig = {
-    active: { icon: "🟢", text: t(`tournaments.status.active`), pulse: true },
-    upcoming: {
-      icon: "🔵",
-      text: t(`tournaments.status.upcoming`),
-      pulse: false,
-    },
-    completed: {
-      icon: "⚫",
-      text: t(`tournaments.status.completed`),
-      pulse: false,
-    },
-    cancelled: {
-      icon: "🔴",
-      text: t(`tournaments.status.cancelled`),
-      pulse: false,
-    },
+    active: { icon: "🟢", text: "ACTIVE", pulse: true },
+    upcoming: { icon: "🔵", text: "UPCOMING", pulse: false },
+    completed: { icon: "⚫", text: "COMPLETED", pulse: false },
+    cancelled: { icon: "🔴", text: "CANCELLED", pulse: false },
   };
 
-  const config =
-    statusConfig[status as keyof typeof statusConfig] || statusConfig.upcoming;
+  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.upcoming;
 
   return (
     <div
-      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${colors.border} ${colors.bg}`}
+      className={`inline-flex items-center gap-2 px-3 py-1 rounded border ${colors.border} ${colors.bg}`}
     >
       <span className={config.pulse ? "animate-pulse" : ""}>{config.icon}</span>
-      <span className={colors.text}>{config.text}</span>
+      <span className={`text-xs font-mono ${colors.text}`}>{config.text}</span>
     </div>
   );
 }
 
-// Компонент отображения призов
-function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
-  const t = useT();
+// Tournament Stats Component
+function TournamentStatsDisplay({
+  tournament,
+  stats,
+  colors,
+}: {
+  tournament: Tournament;
+  stats: TournamentStats;
+  colors: any;
+}) {
+  const statsData = [
+    {
+      label: "PARTICIPANTS",
+      value: stats.totalParticipants.toString(),
+      icon: Users,
+    },
+    {
+      label: "TOTAL GAMES",
+      value: stats.totalGames.toString(),
+      icon: Target,
+    },
+    {
+      label: "HIGH SCORE",
+      value: formatNumber(stats.highestScore),
+      icon: Trophy,
+    },
+    {
+      label: "AVG SCORE",
+      value: formatNumber(stats.averageScore),
+      icon: TrendingUp,
+    },
+  ];
 
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      {statsData.map((stat, index) => {
+        const IconComponent = stat.icon;
+        return (
+          <div
+            key={index}
+            className="p-3 rounded border bg-black/40 text-center"
+            style={{
+              borderColor: colors.primary + "30",
+              backgroundColor: colors.primary + "05",
+            }}
+          >
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <IconComponent size={12} style={{ color: colors.primary }} />
+              <span className="text-xs font-mono text-white/60">{stat.label}</span>
+            </div>
+            <div className="text-lg font-mono font-bold text-white">{stat.value}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Prizes Display Component
+function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
   if (!prizes || prizes.length === 0) return null;
 
   const prizeIcons = ["🥇", "🥈", "🥉", "🏆", "💎"];
 
-  // Функция для безопасного получения позиции приза
-  const getPrizePosition = (prize: any): string => {
-    // Проверяем разные возможные поля
-    if (prize.position !== undefined) {
-      return typeof prize.position === "string"
-        ? prize.position
-        : `#${prize.position}`;
-    }
-    if (prize.place !== undefined) {
-      return typeof prize.place === "string" ? prize.place : `#${prize.place}`;
-    }
-
-    // Fallback на основе индекса
-    return `#${prizes.indexOf(prize) + 1}`;
-  };
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 mb-6">
       <div className="flex items-center gap-2 text-xs font-mono text-white/60">
         <Trophy size={12} />
-        <span>PRIZES</span>
+        <span>PRIZE POOL ({prizes.length} POSITIONS)</span>
       </div>
-      <div className="flex flex-wrap gap-1">
-        {prizes.slice(0, 5).map((prize, index) => (
-          <div
-            key={index}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono border ${colors.border} ${colors.bg}`}
-            style={{
-              boxShadow: `0 0 8px ${colors.glow}`,
-            }}
-          >
-            <span>{prizeIcons[index] || "🎁"}</span>
-            <span className={colors.text}>{getPrizePosition(prize)}</span>
-          </div>
-        ))}
-        {prizes.length > 5 && (
-          <div
-            className={`inline-flex items-center px-2 py-1 rounded text-xs font-mono border ${colors.border} ${colors.bg}`}
-          >
-            <span className={colors.text}>+{prizes.length - 5}</span>
-          </div>
-        )}
+      
+      <div className="space-y-2 max-h-60 overflow-y-auto">
+        {prizes.map((prize, index) => {
+          const prizeColor = getPositionColor(index + 1);
+          const prizeIcon = prizeIcons[index] || "🎁";
+
+          return (
+            <div
+              key={index}
+              className="flex items-center justify-between p-3 rounded border bg-black/40"
+              style={{
+                borderColor: prizeColor + "40",
+                boxShadow: `0 0 8px ${prizeColor}20`,
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-lg">{prizeIcon}</span>
+                <div>
+                  <div
+                    className="text-sm font-mono font-bold"
+                    style={{ color: prizeColor }}
+                  >
+                    #{prize.position}
+                  </div>
+                  <div className="text-xs text-white/60 font-mono">PLACE</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-white font-mono">{prize.description}</div>
+                {prize.attempts && (
+                  <div
+                    className="text-xs font-mono"
+                    style={{ color: colors.primary }}
+                  >
+                    +{prize.attempts} ATTEMPTS
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// Компонент карточки турнира
-function TournamentCard({
-  tournament,
-  onViewDetails,
-  onViewLeaderboard,
+// Leaderboard Entry Component
+function LeaderboardEntry({
+  entry,
+  position,
+  colors,
+  isCurrentUser = false,
 }: {
-  tournament: Tournament;
-  onViewDetails: (tournament: Tournament) => void;
-  onViewLeaderboard: (tournament: Tournament) => void;
+  entry: PublicTournamentLeaderboardEntry;
+  position: number;
+  colors: any;
+  isCurrentUser?: boolean;
 }) {
-  const t = useT();
-  const [timeLeft, setTimeLeft] = useState<string>("");
-
-  const colors = getFutureTechModeColors(tournament.mode);
-  const modeIcon = getModeIcon(tournament.mode);
-
-  useEffect(() => {
-    if (!tournament || !tournament.mode) return;
-
-    const updateTimer = () => {
-      if (tournament.status === "active") {
-        setTimeLeft(formatTimeRemaining(tournament.end_time));
-      } else if (tournament.status === "upcoming") {
-        setTimeLeft(formatTimeUntilStart(tournament.start_time));
-      }
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 30000);
-
-    return () => clearInterval(interval);
-  }, [
-    tournament?.end_time,
-    tournament?.start_time,
-    tournament?.status,
-    tournament?.mode,
-  ]);
-
-  if (!tournament || !tournament.mode) {
-    return (
-      <Card className="bg-black/60 backdrop-blur-sm border border-red-500/30">
-        <CardBody className="text-center p-4">
-          <p className="text-red-400 text-sm font-mono">
-            TOURNAMENT DATA ERROR
-          </p>
-        </CardBody>
-      </Card>
-    );
-  }
+  const PositionIcon = getPositionIcon(position);
+  const positionColor = getPositionColor(position);
 
   return (
     <Card
-      className="bg-black/80 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.02] group"
+      className={`bg-black/60 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.01] ${
+        isCurrentUser
+          ? `border-2 ${colors.border}`
+          : "border-white/10 hover:border-white/20"
+      }`}
       style={{
-        borderColor: colors.primary + "40",
-        boxShadow:
-          tournament.status === "active" ? `0 0 20px ${colors.glow}` : "none",
+        boxShadow: isCurrentUser ? `0 0 15px ${colors.glow}` : "none",
       }}
     >
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between w-full">
+      <CardBody className="p-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {/* Position */}
             <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center border"
+              className="flex items-center justify-center w-10 h-10 rounded border"
               style={{
-                backgroundColor: colors.primary + "20",
-                borderColor: colors.primary + "40",
-                boxShadow: `0 0 10px ${colors.glow}`,
+                borderColor: positionColor + "60",
+                backgroundColor: positionColor + "20",
               }}
             >
-              <span className="text-lg">{modeIcon}</span>
+              {PositionIcon ? (
+                <PositionIcon
+                  className="text-sm"
+                  size={16}
+                  style={{ color: positionColor }}
+                />
+              ) : (
+                <span
+                  className="text-sm font-mono font-bold"
+                  style={{ color: positionColor }}
+                >
+                  {position}
+                </span>
+              )}
             </div>
-            <div>
-              <h3 className="text-white font-bold text-sm font-mono">
-                {tournament.name}
-              </h3>
-              <p
-                className="text-xs font-mono"
-                style={{ color: colors.primary }}
-              >
-                {t(`tournaments.modes.${tournament.mode}` as any)}
-              </p>
+
+            {/* User info */}
+            <div className="flex items-center gap-3">
+              <Avatar
+                className="bg-white/20 text-white border"
+                name={entry.first_name.charAt(0)}
+                size="sm"
+                style={{
+                  borderColor: isCurrentUser ? colors.primary : "transparent",
+                }}
+              />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-mono text-base truncate">
+                    {entry.first_name}
+                    {entry.last_name && ` ${entry.last_name.charAt(0)}.`}
+                  </span>
+                  {isCurrentUser && (
+                    <Star className="text-yellow-400 fill-current" size={12} />
+                  )}
+                </div>
+                {entry.username && (
+                  <span className="text-white/50 text-sm font-mono">
+                    @{entry.username.length > 15 ? entry.username.substring(0, 15) + "..." : entry.username}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <TournamentStatus colors={colors} status={tournament.status} />
-        </div>
-      </CardHeader>
 
-      <CardBody className="pt-0 pb-3 space-y-3">
-        {/* Time Display */}
-        <div className="flex items-center justify-between text-xs font-mono">
-          <span className="text-white/60 flex items-center gap-1">
-            <Clock size={10} />
-            {tournament.status === "active"
-              ? "ENDS"
-              : tournament.status === "upcoming"
-                ? "STARTS"
-                : "ENDED"}
-          </span>
-          <span style={{ color: colors.primary }}>
-            {tournament.status === "completed"
-              ? new Date(tournament.end_time).toLocaleDateString()
-              : timeLeft}
-          </span>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 pt-2">
-          {tournament.status === "active" && (
-            <Button
-              className="flex-1 bg-transparent border font-mono text-xs"
-              size="sm"
-              startContent={<Play size={12} />}
-              style={{
-                borderColor: colors.primary + "60",
-                color: colors.primary,
-              }}
-              onClick={() => onViewDetails(tournament)}
+          {/* Score */}
+          <div className="text-right">
+            <div
+              className="text-lg font-mono font-bold"
+              style={{ color: isCurrentUser ? colors.primary : "#ffffff" }}
             >
-              PLAY
-            </Button>
-          )}
-          <Button
-            className="flex-1 bg-transparent border font-mono text-xs"
-            size="sm"
-            startContent={<Trophy size={12} />}
-            style={{
-              borderColor: colors.primary + "40",
-              color: colors.text.replace("text-", ""),
-            }}
-            onClick={() => onViewLeaderboard(tournament)}
-          >
-            BOARD
-          </Button>
+              {formatNumber(entry.best_score)}
+            </div>
+            <div className="text-xs text-white/50 font-mono">POINTS</div>
+          </div>
         </div>
       </CardBody>
     </Card>
   );
 }
 
+// Empty State Component
+function EmptyTournamentState() {
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center safe-area-inset">
+      <div className="text-center space-y-6 p-6">
+        <div className="relative mb-6">
+          <Trophy className="text-white/20 mx-auto" size={80} />
+          <div className="absolute inset-0 bg-white/5 blur-xl rounded-full" />
+        </div>
+        <div className="space-y-3">
+          <h1 className="text-2xl font-bold text-white font-mono">NO ACTIVE TOURNAMENT</h1>
+          <p className="text-white/60 font-mono text-sm max-w-md">
+            There are currently no active tournaments. Check back soon for upcoming competitions and challenges!
+          </p>
+        </div>
+        <div className="pt-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded border border-blue-500/30 bg-blue-500/10">
+            <Clock className="text-blue-400" size={16} />
+            <span className="text-blue-400 font-mono text-sm">COMING SOON</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TournamentsPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { makeAuthenticatedRequest } = useUser();
-  const t = useT();
+  const { user, makeAuthenticatedRequest } = useUser();
 
-  const [tournaments, setTournaments] = useState<TournamentsData | null>(null);
+  const [tournamentData, setTournamentData] = useState<PublicTournamentData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTournament, setSelectedTournament] =
-    useState<Tournament | null>(null);
+  const [timeLeft, setTimeLeft] = useState<string>("");
+  const [cacheInfo, setCacheInfo] = useState<any>(null);
 
-  // Добавляем состояние для модального окна лидерборда
-  const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] =
-    useState<boolean>(false);
-  const [leaderboardTournament, setLeaderboardTournament] =
-    useState<Tournament | null>(null);
+  const fetchTournamentData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-  const tournamentId = searchParams.get("tournamentId");
+      const response = await makeAuthenticatedRequest("/api/tournaments");
 
-  const fetchTournaments = useCallback(async () => {
-    if (tournamentId) {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const response = await makeAuthenticatedRequest(
-          `/api/tournaments/detail?tournamentId=${encodeURIComponent(tournamentId)}`,
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch tournament");
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch tournament");
-        }
-
-        setSelectedTournament(result.tournament);
-      } catch (error) {
-        console.error("Error fetching tournament:", error);
-        setError(
-          error instanceof Error ? error.message : "Failed to fetch tournament",
-        );
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        throw new Error("Failed to fetch tournament data");
       }
-    } else {
-      try {
-        setIsLoading(true);
-        setError(null);
 
-        const response = await makeAuthenticatedRequest("/api/tournaments");
+      const result: TournamentResponse = await response.json();
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch tournaments");
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch tournaments");
-        }
-
-        setTournaments(result.data);
-      } catch (error) {
-        console.error("Error fetching tournaments:", error);
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch tournaments",
-        );
-      } finally {
-        setIsLoading(false);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch tournament data");
       }
+
+      setTournamentData(result.tournament || null);
+      setCacheInfo(result.cache_info || null);
+
+    } catch (error) {
+      console.error("Error fetching tournament data:", error);
+      setError(error instanceof Error ? error.message : "Failed to fetch tournament data");
+    } finally {
+      setIsLoading(false);
     }
-  }, [makeAuthenticatedRequest, tournamentId]);
+  }, [makeAuthenticatedRequest]);
 
-  const handleViewDetails = useCallback(
-    (tournament: Tournament) => {
-      if (tournament.status === "active") {
-        // Переход на общую страницу игры
-        router.push("/game");
-      }
-    },
-    [router],
-  );
-
-  // Изменяем функцию для открытия модального окна лидерборда
-  const handleViewLeaderboard = useCallback((tournament: Tournament) => {
-    if (!tournament.id) {
-      console.error(
-        "Cannot view leaderboard: missing tournament ID",
-        tournament,
-      );
-
-      return;
-    }
-
-    setLeaderboardTournament(tournament);
-    setIsLeaderboardModalOpen(true);
-  }, []);
-
-  // Добавляем функцию для закрытия модального окна
-  const handleCloseLeaderboardModal = useCallback(() => {
-    setIsLeaderboardModalOpen(false);
-    setLeaderboardTournament(null);
-  }, []);
-
-  const handleBackToTournaments = useCallback(() => {
-    router.push("/tournaments");
+  const handlePlayNow = useCallback(() => {
+    router.push("/game");
   }, [router]);
 
   const handleRetry = useCallback(() => {
     setError(null);
-    fetchTournaments();
-  }, [fetchTournaments]);
+    fetchTournamentData();
+  }, [fetchTournamentData]);
 
+  // Fetch data on mount
   useEffect(() => {
-    fetchTournaments();
-  }, [fetchTournaments]);
+    fetchTournamentData();
+  }, [fetchTournamentData]);
 
+  // Update countdown timer
+  useEffect(() => {
+    if (!tournamentData?.tournament || tournamentData.tournament.status !== "active") return;
+
+    const updateTimer = () => {
+      setTimeLeft(formatTimeRemaining(tournamentData.tournament.end_time));
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [tournamentData]);
+
+  // Setup Telegram Back Button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
       tg.BackButton.show();
       tg.BackButton.onClick(() => {
-        if (selectedTournament) {
-          handleBackToTournaments();
-        } else {
-          router.push("/main"); // Изменено: возврат на главную страницу
-        }
+        router.push("/main");
       });
 
       return () => {
@@ -509,7 +564,18 @@ function TournamentsPageContent() {
         tg.BackButton.offClick(() => {});
       };
     }
-  }, [router, selectedTournament, handleBackToTournaments]);
+  }, [router]);
+
+  // Auto-refresh every 30 seconds for active tournaments
+  useEffect(() => {
+    if (tournamentData?.tournament?.status === "active") {
+      const interval = setInterval(() => {
+        fetchTournamentData();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [tournamentData?.tournament?.status, fetchTournamentData]);
 
   if (isLoading) {
     return (
@@ -519,9 +585,7 @@ function TournamentsPageContent() {
             <Spinner color="primary" size="lg" />
             <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
           </div>
-          <p className="text-white/80 font-mono text-sm">
-            {t("tournaments.errors.loadingTournaments").toUpperCase()}
-          </p>
+          <p className="text-white/80 font-mono text-sm">LOADING TOURNAMENT DATA...</p>
         </div>
       </div>
     );
@@ -536,9 +600,7 @@ function TournamentsPageContent() {
             <div className="absolute inset-0 bg-red-500/20 rounded-full blur-xl" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white font-mono">
-              SYSTEM ERROR
-            </h2>
+            <h2 className="text-xl font-bold text-white font-mono">SYSTEM ERROR</h2>
             <p className="text-red-400 font-mono text-sm">{error}</p>
           </div>
           <div className="flex gap-3 justify-center">
@@ -547,14 +609,14 @@ function TournamentsPageContent() {
               startContent={<Zap size={16} />}
               onClick={handleRetry}
             >
-              {t("tournaments.errors.tryAgain").toUpperCase()}
+              TRY AGAIN
             </Button>
             <Button
               className="bg-white/10 border border-white/30 text-white font-mono"
               startContent={<ArrowLeft size={16} />}
               onClick={() => router.push("/main")}
             >
-              {t("tournaments.navigation.backToMain").toUpperCase()}
+              BACK TO MAIN
             </Button>
           </div>
         </div>
@@ -562,152 +624,184 @@ function TournamentsPageContent() {
     );
   }
 
+  if (!tournamentData) {
+    return <EmptyTournamentState />;
+  }
+
+  const { tournament, leaderboard, userPosition, stats } = tournamentData;
+  const colors = getFutureTechModeColors(tournament.mode);
+  const modeIcon = getModeIcon(tournament.mode);
+
   return (
     <div className="min-h-screen bg-black safe-area-inset-bottom safe-area-inset">
       <div className="px-4 pb-8">
-        {/* Header */}
-        <div className="text-center space-y-3 mb-8 pt-6">
-          <div className="relative">
-            <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">
-              {t("tournaments.title")}
-            </h1>
-            <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full animate-pulse" />
-          </div>
-          <div className="h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
-          <p className="text-blue-400/80 text-xs font-mono tracking-widest">
-            {t("tournaments.subtitle").toUpperCase()}
-          </p>
+        {/* Tournament Header */}
+        <div className="mb-6 pt-4">
+          <Card
+            className="bg-black/80 backdrop-blur-sm border-2"
+            style={{
+              borderColor: colors.primary + "60",
+              boxShadow: `0 0 30px ${colors.glow}`,
+            }}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-16 h-16 rounded border flex items-center justify-center"
+                    style={{
+                      backgroundColor: colors.primary + "20",
+                      borderColor: colors.primary + "60",
+                      boxShadow: `0 0 15px ${colors.glow}`,
+                    }}
+                  >
+                    <span className="text-2xl">{modeIcon}</span>
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-white font-mono">
+                      {tournament.name}
+                    </h1>
+                    <p
+                      className="text-sm font-mono capitalize"
+                      style={{ color: colors.primary }}
+                    >
+                      {tournament.mode} TOURNAMENT
+                    </p>
+                    <div className="mt-2">
+                      <TournamentStatus colors={colors} status={tournament.status} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Time Display */}
+                {tournament.status === "active" && timeLeft && (
+                  <div className="text-right">
+                    <div className="text-xs text-white/60 font-mono">ENDS IN</div>
+                    <div
+                      className="text-xl font-mono font-bold"
+                      style={{ color: colors.primary }}
+                    >
+                      {timeLeft}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+
+            <CardBody className="pt-0">
+              {tournament.description && (
+                <p className="text-sm text-white/80 font-mono mb-4">
+                  {tournament.description}
+                </p>
+              )}
+              
+              {/* Play Button */}
+              {tournament.status === "active" && (
+                <div className="mb-4">
+                  <Button
+                    className="w-full bg-transparent border-2 font-mono"
+                    size="lg"
+                    startContent={<Play size={20} />}
+                    style={{
+                      borderColor: colors.primary + "80",
+                      color: colors.primary,
+                    }}
+                    onClick={handlePlayNow}
+                  >
+                    PLAY NOW
+                  </Button>
+                </div>
+              )}
+            </CardBody>
+          </Card>
         </div>
 
-        {/* Active Tournament */}
-        {tournaments?.active && (
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
+        {/* Tournament Stats */}
+        <TournamentStatsDisplay colors={colors} stats={stats} tournament={tournament} />
+
+        {/* User Position (if participating) */}
+        {userPosition && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <h2 className="text-sm font-mono text-green-400 tracking-wider">
-                  {t("tournaments.status.active").toUpperCase()}
+                <TrendingUp size={12} style={{ color: colors.primary }} />
+                <h2
+                  className="text-xs font-mono tracking-wider"
+                  style={{ color: colors.primary }}
+                >
+                  YOUR POSITION
                 </h2>
               </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-green-500/50 to-transparent" />
+              <div
+                className="flex-1 h-px bg-gradient-to-r to-transparent"
+                style={{
+                  backgroundImage: `linear-gradient(to right, ${colors.primary}60, transparent)`,
+                }}
+              />
             </div>
-            <TournamentCard
-              tournament={tournaments.active}
-              onViewDetails={handleViewDetails}
-              onViewLeaderboard={handleViewLeaderboard}
+            <LeaderboardEntry
+              colors={colors}
+              entry={userPosition.entry}
+              isCurrentUser={true}
+              position={userPosition.position}
             />
           </div>
         )}
 
-        {/* No Active Tournament */}
-        {!tournaments?.active && (
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-slate-500 rounded-full" />
-                <h2 className="text-sm font-mono text-slate-400 tracking-wider">
-                  STANDBY
-                </h2>
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-slate-500/30 to-transparent" />
-            </div>
-            <Card className="bg-black/60 border border-slate-500/30">
-              <CardBody className="text-center p-6 space-y-3">
-                <Target className="text-slate-500 mx-auto" size={32} />
-                <div className="space-y-1">
-                  <h3 className="text-white font-mono text-sm">
-                    {t("tournaments.sections.noActiveTournament").toUpperCase()}
-                  </h3>
-                  <p className="text-slate-400 font-mono text-xs">
-                    {tournaments?.upcoming && tournaments.upcoming.length > 0
-                      ? t("tournaments.empty.checkBackLater").toUpperCase() +
-                        "..."
-                      : t("tournaments.empty.firstTournament").toUpperCase() +
-                        "..."}
-                  </p>
-                </div>
-              </CardBody>
-            </Card>
-          </div>
+        {/* Prizes */}
+        {tournament.prizes && tournament.prizes.length > 0 && (
+          <PrizesDisplay colors={colors} prizes={tournament.prizes} />
         )}
 
-        {/* Upcoming Tournaments */}
-        {tournaments?.upcoming && tournaments.upcoming.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                <h2 className="text-sm font-mono text-blue-400 tracking-wider">
-                  {t("tournaments.status.upcoming").toUpperCase()}
-                </h2>
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-blue-500/50 to-transparent" />
+        {/* Leaderboard */}
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <Trophy className="text-yellow-400" size={12} />
+              <h2 className="text-xs font-mono text-yellow-400 tracking-wider">
+                LEADERBOARD
+              </h2>
             </div>
-            <div className="space-y-4">
-              {tournaments.upcoming.map((tournament) => (
-                <TournamentCard
-                  key={tournament.id}
-                  tournament={tournament}
-                  onViewDetails={handleViewDetails}
-                  onViewLeaderboard={handleViewLeaderboard}
-                />
-              ))}
+            <div className="flex-1 h-px bg-gradient-to-r from-yellow-500/50 to-transparent" />
+            <div className="flex items-center gap-1 text-xs font-mono text-white/50">
+              <Users size={10} />
+              <span>{leaderboard.length}</span>
             </div>
           </div>
-        )}
 
-        {/* Completed Tournaments */}
-        {tournaments?.completed && tournaments.completed.length > 0 && (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-slate-600 rounded-full" />
-                <h2 className="text-sm font-mono text-slate-400 tracking-wider">
-                  {t("tournaments.status.completed").toUpperCase()}
-                </h2>
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-slate-600/30 to-transparent" />
-            </div>
-            <div className="space-y-4">
-              {tournaments.completed.slice(0, 3).map((tournament) => (
-                <TournamentCard
-                  key={tournament.id}
-                  tournament={tournament}
-                  onViewDetails={handleViewDetails}
-                  onViewLeaderboard={handleViewLeaderboard}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+          {leaderboard.length > 0 ? (
+            <div className="space-y-2">
+              {leaderboard.map((entry, index) => {
+                const position = index + 1;
+                const isCurrentUser = isCurrentUserEntry(entry, user);
 
-        {/* Empty state */}
-        {!tournaments?.active &&
-          (!tournaments?.upcoming || tournaments.upcoming.length === 0) &&
-          (!tournaments?.completed || tournaments.completed.length === 0) && (
+                return (
+                  <LeaderboardEntry
+                    key={`${entry.tournament_id}-${entry.first_name}-${position}`}
+                    colors={colors}
+                    entry={entry}
+                    isCurrentUser={isCurrentUser}
+                    position={position}
+                  />
+                );
+              })}
+            </div>
+          ) : (
             <div className="text-center py-12">
               <div className="relative mb-6">
-                <Trophy className="text-white/20 mx-auto" size={64} />
+                <Trophy className="text-white/20 mx-auto" size={48} />
                 <div className="absolute inset-0 bg-white/5 blur-xl rounded-full" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-bold text-white font-mono">
-                  {t("tournaments.empty.noTournaments").toUpperCase()}
-                </h3>
+                <h3 className="text-lg font-bold text-white font-mono">NO PARTICIPANTS YET</h3>
                 <p className="text-white/60 font-mono text-sm">
-                  {t("tournaments.empty.firstTournament").toUpperCase()}
+                  Be the first to join this tournament!
                 </p>
               </div>
             </div>
           )}
+        </div>
       </div>
-
-      {/* Модальное окно лидерборда */}
-      <TournamentLeaderboardModal
-        isOpen={isLeaderboardModalOpen}
-        tournament={leaderboardTournament}
-        onClose={handleCloseLeaderboardModal}
-      />
     </div>
   );
 }

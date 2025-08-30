@@ -1,21 +1,59 @@
-// src/components/Tournaments/TournamentButton.tsx - Лаконичная кнопка турниров в Future Tech стилистике
+// src/components/Tournaments/TournamentButton.tsx - Обновленная кнопка турниров с Redis кешированием
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Trophy, Clock } from "lucide-react";
+import { Trophy, Clock, Target } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 
-// Tournament interface (упрощенная)
+// Tournament interfaces matching new API structure
 interface Tournament {
   id: string;
   name: string;
+  description?: string;
   mode: "survival" | "physics" | "rotation";
   start_time: string;
   end_time: string;
   status: "upcoming" | "active" | "completed" | "cancelled";
+  prizes: Array<{
+    position: number;
+    description: string;
+    attempts?: number;
+    reward_type?: "attempts" | "title" | "custom";
+  }>;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TournamentStats {
+  totalParticipants: number;
+  totalGames: number;
+  averageScore: number;
+  highestScore: number;
+}
+
+interface PublicTournamentData {
+  tournament: Tournament;
+  leaderboard: Array<{
+    tournament_id: string;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    best_score: number;
+  }>;
+  userPosition?: {
+    position: number;
+    entry: {
+      tournament_id: string;
+      first_name: string;
+      last_name?: string;
+      username?: string;
+      best_score: number;
+    };
+  };
+  stats: TournamentStats;
 }
 
 interface TournamentButtonProps {
@@ -23,7 +61,7 @@ interface TournamentButtonProps {
   onClick: () => void;
 }
 
-// Получение цветов режима для Future Tech стилистики
+// Get Future Tech mode colors
 function getFutureTechModeColors(mode: string) {
   switch (mode) {
     case "survival":
@@ -61,7 +99,7 @@ function getFutureTechModeColors(mode: string) {
   }
 }
 
-// Получение иконки режима
+// Get mode icon
 function getModeIcon(mode: string) {
   switch (mode) {
     case "survival":
@@ -75,7 +113,7 @@ function getModeIcon(mode: string) {
   }
 }
 
-// Форматирование времени до окончания
+// Format time remaining
 function formatTimeRemaining(endTime: string): string {
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
@@ -87,26 +125,7 @@ function formatTimeRemaining(endTime: string): string {
   const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
 
   if (hours > 0) return `${hours}h`;
-
   return `${minutes}m`;
-}
-
-// Форматирование времени до начала
-function formatTimeUntilStart(startTime: string): string {
-  const now = new Date().getTime();
-  const start = new Date(startTime).getTime();
-  const remaining = Math.max(0, start - now);
-
-  if (remaining === 0) return "STARTING";
-
-  const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
-  const hours = Math.floor(
-    (remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-  );
-
-  if (days > 0) return `${days}d`;
-
-  return `${hours}h`;
 }
 
 export default function TournamentButton({
@@ -116,14 +135,11 @@ export default function TournamentButton({
   const { makeAuthenticatedRequest } = useUser();
   const t = useT();
 
-  const [activeTournament, setActiveTournament] = useState<Tournament | null>(
-    null,
-  );
-  const [nextTournament, setNextTournament] = useState<Tournament | null>(null);
+  const [tournamentData, setTournamentData] = useState<PublicTournamentData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [timeDisplay, setTimeDisplay] = useState<string>("");
 
-  // Получение данных турниров
+  // Fetch tournament data using new simplified API
   const fetchTournamentData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -131,51 +147,61 @@ export default function TournamentButton({
       const response = await makeAuthenticatedRequest("/api/tournaments");
 
       if (!response.ok) {
-        console.error("Failed to fetch tournaments for button");
-
+        console.error("Failed to fetch tournament data for button");
         return;
       }
 
       const result = await response.json();
 
-      if (result.success && result.data) {
-        setActiveTournament(result.data.active || null);
-        setNextTournament(result.data.upcoming?.[0] || null);
+      if (result.success && result.tournament) {
+        setTournamentData(result.tournament);
+      } else {
+        // No active tournament
+        setTournamentData(null);
       }
     } catch (error) {
       console.error("Error fetching tournament data for button:", error);
+      setTournamentData(null);
     } finally {
       setIsLoading(false);
     }
   }, [makeAuthenticatedRequest]);
 
-  // Инициализация данных
+  // Initialize data on mount
   useEffect(() => {
     fetchTournamentData();
   }, [fetchTournamentData]);
 
-  // Обновление отображения времени
+  // Update time display for active tournaments
   useEffect(() => {
-    const updateTimeDisplay = () => {
-      if (activeTournament) {
-        setTimeDisplay(formatTimeRemaining(activeTournament.end_time));
-      } else if (nextTournament) {
-        setTimeDisplay(formatTimeUntilStart(nextTournament.start_time));
-      }
-    };
+    if (tournamentData?.tournament.status === "active") {
+      const updateTimeDisplay = () => {
+        setTimeDisplay(formatTimeRemaining(tournamentData.tournament.end_time));
+      };
 
-    updateTimeDisplay();
-    const interval = setInterval(updateTimeDisplay, 60000); // Обновление каждую минуту
+      updateTimeDisplay();
+      const interval = setInterval(updateTimeDisplay, 60000); // Update every minute
 
-    return () => clearInterval(interval);
-  }, [activeTournament, nextTournament]);
+      return () => clearInterval(interval);
+    } else {
+      setTimeDisplay("");
+    }
+  }, [tournamentData]);
 
-  // Определение турнира для отображения
-  const displayTournament = activeTournament || nextTournament;
-  const isActive = !!activeTournament;
+  // Auto-refresh tournament data every 5 minutes
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      fetchTournamentData();
+    }, 5 * 60 * 1000); // 5 minutes
 
-  if (!displayTournament || !displayTournament.mode) {
-    // Стандартная кнопка когда турниры недоступны
+    return () => clearInterval(refreshInterval);
+  }, [fetchTournamentData]);
+
+  const activeTournament = tournamentData?.tournament;
+  const isActive = activeTournament?.status === "active";
+
+  if (!activeTournament) {
+    // No active tournament - show default tournament button
     return (
       <button
         aria-label="Tournaments"
@@ -183,7 +209,7 @@ export default function TournamentButton({
         disabled={isTransitioning || isLoading}
         onClick={onClick}
       >
-        {/* Основная иконка */}
+        {/* Main icon */}
         <div className="relative z-10 flex items-center justify-center w-full h-full">
           <Trophy
             className="text-slate-400 group-hover:text-white transition-colors duration-300"
@@ -191,21 +217,28 @@ export default function TournamentButton({
           />
         </div>
 
-        {/* Hover эффект */}
+        {/* Hover effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* Граница свечения */}
+        {/* Border glow */}
         <div className="absolute inset-0 rounded-lg border border-transparent group-hover:border-slate-400/30 transition-colors duration-300" />
+
+        {/* "Coming Soon" indicator */}
+        <div className="absolute bottom-0 left-0 right-0 z-20">
+          <div className="text-[6px] font-mono leading-none py-0.5 text-center text-slate-500">
+            SOON
+          </div>
+        </div>
       </button>
     );
   }
 
-  const colors = getFutureTechModeColors(displayTournament.mode);
-  const modeIcon = getModeIcon(displayTournament.mode);
+  const colors = getFutureTechModeColors(activeTournament.mode);
+  const modeIcon = getModeIcon(activeTournament.mode);
 
   return (
     <button
-      aria-label={`Tournament: ${displayTournament.mode}`}
+      aria-label={`Active Tournament: ${activeTournament.mode}`}
       className="group relative w-12 h-12 bg-black/90 backdrop-blur-sm border text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
       disabled={isTransitioning || isLoading}
       style={{
@@ -214,7 +247,7 @@ export default function TournamentButton({
       }}
       onClick={onClick}
     >
-      {/* Градиентный фон */}
+      {/* Gradient background */}
       <div
         className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-300"
         style={{
@@ -222,7 +255,7 @@ export default function TournamentButton({
         }}
       />
 
-      {/* Пульсирующий эффект для активного турнира */}
+      {/* Pulsing effect for active tournament */}
       {isActive && (
         <div
           className="absolute inset-0 animate-pulse rounded-lg"
@@ -233,14 +266,14 @@ export default function TournamentButton({
         />
       )}
 
-      {/* Основная иконка */}
+      {/* Main icon */}
       <div className="relative z-10 flex items-center justify-center w-full h-full">
         <span className="text-lg group-hover:scale-110 transition-transform duration-300">
           {modeIcon}
         </span>
       </div>
 
-      {/* Индикатор статуса */}
+      {/* Status indicator */}
       <div className="absolute top-1 right-1 z-20">
         {isActive ? (
           <div
@@ -248,12 +281,12 @@ export default function TournamentButton({
             style={{ backgroundColor: colors.primary }}
           />
         ) : (
-          <Clock className="text-slate-400" size={8} />
+          <Target className="text-slate-400" size={8} />
         )}
       </div>
 
-      {/* Время (если есть) */}
-      {timeDisplay && (
+      {/* Time remaining for active tournaments */}
+      {isActive && timeDisplay && (
         <div
           className="absolute bottom-0 left-0 right-0 z-20 text-[6px] font-mono leading-none py-0.5 text-center opacity-80"
           style={{ color: colors.primary }}
@@ -262,7 +295,33 @@ export default function TournamentButton({
         </div>
       )}
 
-      {/* Hover эффект свечения */}
+      {/* Participants count indicator */}
+      {tournamentData.stats.totalParticipants > 0 && (
+        <div
+          className="absolute top-0 left-0 z-20 text-[6px] font-mono leading-none px-1 py-0.5 rounded-br opacity-80"
+          style={{ 
+            backgroundColor: colors.primary + "40",
+            color: colors.primary 
+          }}
+        >
+          {tournamentData.stats.totalParticipants}
+        </div>
+      )}
+
+      {/* User position indicator (if participating) */}
+      {tournamentData.userPosition && (
+        <div
+          className="absolute top-0 right-0 z-20 text-[6px] font-mono leading-none px-1 py-0.5 rounded-bl opacity-90"
+          style={{ 
+            backgroundColor: colors.primary,
+            color: "#ffffff"
+          }}
+        >
+          #{tournamentData.userPosition.position}
+        </div>
+      )}
+
+      {/* Hover glow effect */}
       <div
         className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{
@@ -270,7 +329,7 @@ export default function TournamentButton({
         }}
       />
 
-      {/* Внешнее свечение при hover */}
+      {/* External glow on hover */}
       <div
         className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300"
         style={{
@@ -279,7 +338,7 @@ export default function TournamentButton({
         }}
       />
 
-      {/* Сканирующая линия для Future Tech эффекта */}
+      {/* Scanning line for Future Tech effect */}
       <div
         className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{
@@ -287,6 +346,16 @@ export default function TournamentButton({
           animation: isActive ? "shimmer 2s ease-in-out infinite" : "none",
         }}
       />
+
+      {/* Loading state overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-30 rounded-lg">
+          <div
+            className="w-3 h-3 border border-transparent border-t-white rounded-full animate-spin"
+            style={{ borderTopColor: colors.primary }}
+          />
+        </div>
+      )}
     </button>
   );
 }

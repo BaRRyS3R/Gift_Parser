@@ -1,23 +1,23 @@
-// src/lib/server/tournamentService.ts - Tournament management service with data sanitization
+// src/lib/server/tournamentService.ts - Обновленный сервис турниров с Redis кешированием
 
+import { supabaseServer } from "@/lib/supabase_server";
+import { GameMode } from "@/types/game-modes/common";
+import { sanitizeLeaderboardEntry } from "@/types/tournaments";
+import { tournamentCacheService, type PublicTournamentData, type TournamentResponseWithCache } from "@/lib/server/tournamentCacheService";
 import type {
   Tournament,
   TournamentLeaderboardEntry,
   PublicTournamentLeaderboardEntry,
-  TournamentsData,
+  TournamentUserPosition,
   Prize,
 } from "@/types/tournaments";
 
-import { sanitizeLeaderboardEntry } from "@/types/tournaments";
-import { supabaseServer } from "@/lib/supabase_server";
-import { GameMode } from "@/types/game-modes/common";
-
-// Re-export types from the main types file to ensure consistency
+// Re-export types for consistency
 export type {
   Tournament,
   TournamentLeaderboardEntry,
   PublicTournamentLeaderboardEntry,
-  TournamentsData,
+  TournamentUserPosition,
   Prize,
 };
 
@@ -71,8 +71,6 @@ function transformTournament(rawTournament: RawTournament): Tournament {
   };
 }
 
-// Note: sanitizeLeaderboardEntry function is imported from types/tournaments.ts
-
 // Tournament participation result interface for game service integration
 export interface TournamentParticipationResult {
   tournamentId: string;
@@ -98,10 +96,77 @@ export interface GameResultForTournament {
   mistakesMade?: number;
 }
 
-// Server-side tournament service
+// Server-side tournament service with Redis caching
 export const serverTournamentService = {
   /**
-   * Get current active tournament
+   * ✅ ГЛАВНЫЙ МЕТОД - получение активного турнира с кешированным лидербордом
+   */
+  async getActiveTournamentWithLeaderboard(
+    currentUserId: string, // 🔒 UUID остается ТОЛЬКО на сервере
+    telegramId: number,
+    limit: number = 100
+  ): Promise<TournamentResponseWithCache> {
+    try {
+      console.log(`[TOURNAMENT_SERVICE] Getting active tournament with leaderboard for user: ${telegramId}`);
+      
+      // Используем кешированный сервис
+      return await tournamentCacheService.getActiveTournamentData(
+        currentUserId,
+        telegramId,
+        limit
+      );
+      
+    } catch (error) {
+      console.error("[TOURNAMENT_SERVICE] Error getting active tournament with leaderboard:", error);
+      
+      // Fallback к прямому запросу без кеша
+      try {
+        const tournament = await this.getActiveTournament();
+        if (tournament) {
+          const leaderboard = await this.getPublicTournamentLeaderboard(tournament.id, limit);
+          const userPosition = await this.getUserTournamentPosition(tournament.id, telegramId);
+          
+          const publicData: PublicTournamentData = {
+            tournament,
+            leaderboard,
+            userPosition: userPosition || undefined,
+            stats: {
+              totalParticipants: leaderboard.length,
+              totalGames: 0, // Будет вычислено в кеше
+              averageScore: 0, // Будет вычислено в кеше
+              highestScore: leaderboard.length > 0 ? leaderboard[0].best_score : 0,
+            }
+          };
+          
+          return {
+            tournament: publicData,
+            cache_info: {
+              is_from_cache: false,
+              cached_at: Date.now(),
+              cache_age_seconds: 0,
+              next_update_in_seconds: 0
+            }
+          };
+        }
+      } catch (fallbackError) {
+        console.error("[TOURNAMENT_SERVICE] Fallback also failed:", fallbackError);
+      }
+      
+      // Возвращаем пустой результат
+      return {
+        tournament: null,
+        cache_info: {
+          is_from_cache: false,
+          cached_at: Date.now(),
+          cache_age_seconds: 0,
+          next_update_in_seconds: 0
+        }
+      };
+    }
+  },
+
+  /**
+   * Get current active tournament (без кеша, для прямых обращений)
    */
   async getActiveTournament(): Promise<Tournament | null> {
     try {
@@ -109,7 +174,6 @@ export const serverTournamentService = {
 
       if (error) {
         console.error("Error getting active tournament:", error);
-
         return null;
       }
 
@@ -121,7 +185,6 @@ export const serverTournamentService = {
       return transformTournament(data);
     } catch (error) {
       console.error("Error in getActiveTournament:", error);
-
       return null;
     }
   },
@@ -155,66 +218,13 @@ export const serverTournamentService = {
 
       if (error) {
         console.error("Error checking tournament active for mode:", error);
-
         return false;
       }
 
       return data || false;
     } catch (error) {
       console.error("Error in isTournamentActiveForMode:", error);
-
       return false;
-    }
-  },
-
-  /**
-   * Get all tournaments grouped by status
-   */
-  async getAllTournaments(): Promise<TournamentsData> {
-    try {
-      const { data: tournaments, error } = await supabaseServer
-        .from("tournaments")
-        .select("*")
-        .order("start_time", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching tournaments:", error);
-        throw error;
-      }
-
-      const result: TournamentsData = {
-        upcoming: [],
-        completed: [],
-      };
-
-      for (const rawTournament of tournaments || []) {
-        const tournament = transformTournament(rawTournament);
-
-        if (tournament.status === "active") {
-          result.active = tournament;
-        } else if (tournament.status === "upcoming") {
-          result.upcoming.push(tournament);
-        } else if (tournament.status === "completed") {
-          result.completed.push(tournament);
-        }
-      }
-
-      // Sort upcoming by start time (earliest first)
-      result.upcoming.sort(
-        (a, b) =>
-          new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
-      );
-
-      // Sort completed by end time (most recent first)
-      result.completed.sort(
-        (a, b) =>
-          new Date(b.end_time).getTime() - new Date(a.end_time).getTime(),
-      );
-
-      return result;
-    } catch (error) {
-      console.error("Error in getAllTournaments:", error);
-      throw error;
     }
   },
 
@@ -231,7 +241,6 @@ export const serverTournamentService = {
 
       if (error) {
         if (error.code === "PGRST116") {
-          // No rows returned
           return null;
         }
         console.error("Error fetching tournament by ID:", error);
@@ -241,7 +250,6 @@ export const serverTournamentService = {
       return transformTournament(data);
     } catch (error) {
       console.error("Error in getTournamentById:", error);
-
       return null;
     }
   },
@@ -387,7 +395,6 @@ export const serverTournamentService = {
             updates.best_time = Math.round(gameResult.gameTime);
           }
           if (gameResult.totalHits !== undefined) {
-            // For physics mode, we track best hits, not total hits across all games
             if (
               !existingEntry.best_hits ||
               gameResult.totalHits > existingEntry.best_hits
@@ -430,7 +437,6 @@ export const serverTournamentService = {
           ) {
             updates.best_streak = gameResult.perfectStreak;
           }
-          // Note: rotation mode doesn't track hits in the database schema
         }
 
         const { error } = await supabaseServer
@@ -473,7 +479,6 @@ export const serverTournamentService = {
           newEntry.best_time = gameResult.survivalTime || 0;
           newEntry.max_level = gameResult.maxLevelReached || 0;
           newEntry.best_streak = gameResult.perfectStreak || 0;
-          // Note: rotation mode doesn't track hits in the database schema
         }
 
         const { error } = await supabaseServer
@@ -485,6 +490,11 @@ export const serverTournamentService = {
           throw error;
         }
       }
+
+      // ✅ ИНВАЛИДИРУЕМ КЕШ после обновления лидерборда
+      await tournamentCacheService.invalidateTournamentLeaderboardCache(tournamentId);
+      console.log(`[TOURNAMENT_SERVICE] Invalidated leaderboard cache for tournament: ${tournamentId}`);
+
     } catch (error) {
       console.error("Error in updateTournamentLeaderboard:", error);
       throw error;
@@ -497,10 +507,7 @@ export const serverTournamentService = {
   async getUserTournamentPosition(
     tournamentId: string,
     telegramId: number,
-  ): Promise<{
-    position: number;
-    entry: PublicTournamentLeaderboardEntry;
-  } | null> {
+  ): Promise<TournamentUserPosition | null> {
     try {
       const leaderboard = await this.getTournamentLeaderboard(
         tournamentId,
@@ -520,13 +527,70 @@ export const serverTournamentService = {
       };
     } catch (error) {
       console.error("Error in getUserTournamentPosition:", error);
-
       return null;
     }
   },
 
   /**
-   * Get tournament by query parameter (format: mode-week-number-year)
+   * Force refresh tournament cache
+   */
+  async forceRefreshTournamentCache(): Promise<void> {
+    try {
+      console.log("[TOURNAMENT_SERVICE] Force refreshing tournament cache");
+      await tournamentCacheService.forceRefreshTournament();
+      
+      // Also refresh leaderboard cache for active tournament
+      const activeTournament = await this.getActiveTournament();
+      if (activeTournament) {
+        await tournamentCacheService.forceRefreshTournamentLeaderboard(activeTournament.id);
+      }
+      
+      console.log("[TOURNAMENT_SERVICE] Tournament cache force refresh completed");
+    } catch (error) {
+      console.error("Error in forceRefreshTournamentCache:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get tournament cache statistics
+   */
+  async getTournamentCacheStats() {
+    try {
+      return await tournamentCacheService.getCacheStats();
+    } catch (error) {
+      console.error("Error getting tournament cache stats:", error);
+      return {
+        active_tournament_cached: false,
+        leaderboard_caches_count: 0,
+        security_info: {
+          user_ids_exposed_to_client: false,
+          internal_ids_secured: true,
+        },
+      };
+    }
+  },
+
+  /**
+   * Invalidate all tournament caches (for admin use)
+   */
+  async invalidateAllTournamentCaches(): Promise<void> {
+    try {
+      console.log("[TOURNAMENT_SERVICE] Invalidating all tournament caches");
+      await tournamentCacheService.invalidateAllTournamentCache();
+      console.log("[TOURNAMENT_SERVICE] All tournament caches invalidated");
+    } catch (error) {
+      console.error("Error invalidating tournament caches:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================================
+  // ✅ LEGACY МЕТОДЫ - оставляем для совместимости, но используют кешированные версии
+  // ============================================================================
+
+  /**
+   * LEGACY: Get tournament by query parameter (теперь с кешированием)
    */
   async getTournamentByQuery(query: string): Promise<Tournament | null> {
     try {
@@ -537,7 +601,6 @@ export const serverTournamentService = {
 
       if (parts.length < 1) {
         console.error("Invalid query format:", query);
-
         return null;
       }
 
@@ -545,65 +608,24 @@ export const serverTournamentService = {
 
       if (!["survival", "physics", "rotation"].includes(mode)) {
         console.error("Invalid tournament mode in query:", mode);
-
         return null;
       }
 
       console.log("Looking for tournament with mode:", mode);
 
-      // First, try to find an active tournament with the matching mode
-      const { data: activeTournaments, error: activeError } =
-        await supabaseServer
-          .from("tournaments")
-          .select("*")
-          .eq("game_mode", mode)
-          .eq("status", "active")
-          .order("start_time", { ascending: false })
-          .limit(1);
+      // Get active tournament using cached service
+      const activeTournament = await this.getActiveTournament();
 
-      if (activeError) {
-        console.error("Error searching for active tournament:", activeError);
-      } else if (activeTournaments && activeTournaments.length > 0) {
+      if (activeTournament && activeTournament.mode === mode) {
         console.log("Found active tournament for mode:", mode);
-
-        return transformTournament(activeTournaments[0]);
+        return activeTournament;
       }
 
-      // If no active tournament found, get the most recent tournament for this mode
-      const { data: allTournaments, error: allError } = await supabaseServer
-        .from("tournaments")
-        .select("*")
-        .eq("game_mode", mode)
-        .order("start_time", { ascending: false })
-        .limit(1);
+      console.log("No active tournament found for mode:", mode);
+      return null;
 
-      if (allError) {
-        console.error("Error searching tournament by mode:", allError);
-
-        return null;
-      }
-
-      const rawTournament = allTournaments?.[0] || null;
-
-      if (!rawTournament) {
-        console.log("No tournament found for mode:", mode);
-
-        return null;
-      }
-
-      const tournament = transformTournament(rawTournament);
-
-      console.log(
-        "Found tournament:",
-        tournament.id,
-        "with status:",
-        tournament.status,
-      );
-
-      return tournament;
     } catch (error) {
       console.error("Error in getTournamentByQuery:", error);
-
       return null;
     }
   },
