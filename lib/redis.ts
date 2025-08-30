@@ -55,7 +55,7 @@ export const CACHE_TTL = {
   LEADERBOARD: 300, // 5 минут
   USER_PROFILE: 600, // 10 минут
   USER_ATTEMPTS: 60, // 1 минута
-  SEASON_DATA: 3600, // 1 час (fallback, обычно используется динамический TTL) ОБНОВИТЬ ДО НЕДЕЛИ - 604800
+  SEASON_DATA: 3600, // 1 час (fallback, обычно используется динамический TTL)
   LOCK_TIMEOUT: 30, // 30 секунд для блокировок
 } as const;
 
@@ -191,9 +191,21 @@ export const seasonCacheUtils = {
     return await safeRedisOperation(async () => {
       const cached = await redis!.get(REDIS_KEYS.CURRENT_SEASON);
       if (cached) {
-        const seasonData = JSON.parse(cached as string) as CachedSeason;
-        console.log(`[REDIS] Retrieved cached current season: ${seasonData.name}`);
-        return seasonData;
+        // Обработка различных типов данных от Redis
+        let parsedData: CachedSeason;
+        
+        if (typeof cached === 'string') {
+          parsedData = JSON.parse(cached) as CachedSeason;
+        } else if (typeof cached === 'object' && cached !== null) {
+          // Если Redis уже десериализовал данные
+          parsedData = cached as CachedSeason;
+        } else {
+          console.warn(`[REDIS] Unexpected cached data type: ${typeof cached}`);
+          return null;
+        }
+        
+        console.log(`[REDIS] Retrieved cached current season: ${parsedData.name}`);
+        return parsedData;
       }
       return null;
     }, null);
@@ -222,9 +234,21 @@ export const seasonCacheUtils = {
     return await safeRedisOperation(async () => {
       const cached = await redis!.get(key);
       if (cached) {
-        const seasonData = JSON.parse(cached as string) as CachedSeason;
-        console.log(`[REDIS] Retrieved cached season: ${seasonData.name}`);
-        return seasonData;
+        // Обработка различных типов данных от Redis
+        let parsedData: CachedSeason;
+        
+        if (typeof cached === 'string') {
+          parsedData = JSON.parse(cached) as CachedSeason;
+        } else if (typeof cached === 'object' && cached !== null) {
+          // Если Redis уже десериализовал данные
+          parsedData = cached as CachedSeason;
+        } else {
+          console.warn(`[REDIS] Unexpected cached data type for season ${seasonId}: ${typeof cached}`);
+          return null;
+        }
+        
+        console.log(`[REDIS] Retrieved cached season: ${parsedData.name}`);
+        return parsedData;
       }
       return null;
     }, null);
