@@ -1,4 +1,4 @@
-// src/app/shop/page.tsx - Updated with Binary Easter Egg (5 clicks) instead of Cat
+// src/app/shop/page.tsx - Оптимизированная версия с мгновенной загрузкой
 
 "use client";
 
@@ -34,6 +34,37 @@ interface EasterEggState {
   clickCount: number;
   lastClickTime: number;
   isActive: boolean;
+}
+
+// Скелетон для карточки продукта
+function ProductCardSkeleton() {
+  return (
+    <Card className="bg-gradient-to-r from-white/5 to-white/10">
+      <CardBody className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="flex items-start space-x-3 mb-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2 mb-1">
+                  <div className="h-5 bg-white/10 rounded animate-pulse w-32" />
+                  <div className="h-4 bg-white/10 rounded animate-pulse w-16" />
+                </div>
+                <div className="h-4 bg-white/10 rounded animate-pulse w-48" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-white/10 rounded animate-pulse" />
+                <div className="h-4 bg-white/10 rounded animate-pulse w-16" />
+              </div>
+              <div className="h-8 bg-white/10 rounded animate-pulse w-20" />
+            </div>
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  );
 }
 
 export default function ShopPage() {
@@ -202,7 +233,6 @@ export default function ShopPage() {
 
         // Show success notification
         showSuccessNotification(productType);
-      } else {
       }
     } catch (error) {
       console.error("Error in purchase process:", error);
@@ -281,7 +311,7 @@ export default function ShopPage() {
 
       {/* Error message */}
       {purchaseModule.error && (
-        <div className="max-w-2xl mx-auto mb-6">
+        <div className="max-w-2xl mx-auto mb-6 animate-fade-in">
           <Card className="bg-white/10 border border-white/20">
             <CardBody className="p-4">
               <div className="flex items-center space-x-2">
@@ -294,7 +324,7 @@ export default function ShopPage() {
       )}
 
       {/* Payment Methods Section */}
-      <div className="max-w-2xl mx-auto mb-8">
+      <div className="max-w-2xl mx-auto mb-8 animate-fade-in">
         <h2 className="text-2xl font-bold text-white mb-4 text-center">
           {t("shop.paymentMethods")}
         </h2>
@@ -344,23 +374,24 @@ export default function ShopPage() {
 
       {/* Products Grid - Telegram Stars */}
       <div className="max-w-2xl mx-auto space-y-4">
-        {Object.entries(PRODUCTS).map(([key, product]) => {
+        {Object.entries(PRODUCTS).map(([key, product], index) => {
           const productType = key as ProductType;
           const badge = getProductBadge(productType);
           const isLoadingThisProduct =
             purchaseModule.isLoadingProduct(productType);
 
           return (
-            <ProductCard
-              key={productType}
-              badge={badge}
-              getButtonText={getButtonText}
-              loading={isLoadingThisProduct}
-              product={product}
-              productType={productType}
-              t={t}
-              onPurchase={handlePurchase}
-            />
+            <div key={productType} className="animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
+              <ProductCard
+                badge={badge}
+                getButtonText={getButtonText}
+                loading={isLoadingThisProduct}
+                product={product}
+                productType={productType}
+                t={t}
+                onPurchase={handlePurchase}
+              />
+            </div>
           );
         })}
       </div>

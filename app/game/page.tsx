@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Complete game page with video backgrounds
+// src/app/game/page.tsx - Оптимизированная версия с мгновенной загрузкой
 
 "use client";
 
@@ -39,7 +39,7 @@ interface GameMode {
   difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
   durationKey: string;
   videoUrl: string;
-  fallbackImageUrl: string; // Fallback на случай если видео не загрузится
+  fallbackImageUrl: string;
   color: {
     primary: string;
     secondary: string;
@@ -199,6 +199,54 @@ const GAME_MODES: GameMode[] = [
   },
 ];
 
+// Скелетон для attempts display
+function AttemptsDisplaySkeleton() {
+  return (
+    <div className="bg-black/90 backdrop-blur-xl border-2 border-white/20 text-white w-full relative overflow-hidden animate-fade-in">
+      <div className="relative z-10 p-4">
+        <div className="flex items-center space-x-2 mb-2">
+          <div className="w-4 h-4 bg-white/10 rounded animate-pulse" />
+          <div className="h-4 bg-white/10 rounded animate-pulse w-24" />
+        </div>
+        <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent mb-2" />
+        <div className="h-6 bg-white/10 rounded animate-pulse w-32 mb-2" />
+        <div className="h-3 bg-white/10 rounded animate-pulse w-48" />
+      </div>
+    </div>
+  );
+}
+
+// Скелетон для карточки игрового режима
+function GameModeCardSkeleton({ delay = 0 }: { delay?: number }) {
+  return (
+    <div className="relative group animate-fade-in" style={{ animationDelay: `${delay}ms` }}>
+      <Card className="w-[280px] h-[400px] border-2 border-white/20 bg-black/30">
+        <CardHeader className="absolute z-10 top-4 mx-4">
+          <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 w-full border border-white/10">
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-white/10 rounded-lg animate-pulse" />
+              <div>
+                <div className="h-5 bg-white/10 rounded animate-pulse w-24 mb-1" />
+                <div className="h-3 bg-white/10 rounded animate-pulse w-16" />
+              </div>
+            </div>
+            <div className="h-4 bg-white/10 rounded animate-pulse w-full" />
+          </div>
+        </CardHeader>
+
+        <div className="relative z-0 w-full h-full bg-white/10 animate-pulse" />
+
+        <CardFooter className="absolute bg-black/50 backdrop-blur-md bottom-0 border-t-1 border-white/20 z-10">
+          <div className="flex space-x-2 w-full">
+            <div className="w-10 h-8 bg-white/10 rounded animate-pulse" />
+            <div className="flex-1 h-8 bg-white/10 rounded animate-pulse" />
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
+
 // Компонент для видео с fallback
 interface GameModeVideoProps {
   mode: GameMode;
@@ -235,13 +283,9 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
     }
   }, []);
 
-  // Функция для определения CSS стилей видео
   const getVideoStyles = useCallback(() => {
     const baseStyles = "z-0 w-full h-full transition-all duration-300";
-    
-    // Адаптация по ширине с обрезкой высоты
     const fitStyles = "object-cover object-center";
-    
     const opacityStyles = isLoaded ? 'opacity-100' : 'opacity-0';
     
     return `${baseStyles} ${fitStyles} ${opacityStyles} ${className}`;
@@ -250,7 +294,6 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
-      // Пытаемся запустить воспроизведение когда видео загружено
       const playVideo = async () => {
         try {
           await video.play();
@@ -268,7 +311,6 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
   }, [mode.id]);
 
   if (hasError) {
-    // Fallback на картинку с теми же стилями
     return (
       <img
         src={mode.fallbackImageUrl}
@@ -297,7 +339,6 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
         onError={handleVideoError}
         onClick={togglePlayPause}
         style={{
-          // Дополнительные стили для лучшей адаптации
           minWidth: '100%',
           minHeight: '100%',
         }}
@@ -306,7 +347,7 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
         Ваш браузер не поддерживает видео.
       </video>
       
-      {/* Кастомные контроли, показываются по ховеру */}
+      {/* Кастомные контроли */}
       {isLoaded && (
         <div 
           className={`absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 flex items-center justify-center ${
@@ -369,6 +410,7 @@ function GamePageContent() {
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Easter Egg state
   const [showEasterEgg, setShowEasterEgg] = useState(false);
@@ -380,16 +422,14 @@ function GamePageContent() {
 
   // Initialize attempts status loading
   useEffect(() => {
-    if (user && !attemptsLoading && !attemptsStatus) {
-      fetchAttemptsStatus();
+    if (user && !dataLoaded) {
+      const initializeData = async () => {
+        await fetchAttemptsStatus();
+        setDataLoaded(true);
+      };
+      initializeData();
     }
-  }, [
-    user,
-    makeAuthenticatedRequest,
-    attemptsLoading,
-    attemptsStatus,
-    fetchAttemptsStatus,
-  ]);
+  }, [user, dataLoaded, fetchAttemptsStatus]);
 
   // Easter Egg check on page load
   useEffect(() => {
@@ -414,7 +454,6 @@ function GamePageContent() {
     if ('serviceWorker' in navigator) {
       console.log("[GamePage] Service Worker supported, videos should be cached");
       
-      // Опционально: можем принудительно запросить кэширование
       GAME_MODES.forEach(mode => {
         fetch(mode.videoUrl, { mode: 'no-cors' })
           .then(() => console.log(`[GamePage] Video cached: ${mode.id}`))
@@ -434,14 +473,12 @@ function GamePageContent() {
       setStartError(null);
 
       try {
-        // Quick check without consuming attempt - let game managers handle consumption
         const canPlayNow = await canPlayFast();
 
         if (!canPlayNow) {
           throw new Error("No attempts remaining");
         }
 
-        // Small delay for loading animation
         setTimeout(() => {
           router.push(mode.route);
         }, 600);
@@ -454,7 +491,6 @@ function GamePageContent() {
         setStartError(errorMessage);
         setLoadingModeId(null);
 
-        // Refresh attempts status after error
         setTimeout(() => {
           fetchAttemptsStatus(true);
         }, 1000);
@@ -476,7 +512,8 @@ function GamePageContent() {
   const handleAttemptsRetry = useCallback(() => {
     clearError();
     setStartError(null);
-    fetchAttemptsStatus(true);
+    setDataLoaded(false);
+    fetchAttemptsStatus(true).then(() => setDataLoaded(true));
   }, [clearError, fetchAttemptsStatus]);
 
   const handleCloseEasterEgg = useCallback(() => {
@@ -709,32 +746,43 @@ function GamePageContent() {
           </div>
         )}
 
-        {/* Future Tech attempts display */}
-        <div className="mb-8 animate-fade-in">
-          <FutureTechAttemptsDisplay
-            attemptsRemaining={attemptsRemaining}
-            attemptsStatus={attemptsStatus}
-            canPlay={canPlay}
-            error={attemptsError}
-            isLoading={attemptsLoading}
-            showShopButton={true}
-            onRetry={handleAttemptsRetry}
-          />
+        {/* Future Tech attempts display или скелетон */}
+        <div className="mb-8">
+          {!dataLoaded && attemptsLoading ? (
+            <AttemptsDisplaySkeleton />
+          ) : (
+            <div className="animate-fade-in">
+              <FutureTechAttemptsDisplay
+                attemptsRemaining={attemptsRemaining}
+                attemptsStatus={attemptsStatus}
+                canPlay={canPlay}
+                error={attemptsError}
+                isLoading={attemptsLoading}
+                showShopButton={true}
+                onRetry={handleAttemptsRetry}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Enhanced horizontal scrolling cards with video backgrounds */}
-      <div className="mb-8 animate-fade-in">
+      {/* Enhanced horizontal scrolling cards с скелетонами или реальными карточками */}
+      <div className="mb-8">
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex space-x-6 px-4" style={{ width: "max-content" }}>
-            {GAME_MODES.map((mode) => {
+            {GAME_MODES.map((mode, index) => {
               const Icon = mode.icon;
               const isCurrentModeLoading = loadingModeId === mode.id;
               const isAnyModeLoading = loadingModeId !== null;
               const isDisabled = !canPlay;
 
+              // Показываем скелетон во время первичной загрузки данных
+              if (!dataLoaded && attemptsLoading) {
+                return <GameModeCardSkeleton key={mode.id} delay={index * 100} />;
+              }
+
               return (
-                <div key={mode.id} className="relative group">
+                <div key={mode.id} className="relative group animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
                   <Card
                     isFooterBlurred
                     className={`w-[280px] h-[400px] border-2 transition-all duration-300 backdrop-blur-md overflow-hidden ${mode.color.border
@@ -778,7 +826,7 @@ function GamePageContent() {
                       </p>
                     </CardHeader>
 
-                    {/* Заменяем Image на наш кастомный видео компонент */}
+                    {/* Замена Image на наш кастомный видео компонент */}
                     <div className="relative z-0 w-full h-full overflow-hidden">
                       <GameModeVideo mode={mode} />
                     </div>
