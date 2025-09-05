@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with achievements integration
+// src/app/profile/page.tsx - Updated with integrated skeleton UI
 
 "use client";
 
@@ -49,7 +49,6 @@ export default function ProfilePage() {
       // If this is the first time we see the total games, just store it
       if (lastKnownTotalGames === null) {
         setLastKnownTotalGames(currentTotalGames);
-
         return;
       }
 
@@ -72,22 +71,7 @@ export default function ProfilePage() {
     setIsAchievementsModalOpen(true);
   };
 
-  // Show loading while user data is being authenticated or profile data is loading
-  if (
-    authState.isLoading ||
-    (authState.isAuthenticated && !profile.profileData && profile.isLoading)
-  ) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t("profile.loadingProfile")}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Check if user is not authenticated
+  // Show basic error screen if user is not authenticated
   if (!authState.isAuthenticated || !authState.user || !telegramUser) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -135,6 +119,8 @@ export default function ProfilePage() {
     rotation: null,
   };
 
+  const isLoading = profile.isLoading && !profileData;
+
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {/* Header */}
@@ -147,8 +133,33 @@ export default function ProfilePage() {
       <MinimalistDivider />
 
       <div className="max-w-md mx-auto">
-        {/* Enhanced Profile Header with Achievement Icons */}
-        {profileUser ? (
+        {/* Enhanced Profile Header with Skeleton */}
+        {isLoading ? (
+          <div className="text-center px-4 py-6 space-y-4">
+            {/* Show user name immediately from telegramUser */}
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-white animate-fade-in">
+                {telegramUser.first_name} {telegramUser.last_name || ""}
+              </h2>
+              {telegramUser.username && (
+                <p className="text-white/60 animate-fade-in">
+                  @{telegramUser.username}
+                </p>
+              )}
+            </div>
+            
+            {/* Achievement Icons Skeleton */}
+            <div className="flex justify-center space-x-2 mt-4">
+              {[...Array(3)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className="w-8 h-8 bg-white/10 rounded-full animate-pulse"
+                  style={{ animationDelay: `${i * 0.1}s` }}
+                />
+              ))}
+            </div>
+          </div>
+        ) : profileUser ? (
           <EnhancedProfileHeader
             achievements={achievements?.achievements}
             user={profileUser}
@@ -162,17 +173,72 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Action Buttons */}
-        <MinimalistActionButtons
-          onOpenAchievements={handleOpenAchievements}
-          onOpenReferrals={handleOpenReferrals}
-        />
+        {/* Action Buttons with Skeleton */}
+        {isLoading ? (
+          <div className="flex space-x-4 px-4 mb-6">
+            {[...Array(2)].map((_, i) => (
+              <div 
+                key={i}
+                className="flex-1 h-12 bg-white/10 rounded-lg animate-pulse"
+                style={{ animationDelay: `${i * 0.1}s` }}
+              />
+            ))}
+          </div>
+        ) : (
+          <MinimalistActionButtons
+            onOpenAchievements={handleOpenAchievements}
+            onOpenReferrals={handleOpenReferrals}
+          />
+        )}
 
         {/* Divider */}
         <MinimalistDivider />
 
-        {/* Game Statistics */}
-        <MinimalistGameStats isLoading={profile.isLoading} user={profileUser} />
+        {/* Game Statistics with Skeleton */}
+        {isLoading ? (
+          <div className="space-y-6">
+            {/* Stats Grid Skeleton */}
+            <div className="grid grid-cols-2 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="text-center space-y-2">
+                  <div 
+                    className="h-8 w-16 bg-white/10 rounded animate-pulse mx-auto"
+                    style={{ animationDelay: `${i * 0.1}s` }}
+                  />
+                  <div 
+                    className="h-4 w-20 bg-white/10 rounded animate-pulse mx-auto"
+                    style={{ animationDelay: `${i * 0.1 + 0.05}s` }}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            {/* Best Scores Section Skeleton */}
+            <div className="space-y-4">
+              <div className="h-6 w-32 bg-white/10 rounded animate-pulse mx-auto" />
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex justify-between items-center py-2">
+                  <div className="flex items-center space-x-3">
+                    <div 
+                      className="w-6 h-6 bg-white/10 rounded animate-pulse"
+                      style={{ animationDelay: `${i * 0.1}s` }}
+                    />
+                    <div 
+                      className="h-4 w-24 bg-white/10 rounded animate-pulse"
+                      style={{ animationDelay: `${i * 0.1 + 0.05}s` }}
+                    />
+                  </div>
+                  <div 
+                    className="h-4 w-16 bg-white/10 rounded animate-pulse"
+                    style={{ animationDelay: `${i * 0.1 + 0.1}s` }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <MinimalistGameStats isLoading={profile.isLoading} user={profileUser} />
+        )}
 
         {/* Bottom spacing for safe area */}
         <div className="h-20" />

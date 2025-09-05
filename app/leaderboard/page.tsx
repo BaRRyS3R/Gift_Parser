@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - ИСПРАВЛЕН бесконечный цикл в useEffect
+// src/app/leaderboard/page.tsx - Updated with integrated skeleton UI
 
 "use client";
 
@@ -434,7 +434,6 @@ const CacheStatusBadge = ({ cacheInfo }: { cacheInfo: CacheInfo | null }) => {
           </span>
         </div>
         
-        {/* ✅ НОВОЕ: Информация о персонализации */}
         <div className="mt-1 text-white/50 text-xs">
           📊 Personalized rankings • Optimized data
         </div>
@@ -470,7 +469,6 @@ function LeaderboardPageContent() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageInitialized, setPageInitialized] = useState(false);
 
-  // ✅ ИСПРАВЛЕНО: используем useRef для предотвращения повторных вызовов
   const initializationRef = useRef(false);
 
   // Setup Telegram WebApp back button
@@ -495,13 +493,11 @@ function LeaderboardPageContent() {
     }
   }, [router]);
 
-  // ✅ ИСПРАВЛЕНО: убрали fetchLeaderboards из зависимостей, используем ref для однократной инициализации
   useEffect(() => {
-    // Инициализируем только один раз
     if (initializationRef.current) return;
     
     const initializePage = async () => {
-      if (initializationRef.current) return; // Двойная проверка
+      if (initializationRef.current) return;
       
       initializationRef.current = true;
       
@@ -515,7 +511,7 @@ function LeaderboardPageContent() {
     };
 
     initializePage();
-  }, []); // ✅ Пустой массив зависимостей - запускается только один раз
+  }, []);
 
   const handleTabChange = async (tab: LeaderboardType) => {
     if (tab === activeTab || isTransitioning) return;
@@ -705,7 +701,7 @@ function LeaderboardPageContent() {
   const getTabIcon = (tab: LeaderboardType) => {
     switch (tab) {
       case "season":
-        return <span className="text-xs font-bold">βῦτα SEASON</span>;
+        return <span className="text-xs font-bold">βᾦτα SEASON</span>;
       case "reaction":
         return <Zap size={16} />;
       case "survival":
@@ -751,18 +747,6 @@ function LeaderboardPageContent() {
     await fetchLeaderboards();
   };
 
-  // Show loading state until page is fully initialized
-  if (!pageInitialized || isLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t("leaderboard.loadingLeaderboards")}</p>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -782,6 +766,7 @@ function LeaderboardPageContent() {
 
   const fullLeaderboard = getFullLeaderboard;
   const currentUserData = getCurrentUserData;
+  const isInitialLoading = !pageInitialized || (isLoading && !leaderboardData);
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
@@ -802,25 +787,45 @@ function LeaderboardPageContent() {
       </div>
 
       <div className="relative z-10 px-4 safe-area-inset">
-        {/* Current User Display */}
+        {/* Current User Display with Skeleton */}
         <div className="text-center py-4 pt-8">
-          {currentUserData ? (
+          {/* Always show user name from telegramUser */}
+          {telegramUser && (
             <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <div className="mb-4">
                 <div className="flex items-center justify-center space-x-2">
                   <span className="text-3xl font-bold text-white drop-shadow-lg">
-                    {currentUserData.name}
+                    {telegramUser.first_name} {telegramUser.last_name || ""}
                   </span>
                 </div>
 
-                {currentUserData.username && (
+                {telegramUser.username && (
                   <div className="text-white/60 text-sm mt-1 drop-shadow-sm">
-                    @{currentUserData.username}
+                    @{telegramUser.username}
                   </div>
                 )}
               </div>
 
-              {currentUserData.hasPlayed ? (
+              {/* User stats with skeleton */}
+              {isInitialLoading || !currentUserData ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center space-x-4">
+                    <div className="text-center">
+                      <div className="h-8 w-20 bg-white/10 rounded animate-pulse mx-auto mb-1" />
+                      <div className="h-3 w-16 bg-white/10 rounded animate-pulse mx-auto" />
+                    </div>
+
+                    <div className="w-px h-8 bg-white/30" />
+
+                    <div className="text-center">
+                      <div className="h-8 w-12 bg-white/10 rounded animate-pulse mx-auto mb-1" />
+                      <div className="h-3 w-14 bg-white/10 rounded animate-pulse mx-auto" />
+                    </div>
+                  </div>
+
+                  <div className="h-10 w-32 bg-white/10 rounded-lg animate-pulse mx-auto" />
+                </div>
+              ) : currentUserData.hasPlayed ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-center space-x-4">
                     <div className="text-center">
@@ -887,17 +892,11 @@ function LeaderboardPageContent() {
                 </div>
               )}
             </div>
-          ) : (
-            <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              <p className="text-white/60 drop-shadow-sm text-lg">
-                {t("leaderboard.loadingUserData")}
-              </p>
-            </div>
           )}
         </div>
 
         {/* Cache Status Badge */}
-        <CacheStatusBadge cacheInfo={cacheInfo} />
+        {!isInitialLoading && <CacheStatusBadge cacheInfo={cacheInfo} />}
 
         {/* Mode Tabs */}
         <div className="text-center mb-4">
@@ -934,9 +933,53 @@ function LeaderboardPageContent() {
           </div>
         </div>
 
-        {/* Leaderboard */}
+        {/* Leaderboard with Skeleton */}
         <div className="space-y-0 max-w-2xl mx-auto">
-          {fullLeaderboard.length === 0 ? (
+          {isInitialLoading ? (
+            // Skeleton for leaderboard list
+            <div className="space-y-0">
+              {[...Array(10)].map((_, index) => (
+                <div key={index}>
+                  <div className="w-full px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 flex-1 min-w-0">
+                        <div 
+                          className="w-8 h-6 bg-white/10 rounded animate-pulse"
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                        />
+                        
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div 
+                            className="h-5 w-32 bg-white/10 rounded animate-pulse"
+                            style={{ animationDelay: `${index * 0.1 + 0.05}s` }}
+                          />
+                          <div 
+                            className="h-3 w-24 bg-white/10 rounded animate-pulse"
+                            style={{ animationDelay: `${index * 0.1 + 0.1}s` }}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="text-right flex-shrink-0 space-y-1">
+                        <div 
+                          className="h-5 w-16 bg-white/10 rounded animate-pulse"
+                          style={{ animationDelay: `${index * 0.1 + 0.15}s` }}
+                        />
+                        <div 
+                          className="h-3 w-12 bg-white/10 rounded animate-pulse"
+                          style={{ animationDelay: `${index * 0.1 + 0.2}s` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {index < 9 && (
+                    <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mx-6" />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : fullLeaderboard.length === 0 ? (
             <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="font-bold text-white/80 text-xl mb-2">
                 {t("leaderboard.noPlayersYet")}
