@@ -146,8 +146,13 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       const webApp = window.Telegram.WebApp;
       
       if (isOpen) {
-        // Show back button when modal opens
-        webApp.BackButton.show();
+        // Force hide and then show back button to ensure correct state
+        webApp.BackButton.hide();
+        
+        // Small delay to ensure state is reset
+        setTimeout(() => {
+          webApp.BackButton.show();
+        }, 50);
         
         // Handle back button click
         const handleBackClick = () => {
