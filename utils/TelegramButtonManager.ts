@@ -1,4 +1,4 @@
-// src/utils/TelegramButtonManager.ts - Централизованное управление кнопками Telegram WebApp
+// src/utils/TelegramButtonManager.ts - Исправленная версия с корректным управлением обработчиками
 
 interface ButtonState {
   backButtonVisible: boolean;
@@ -21,6 +21,10 @@ class TelegramButtonManager {
   private stateHistory: StateSnapshot[] = [];
   private currentContext = "unknown";
   private maxHistorySize = 10;
+  
+  // Сохраняем ссылки на текущие обработчики для корректного удаления
+  private currentBackButtonHandler: (() => void) | null = null;
+  private currentMainButtonHandler: (() => void) | null = null;
 
   constructor() {
     this.initialize();
@@ -51,9 +55,9 @@ class TelegramButtonManager {
 
     return {
       backButtonVisible: this.webApp.BackButton?.isVisible || false,
-      backButtonHandler: null, // Не можем получить текущий обработчик
+      backButtonHandler: this.currentBackButtonHandler,
       mainButtonVisible: this.webApp.MainButton?.isVisible || false,
-      mainButtonHandler: null, // Не можем получить текущий обработчик
+      mainButtonHandler: this.currentMainButtonHandler,
       mainButtonText: this.webApp.MainButton?.text || "",
       closingConfirmationEnabled: this.webApp.isClosingConfirmationEnabled || false,
     };
@@ -93,71 +97,80 @@ class TelegramButtonManager {
     }
 
     try {
-      // Принудительная очистка всех обработчиков BackButton
-      if (this.webApp.BackButton) {
-        // Скрываем кнопку, что также должно очистить обработчики
-        this.webApp.BackButton.hide();
-        
-        // Попытка очистить обработчики через множественные вызовы offClick
-        // Это хак, но работает лучше, чем ничего
-        for (let i = 0; i < 20; i++) {
-          try {
-            const dummyHandler = () => {};
-            this.webApp.BackButton.offClick(dummyHandler);
-          } catch (e) {
-            // Игнорируем ошибки
-          }
-        }
+      // Удаляем BackButton обработчики используя сохраненные ссылки
+      if (this.webApp.BackButton && this.currentBackButtonHandler) {
+        this.webApp.BackButton.offClick(this.currentBackButtonHandler);
+        this.currentBackButtonHandler = null;
       }
 
-      // Очистка MainButton
+      // Удаляем MainButton обработчики используя сохраненные ссылки
+      if (this.webApp.MainButton && this.currentMainButtonHandler) {
+        this.webApp.MainButton.offClick(this.currentMainButtonHandler);
+        this.currentMainButtonHandler = null;
+      }
+
+      // Скрываем кнопки
+      if (this.webApp.BackButton) {
+        this.webApp.BackButton.hide();
+      }
       if (this.webApp.MainButton) {
         this.webApp.MainButton.hide();
-        
-        for (let i = 0; i < 20; i++) {
-          try {
-            const dummyHandler = () => {};
-            this.webApp.MainButton.offClick(dummyHandler);
-          } catch (e) {
-            // Игнорируем ошибки
-          }
-        }
       }
 
-      console.log("TelegramButtonManager: Cleared all handlers");
+      console.log("TelegramButtonManager: Cleared all handlers successfully");
     } catch (error) {
       console.error("TelegramButtonManager: Error clearing handlers:", error);
+      
+      // Экстренная очистка через принудительное скрытие
+      try {
+        if (this.webApp.BackButton) {
+          this.webApp.BackButton.hide();
+        }
+        if (this.webApp.MainButton) {
+          this.webApp.MainButton.hide();
+        }
+        this.currentBackButtonHandler = null;
+        this.currentMainButtonHandler = null;
+      } catch (emergencyError) {
+        console.error("TelegramButtonManager: Emergency cleanup failed:", emergencyError);
+      }
     }
   }
 
-  private applyState(state: ButtonState, handler?: (() => void) | null): void {
+  private applyState(state: ButtonState): void {
     if (!this.isAvailable()) {
       return;
     }
 
     try {
-      // Сначала очищаем все
+      // Сначала очищаем все существующие обработчики
       this.clearAllHandlers();
 
       // Применяем состояние BackButton
-      if (state.backButtonVisible && handler) {
+      if (state.backButtonVisible && state.backButtonHandler) {
+        this.currentBackButtonHandler = state.backButtonHandler;
+        this.webApp.BackButton.onClick(this.currentBackButtonHandler);
         this.webApp.BackButton.show();
-        this.webApp.BackButton.onClick(handler);
+        console.log("TelegramButtonManager: BackButton configured and shown");
       } else {
         this.webApp.BackButton.hide();
+        console.log("TelegramButtonManager: BackButton hidden");
       }
 
       // Применяем состояние MainButton
       if (state.mainButtonVisible) {
-        this.webApp.MainButton.show();
         if (state.mainButtonText) {
           this.webApp.MainButton.setText(state.mainButtonText);
         }
-        if (handler) {
-          this.webApp.MainButton.onClick(handler);
+        if (state.mainButtonHandler) {
+          this.currentMainButtonHandler = state.mainButtonHandler;
+          this.webApp.MainButton.onClick(this.currentMainButtonHandler);
         }
+        this.webApp.MainButton.show();
+        console.log("TelegramButtonManager: MainButton configured and shown");
       } else {
         this.webApp.MainButton.hide();
+        console.log("TelegramButtonManager: MainButton hidden");
       }
 
       // Применяем состояние подтверждения закрытия
@@ -167,7 +180,7 @@ class TelegramButtonManager {
         this.webApp.disableClosingConfirmation();
       }
 
-      console.log("TelegramButtonManager: Applied state successfully");
+      console.log("TelegramButtonManager: State applied successfully");
     } catch (error) {
       console.error("TelegramButtonManager: Error applying state:", error);
     }
@@ -214,7 +227,7 @@ class TelegramButtonManager {
       closingConfirmationEnabled: false,
     };
 
-    this.applyState(modalState, onClose);
+    this.applyState(modalState);
   }
 
   /**
@@ -222,7 +235,7 @@ class TelegramButtonManager {
    * Показывает BackButton с обработчиком навигации
    */
   public setNavigationState(onBack: () => void): void {
-    console.log("TelegramButtonManager: Setting navigation state");
+    console.log("TelegramButtonManager: Setting navigation state with handler:", onBack.toString().substring(0, 100));
     
     this.saveStateSnapshot(this.currentContext);
     this.currentContext = "navigation";
@@ -236,7 +249,7 @@ class TelegramButtonManager {
       closingConfirmationEnabled: false,
     };
 
-    this.applyState(navigationState, onBack);
+    this.applyState(navigationState);
   }
 
   /**
@@ -286,7 +299,7 @@ class TelegramButtonManager {
       closingConfirmationEnabled: showConfirmation,
     };
 
-    this.applyState(closingState, closingHandler);
+    this.applyState(closingState);
   }
 
   /**
@@ -312,18 +325,14 @@ class TelegramButtonManager {
     
     this.currentContext = previousSnapshot.context;
 
-    // Определяем обработчик на основе контекста
-    let handler: (() => void) | null = null;
-    
+    // Для восстановления состояния навигации нужна новая ссылка на обработчик
     if (previousSnapshot.context === "navigation") {
-      // Для навигационного контекста нужно как-то восстановить обработчик
-      // Но поскольку мы не можем сохранить функцию, устанавливаем нормальное состояние
       console.warn("TelegramButtonManager: Cannot restore navigation handler, setting normal state");
       this.setNormalState();
       return;
     }
 
-    this.applyState(previousSnapshot.state, handler);
+    this.applyState(previousSnapshot.state);
   }
 
   /**
@@ -334,14 +343,17 @@ class TelegramButtonManager {
     
     this.stateHistory = [];
     this.currentContext = "emergency_reset";
+    this.currentBackButtonHandler = null;
+    this.currentMainButtonHandler = null;
     
-    this.clearAllHandlers();
-    
-    // Устанавливаем безопасное состояние
     if (this.isAvailable()) {
-      this.webApp.BackButton.hide();
-      this.webApp.MainButton.hide();
-      this.webApp.disableClosingConfirmation();
+      try {
+        this.webApp.BackButton.hide();
+        this.webApp.MainButton.hide();
+        this.webApp.disableClosingConfirmation();
+      } catch (error) {
+        console.error("TelegramButtonManager: Error during emergency reset:", error);
+      }
     }
   }
 
@@ -353,6 +365,8 @@ class TelegramButtonManager {
       isAvailable: this.isAvailable(),
       currentContext: this.currentContext,
       stateHistoryLength: this.stateHistory.length,
+      hasBackButtonHandler: this.currentBackButtonHandler !== null,
+      hasMainButtonHandler: this.currentMainButtonHandler !== null,
       currentState: this.getCurrentState(),
       stateHistory: this.stateHistory,
     };
@@ -386,10 +400,35 @@ class TelegramButtonManager {
       closingConfirmationEnabled: config.enableClosingConfirmation || false,
     };
 
-    // Определяем приоритетный обработчик
-    const primaryHandler = config.onBackClick || config.onMainButtonClick || null;
+    this.applyState(customState);
+  }
 
-    this.applyState(customState, primaryHandler);
+  /**
+   * Принудительно устанавливает обработчик для навигации (для отладки)
+   */
+  public forceNavigationHandler(onBack: () => void): void {
+    console.log("TelegramButtonManager: Force setting navigation handler");
+    
+    if (!this.isAvailable()) {
+      console.warn("TelegramButtonManager: WebApp not available");
+      return;
+    }
+
+    try {
+      // Очищаем текущий обработчик
+      if (this.currentBackButtonHandler) {
+        this.webApp.BackButton.offClick(this.currentBackButtonHandler);
+      }
+      
+      // Устанавливаем новый обработчик
+      this.currentBackButtonHandler = onBack;
+      this.webApp.BackButton.onClick(this.currentBackButtonHandler);
+      this.webApp.BackButton.show();
+      
+      console.log("TelegramButtonManager: Navigation handler forced successfully");
+    } catch (error) {
+      console.error("TelegramButtonManager: Error forcing navigation handler:", error);
+    }
   }
 }
 
