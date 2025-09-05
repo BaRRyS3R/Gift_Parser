@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with centralized Telegram button management
+// src/app/profile/page.tsx - Updated with final fixed Telegram button management
 
 "use client";
 
@@ -6,7 +6,6 @@ import React, { useState, useEffect, useRef } from "react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import { telegramButtonManager } from "@/utils/TelegramButtonManager";
 
 // Import components
 import EnhancedProfileHeader from "@/components/Profile/EnhancedProfileHeader";
@@ -32,34 +31,20 @@ export default function ProfilePage() {
   const dataLoadedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (telegramButtonManager.isAvailable()) {
-      telegramButtonManager.setClosingState({
-        showConfirmation: false
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        tg.close();
       });
-    }
 
-    return () => {
-      telegramButtonManager.emergencyReset();
-    };
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => { });
+      };
+    }
   }, []);
-
-  // **PRINCIPLE 2: Force state changes when modals open/close**
-  useEffect(() => {
-    const isAnyModalOpen = isReferralModalOpen || isAchievementsModalOpen;
-
-    if (telegramButtonManager.isAvailable()) {
-      if (!isAnyModalOpen) {
-        // **PRINCIPLE 3: Force normal state when no modals**
-        console.log("ProfilePage: No modals open, forcing normal state");
-
-        // Wait for modal cleanup, then force normal state
-        setTimeout(() => {
-          telegramButtonManager.setNormalState();
-        }, 100);
-      }
-      // Modal state is handled by the modals themselves
-    }
-  }, [isReferralModalOpen, isAchievementsModalOpen]);
 
   // Load profile data when user is authenticated
   useEffect(() => {
@@ -298,7 +283,7 @@ export default function ProfilePage() {
         <div className="h-20" />
       </div>
 
-      {/* Modals - Updated with centralized button management */}
+      {/* Modals - Updated with individual close handlers */}
       {profileData?.referrals && (
         <ReferralModal
           isOpen={isReferralModalOpen}

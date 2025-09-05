@@ -32,8 +32,6 @@ import { useT } from "@/contexts/LocalizationContext";
 import CatEasterEgg from "@/components/EasterEggs/CatEasterEgg";
 import MatreshkaAccordion from "@/components/MatreshkaAccordion";
 
-import { telegramButtonManager } from "@/utils/TelegramButtonManager";
-
 export default function TasksPage() {
   const router = useRouter();
   const { user, refreshUser, makeAuthenticatedRequest } = useUser();
@@ -110,15 +108,19 @@ export default function TasksPage() {
 
   // Setup Telegram WebApp back button
   useEffect(() => {
-    if (telegramButtonManager.isAvailable()) {
-      telegramButtonManager.setClosingState({
-        showConfirmation: false
-      });
-    }
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
 
-    return () => {
-      telegramButtonManager.emergencyReset();
-    };
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        tg.close();
+      });
+
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => { });
+      };
+    }
   }, []);
 
   // Cleanup timeout on unmount

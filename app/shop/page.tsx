@@ -23,7 +23,6 @@ import { useT } from "@/contexts/LocalizationContext";
 import BinaryEasterEgg from "@/components/EasterEggs/BinaryEasterEgg";
 import TONPurchaseButton from "@/components/TON/TONPurchaseButton";
 
-import { telegramButtonManager } from "@/utils/TelegramButtonManager";
 
 interface SuccessNotification {
   show: boolean;
@@ -77,15 +76,19 @@ export default function ShopPage() {
 
   // Setup Telegram WebApp back button
   useEffect(() => {
-    if (telegramButtonManager.isAvailable()) {
-      telegramButtonManager.setClosingState({
-        showConfirmation: false
-      });
-    }
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
 
-    return () => {
-      telegramButtonManager.emergencyReset();
-    };
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        tg.close();
+      });
+
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => { });
+      };
+    }
   }, []);
 
   // Cleanup easter egg timeout on unmount

@@ -36,7 +36,6 @@ import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
-import { telegramButtonManager } from "@/utils/TelegramButtonManager";
 
 interface SaveStatus {
   isLoading: boolean;
@@ -310,15 +309,19 @@ export default function SurvivalGameManager() {
   }, []);
 
   useEffect(() => {
-    if (telegramButtonManager.isAvailable()) {
-      telegramButtonManager.setNavigationState(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
         router.push("/game");
       });
-    }
 
-    return () => {
-      telegramButtonManager.emergencyReset();
-    };
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => { });
+      };
+    }
   }, [router]);
 
   useEffect(() => {
@@ -1160,8 +1163,8 @@ export default function SurvivalGameManager() {
                   )}
                   <span
                     className={`text-sm font-bold ${playAgainError.isSessionError
-                      ? "text-orange-400"
-                      : "text-red-400"
+                        ? "text-orange-400"
+                        : "text-red-400"
                       }`}
                   >
                     {t("game.modes.survival.playAgain.cannotPlay")}
@@ -1189,8 +1192,8 @@ export default function SurvivalGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
-                ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
+                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                  : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
                 }`}
               disabled={
                 isPlayingAgain || playAgainError.show || saveStatus.isLoading
