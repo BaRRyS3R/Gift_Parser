@@ -1,4 +1,4 @@
-// src/components/Profile/ReferralModal.tsx - Enhanced with fullscreen mode and Telegram back button
+// src/components/Profile/ReferralModal.tsx - Enhanced with proper Telegram button management
 
 "use client";
 
@@ -141,30 +141,55 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       "Join me in Circusle - an awesome game where every tap counts! 🎯",
   };
 
-  // Telegram WebApp back button management
+  // Fixed Telegram WebApp back button management
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const webApp = window.Telegram.WebApp;
       
       if (isOpen) {
-        // Show back button when modal opens
-        webApp.BackButton.show();
+        console.log("ReferralModal: Modal opened, setting up back button");
+        
+        // First, force disable close confirmation to remove close button
+        webApp.disableClosingConfirmation();
+        
+        // Hide any existing main button
+        if (webApp.MainButton) {
+          webApp.MainButton.hide();
+        }
+        
+        // Wait a bit then show back button to ensure clean transition
+        setTimeout(() => {
+          if (webApp.BackButton) {
+            webApp.BackButton.show();
+            console.log("ReferralModal: Back button shown");
+          }
+        }, 100);
         
         // Handle back button click
         const handleBackClick = () => {
+          console.log("ReferralModal: Back button clicked");
           onClose();
         };
         
-        webApp.BackButton.onClick(handleBackClick);
+        // Add click handler
+        if (webApp.BackButton) {
+          webApp.BackButton.onClick(handleBackClick);
+        }
         
         // Cleanup function
         return () => {
-          webApp.BackButton.offClick(handleBackClick);
-          webApp.BackButton.hide();
+          console.log("ReferralModal: Cleaning up back button");
+          if (webApp.BackButton) {
+            webApp.BackButton.offClick(handleBackClick);
+            webApp.BackButton.hide();
+          }
         };
       } else {
+        console.log("ReferralModal: Modal closed, hiding back button");
         // Hide back button when modal closes
-        webApp.BackButton.hide();
+        if (webApp.BackButton) {
+          webApp.BackButton.hide();
+        }
       }
     }
   }, [isOpen, onClose]);
