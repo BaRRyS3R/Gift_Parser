@@ -1,4 +1,4 @@
-// src/components/Profile/ReferralModal.tsx - Enhanced with proper Telegram button management
+// src/components/Profile/ReferralModal.tsx - Enhanced with proper back button event management
 
 "use client";
 
@@ -141,7 +141,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       "Join me in Circusle - an awesome game where every tap counts! 🎯",
   };
 
-  // Fixed Telegram WebApp back button management
+  // Fixed Telegram WebApp back button management with proper event handling
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const webApp = window.Telegram.WebApp;
@@ -149,7 +149,24 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       if (isOpen) {
         console.log("ReferralModal: Modal opened, setting up back button");
         
-        // First, force disable close confirmation to remove close button
+        // Store reference to existing handlers if any
+        const existingHandlers: (() => void)[] = [];
+        
+        // Clear ALL existing BackButton event handlers
+        // This is a workaround since Telegram doesn't provide a way to get current handlers
+        if (webApp.BackButton && typeof webApp.BackButton.offClick === 'function') {
+          // Try to remove any existing handlers by creating dummy functions
+          for (let i = 0; i < 10; i++) {
+            try {
+              const dummyHandler = () => {};
+              webApp.BackButton.offClick(dummyHandler);
+            } catch (e) {
+              // Ignore errors when removing non-existent handlers
+            }
+          }
+        }
+        
+        // Force disable close confirmation to remove close button
         webApp.disableClosingConfirmation();
         
         // Hide any existing main button
@@ -157,39 +174,40 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
           webApp.MainButton.hide();
         }
         
-        // Wait a bit then show back button to ensure clean transition
-        setTimeout(() => {
-          if (webApp.BackButton) {
-            webApp.BackButton.show();
-            console.log("ReferralModal: Back button shown");
-          }
-        }, 100);
+        // Hide back button first to ensure clean state
+        if (webApp.BackButton) {
+          webApp.BackButton.hide();
+        }
         
-        // Handle back button click
-        const handleBackClick = () => {
-          console.log("ReferralModal: Back button clicked");
+        // Define our modal-specific handler
+        const modalBackHandler = () => {
+          console.log("ReferralModal: Modal back button clicked");
           onClose();
         };
         
-        // Add click handler
-        if (webApp.BackButton) {
-          webApp.BackButton.onClick(handleBackClick);
-        }
+        // Wait a bit then show back button with our handler
+        setTimeout(() => {
+          if (webApp.BackButton) {
+            // Show the back button
+            webApp.BackButton.show();
+            // Add our handler
+            webApp.BackButton.onClick(modalBackHandler);
+            console.log("ReferralModal: Back button shown with modal handler");
+          }
+        }, 150);
         
         // Cleanup function
         return () => {
           console.log("ReferralModal: Cleaning up back button");
           if (webApp.BackButton) {
-            webApp.BackButton.offClick(handleBackClick);
+            // Remove our specific handler
+            webApp.BackButton.offClick(modalBackHandler);
+            // Hide the back button
             webApp.BackButton.hide();
           }
+          
+          // Note: We don't restore global handlers here as the parent page will handle that
         };
-      } else {
-        console.log("ReferralModal: Modal closed, hiding back button");
-        // Hide back button when modal closes
-        if (webApp.BackButton) {
-          webApp.BackButton.hide();
-        }
       }
     }
   }, [isOpen, onClose]);

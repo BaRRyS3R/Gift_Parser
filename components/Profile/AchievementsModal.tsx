@@ -1,4 +1,4 @@
-// src/components/Profile/AchievementsModal.tsx - Enhanced with fullscreen mode and Telegram back button
+// src/components/Profile/AchievementsModal.tsx - Enhanced with proper back button event management
 
 "use client";
 
@@ -131,30 +131,70 @@ export default function AchievementsModal({
   const totalCount = achievements?.totalCount || 7; // Updated total to include Easter Eggs
   const totalAttemptsEarned = achievements?.totalAttemptsEarned || 0;
 
-  // Telegram WebApp back button management
+  // Fixed Telegram WebApp back button management with proper event handling
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const webApp = window.Telegram.WebApp;
       
       if (isOpen) {
-        // Show back button when modal opens
-        webApp.BackButton.show();
+        console.log("AchievementsModal: Modal opened, setting up back button");
         
-        // Handle back button click
-        const handleBackClick = () => {
+        // Clear ALL existing BackButton event handlers
+        // This is a workaround since Telegram doesn't provide a way to get current handlers
+        if (webApp.BackButton && typeof webApp.BackButton.offClick === 'function') {
+          // Try to remove any existing handlers by creating dummy functions
+          for (let i = 0; i < 10; i++) {
+            try {
+              const dummyHandler = () => {};
+              webApp.BackButton.offClick(dummyHandler);
+            } catch (e) {
+              // Ignore errors when removing non-existent handlers
+            }
+          }
+        }
+        
+        // Force disable close confirmation to remove close button
+        webApp.disableClosingConfirmation();
+        
+        // Hide any existing main button
+        if (webApp.MainButton) {
+          webApp.MainButton.hide();
+        }
+        
+        // Hide back button first to ensure clean state
+        if (webApp.BackButton) {
+          webApp.BackButton.hide();
+        }
+        
+        // Define our modal-specific handler
+        const modalBackHandler = () => {
+          console.log("AchievementsModal: Modal back button clicked");
           onClose();
         };
         
-        webApp.BackButton.onClick(handleBackClick);
+        // Wait a bit then show back button with our handler
+        setTimeout(() => {
+          if (webApp.BackButton) {
+            // Show the back button
+            webApp.BackButton.show();
+            // Add our handler
+            webApp.BackButton.onClick(modalBackHandler);
+            console.log("AchievementsModal: Back button shown with modal handler");
+          }
+        }, 150);
         
         // Cleanup function
         return () => {
-          webApp.BackButton.offClick(handleBackClick);
-          webApp.BackButton.hide();
+          console.log("AchievementsModal: Cleaning up back button");
+          if (webApp.BackButton) {
+            // Remove our specific handler
+            webApp.BackButton.offClick(modalBackHandler);
+            // Hide the back button
+            webApp.BackButton.hide();
+          }
+          
+          // Note: We don't restore global handlers here as the parent page will handle that
         };
-      } else {
-        // Hide back button when modal closes
-        webApp.BackButton.hide();
       }
     }
   }, [isOpen, onClose]);

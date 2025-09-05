@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with Telegram button management for fullscreen modals
+// src/app/profile/page.tsx - Updated with final fixed Telegram button management
 
 "use client";
 
@@ -30,7 +30,7 @@ export default function ProfilePage() {
   // Track if initial data load has been triggered
   const dataLoadedRef = useRef<boolean>(false);
 
-  // Telegram WebApp button management
+  // Fixed Telegram WebApp button management - restore proper state after modal close
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const webApp = window.Telegram.WebApp;
@@ -39,30 +39,29 @@ export default function ProfilePage() {
       const isAnyModalOpen = isReferralModalOpen || isAchievementsModalOpen;
       
       if (!isAnyModalOpen) {
-        // No modals open - show close button for app exit
-        webApp.BackButton.hide();
+        // No modals open - restore normal app state
+        console.log("ProfilePage: No modals open, restoring normal app state");
         
-        // Enable close confirmation (this will show close button in top-right)
-        webApp.enableClosingConfirmation();
-        
-        // Optional: Add close button event handler if supported
-        if (webApp.onEvent) {
-          const handleClose = () => {
-            // App is being closed
-            console.log("App closing");
-          };
+        // Wait a bit for modal cleanup to complete
+        setTimeout(() => {
+          // Make sure back button is hidden (modals should have cleaned this up)
+          if (webApp.BackButton) {
+            webApp.BackButton.hide();
+          }
           
-          // Add event listener for app close
-          webApp.onEvent('mainButtonClicked', handleClose);
+          // Hide main button
+          if (webApp.MainButton) {
+            webApp.MainButton.hide();
+          }
           
-          return () => {
-            webApp.offEvent('mainButtonClicked', handleClose);
-          };
-        }
+          // Enable close confirmation for app exit
+          webApp.enableClosingConfirmation();
+          
+          console.log("ProfilePage: Normal app state restored");
+        }, 200);
       } else {
-        // Modal is open - disable close confirmation
-        // The modals will handle their own back button logic
-        webApp.disableClosingConfirmation();
+        // Modal is open - let modal handle everything
+        console.log("ProfilePage: Modal is open, letting modal handle buttons");
       }
     }
   }, [isReferralModalOpen, isAchievementsModalOpen]);
@@ -100,19 +99,23 @@ export default function ProfilePage() {
 
   const handleOpenReferrals = () => {
     if (profile.profileData?.referrals) {
+      console.log("ProfilePage: Opening ReferralModal");
       setIsReferralModalOpen(true);
     }
   };
 
   const handleCloseReferrals = () => {
+    console.log("ProfilePage: Closing ReferralModal");
     setIsReferralModalOpen(false);
   };
 
   const handleOpenAchievements = () => {
+    console.log("ProfilePage: Opening AchievementsModal");
     setIsAchievementsModalOpen(true);
   };
 
   const handleCloseAchievements = () => {
+    console.log("ProfilePage: Closing AchievementsModal");
     setIsAchievementsModalOpen(false);
   };
 
