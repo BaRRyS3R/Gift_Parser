@@ -14,7 +14,6 @@ import { save } from "./save";
 import { errors } from "./errors";
 import { time } from "./time";
 import { about } from "./about";
-import { leagues } from "./leagues";
 import { nebula } from "./nebula";
 import { seasons } from "./seasons";
 import { levels } from "./levels";
@@ -82,7 +81,4 @@ export const ru = {
 
   // About modal
   about,
-
-  // Leagues
-  leagues,
 } as const;
