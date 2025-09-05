@@ -255,7 +255,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               </div>
             </ModalHeader>
 
-            <ModalBody className="pb-6 space-y-6">
+            <ModalBody className="pb-4 space-y-4">
               {/* Statistics Cards */}
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <Card className="bg-white/5 border border-white/20">
