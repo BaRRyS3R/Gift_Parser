@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Оптимизированная версия с мгновенной загрузкой
+// src/app/tasks/page.tsx - Updated with Matreshka Accordion
 
 "use client";
 
@@ -32,38 +32,6 @@ import { useT } from "@/contexts/LocalizationContext";
 import CatEasterEgg from "@/components/EasterEggs/CatEasterEgg";
 import MatreshkaAccordion from "@/components/MatreshkaAccordion";
 
-// Скелетон для карточки задания
-function TaskCardSkeleton() {
-  return (
-    <Card className="bg-gradient-to-r from-white/5 to-white/10">
-      <CardBody className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-start space-x-3 mb-3">
-              <div className="w-5 h-5 bg-white/10 rounded animate-pulse" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="h-5 bg-white/10 rounded animate-pulse w-32" />
-                  <div className="h-4 bg-white/10 rounded animate-pulse w-16" />
-                </div>
-                <div className="h-4 bg-white/10 rounded animate-pulse w-48 mb-2" />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 bg-white/10 rounded animate-pulse" />
-                <div className="h-4 bg-white/10 rounded animate-pulse w-20" />
-              </div>
-              <div className="h-8 bg-white/10 rounded animate-pulse w-20" />
-            </div>
-          </div>
-        </div>
-      </CardBody>
-    </Card>
-  );
-}
-
 export default function TasksPage() {
   const router = useRouter();
   const { user, refreshUser, makeAuthenticatedRequest } = useUser();
@@ -73,7 +41,6 @@ export default function TasksPage() {
   const tasksModule = useTasks(makeAuthenticatedRequest);
 
   const [isExploding, setIsExploding] = useState(false);
-  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Easter egg state - ONLY Cat Easter Egg on Tasks page
   const [titleClickCount, setTitleClickCount] = useState(0);
@@ -123,14 +90,10 @@ export default function TasksPage() {
 
   // Fetch tasks on mount
   useEffect(() => {
-    if (user && !dataLoaded) {
-      const fetchData = async () => {
-        await tasksModule.fetchTasks();
-        setDataLoaded(true);
-      };
-      fetchData();
+    if (user && !tasksModule.isLoading && tasksModule.tasks.length === 0) {
+      tasksModule.fetchTasks();
     }
-  }, [user, dataLoaded]);
+  }, [user]);
 
   // Clear errors after 4 seconds
   useEffect(() => {
@@ -391,7 +354,7 @@ export default function TasksPage() {
 
       {/* Error message */}
       {tasksModule.error && (
-        <div className="max-w-2xl mx-auto mb-6 animate-fade-in">
+        <div className="max-w-2xl mx-auto mb-6">
           <Card className="bg-white/10 border border-white/20">
             <CardBody className="p-4">
               <div className="flex items-center space-x-2">
@@ -403,58 +366,53 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Tasks list - показываем контент сразу */}
-      <div className="max-w-2xl mx-auto space-y-4">
-        {/* Показываем скелетоны во время первичной загрузки */}
-        {!dataLoaded && tasksModule.isLoading ? (
-          <>
-            {[...Array(3)].map((_, index) => (
-              <div key={index} className="animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
-                <TaskCardSkeleton />
-              </div>
-            ))}
-          </>
-        ) : tasksModule.tasks.length > 0 ? (
-          // Показываем реальные задания с анимациями
-          tasksModule.tasks.map((task, index) => (
-            <div key={task.task_id} className="animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
-              <TaskCard
-                getBackgroundIcon={getBackgroundIcon}
-                getTaskBadge={getTaskBadge}
-                getTaskButton={getTaskButton}
-                getTaskIcon={getTaskIcon}
-                t={t}
-                task={task}
-                onAction={handleTaskAction}
-              />
-            </div>
-          ))
-        ) : dataLoaded ? (
-          // Empty state только после загрузки данных
-          <div className="max-w-2xl mx-auto text-center py-12 animate-fade-in">
-            <div className="text-6xl mb-4">📋</div>
-            <h3 className="text-xl font-bold mb-2">
-              {t("tasks.empty.noActiveTasks")}
-            </h3>
-            <p className="text-white/60 mb-6">
-              {t("tasks.empty.startCompleting")}
-            </p>
-            <Button
-              className="border-white/30 text-white"
-              variant="bordered"
-              onPress={() => {
-                setDataLoaded(false);
-                tasksModule.fetchTasks().then(() => setDataLoaded(true));
-              }}
-            >
-              {t("tasks.refresh")}
-            </Button>
-          </div>
-        ) : null}
-      </div>
+      {/* Loading state */}
+      {tasksModule.isLoading && tasksModule.tasks.length === 0 && (
+        <div className="max-w-2xl mx-auto text-center py-8">
+          <p className="text-white/60">{t("tasks.loading")}</p>
+        </div>
+      )}
+
+      {/* Tasks list - single list without categorization */}
+      {!tasksModule.isLoading && tasksModule.tasks.length > 0 && (
+        <div className="max-w-2xl mx-auto space-y-4">
+          {tasksModule.tasks.map((task) => (
+            <TaskCard
+              key={task.task_id}
+              getBackgroundIcon={getBackgroundIcon}
+              getTaskBadge={getTaskBadge}
+              getTaskButton={getTaskButton}
+              getTaskIcon={getTaskIcon}
+              t={t}
+              task={task}
+              onAction={handleTaskAction}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!tasksModule.isLoading && tasksModule.tasks.length === 0 && (
+        <div className="max-w-2xl mx-auto text-center py-12">
+          <div className="text-6xl mb-4">📋</div>
+          <h3 className="text-xl font-bold mb-2">
+            {t("tasks.empty.noActiveTasks")}
+          </h3>
+          <p className="text-white/60 mb-6">
+            {t("tasks.empty.startCompleting")}
+          </p>
+          <Button
+            className="border-white/30 text-white"
+            variant="bordered"
+            onPress={() => tasksModule.fetchTasks()}
+          >
+            {t("tasks.refresh")}
+          </Button>
+        </div>
+      )}
 
       {/* Matreshka Accordion - Bonus Content */}
-      <div className="mt-12 mb-8 animate-fade-in">
+      <div className="mt-12 mb-8">
         <MatreshkaAccordion />
       </div>
 

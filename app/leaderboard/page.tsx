@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Оптимизированная версия с мгновенной загрузкой
+// src/app/leaderboard/page.tsx - ИСПРАВЛЕН бесконечный цикл в useEffect
 
 "use client";
 
@@ -422,7 +422,7 @@ const CacheStatusBadge = ({ cacheInfo }: { cacheInfo: CacheInfo | null }) => {
   };
 
   return (
-    <div className="text-center text-xs text-white/60 mb-4 px-4 animate-fade-in">
+    <div className="text-center text-xs text-white/60 mb-4 px-4">
       <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2 inline-block">
         <div className="flex items-center justify-center space-x-2">
           <div className={`w-2 h-2 rounded-full ${cacheInfo.is_from_cache ? 'bg-green-400' : 'bg-yellow-400'}`} />
@@ -434,6 +434,7 @@ const CacheStatusBadge = ({ cacheInfo }: { cacheInfo: CacheInfo | null }) => {
           </span>
         </div>
         
+        {/* ✅ НОВОЕ: Информация о персонализации */}
         <div className="mt-1 text-white/50 text-xs">
           📊 Personalized rankings • Optimized data
         </div>
@@ -451,36 +452,6 @@ const CacheStatusBadge = ({ cacheInfo }: { cacheInfo: CacheInfo | null }) => {
   );
 };
 
-// Скелетон для лидерборда
-function LeaderboardSkeleton() {
-  return (
-    <div className="space-y-0 max-w-2xl mx-auto">
-      {[...Array(10)].map((_, index) => (
-        <div key={index}>
-          <div className="w-full px-6 py-4 animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 flex-1 min-w-0">
-                <div className="w-8 h-6 bg-white/10 rounded animate-pulse" />
-                <div className="flex-1 min-w-0">
-                  <div className="h-4 bg-white/10 rounded animate-pulse w-32 mb-2" />
-                  <div className="h-3 bg-white/10 rounded animate-pulse w-20" />
-                </div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="h-5 bg-white/10 rounded animate-pulse w-16 mb-1" />
-                <div className="h-3 bg-white/10 rounded animate-pulse w-12" />
-              </div>
-            </div>
-          </div>
-          {index < 9 && (
-            <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mx-6" />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function LeaderboardPageContent() {
   const router = useRouter();
   const { makeAuthenticatedRequest, user, telegramUser } = useUser();
@@ -497,8 +468,9 @@ function LeaderboardPageContent() {
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("season");
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const [pageInitialized, setPageInitialized] = useState(false);
 
+  // ✅ ИСПРАВЛЕНО: используем useRef для предотвращения повторных вызовов
   const initializationRef = useRef(false);
 
   // Setup Telegram WebApp back button
@@ -523,12 +495,13 @@ function LeaderboardPageContent() {
     }
   }, [router]);
 
-  // ИСПРАВЛЕНО: одноразовая инициализация данных
+  // ✅ ИСПРАВЛЕНО: убрали fetchLeaderboards из зависимостей, используем ref для однократной инициализации
   useEffect(() => {
+    // Инициализируем только один раз
     if (initializationRef.current) return;
     
     const initializePage = async () => {
-      if (initializationRef.current) return;
+      if (initializationRef.current) return; // Двойная проверка
       
       initializationRef.current = true;
       
@@ -537,12 +510,12 @@ function LeaderboardPageContent() {
       } catch (error) {
         console.error("Failed to initialize leaderboard:", error);
       } finally {
-        setDataLoaded(true);
+        setPageInitialized(true);
       }
     };
 
     initializePage();
-  }, []);
+  }, []); // ✅ Пустой массив зависимостей - запускается только один раз
 
   const handleTabChange = async (tab: LeaderboardType) => {
     if (tab === activeTab || isTransitioning) return;
@@ -732,7 +705,7 @@ function LeaderboardPageContent() {
   const getTabIcon = (tab: LeaderboardType) => {
     switch (tab) {
       case "season":
-        return <span className="text-xs font-bold">βᾶτα SEASON</span>;
+        return <span className="text-xs font-bold">βῦτα SEASON</span>;
       case "reaction":
         return <Zap size={16} />;
       case "survival":
@@ -775,12 +748,38 @@ function LeaderboardPageContent() {
 
   const handleRefresh = async () => {
     clearError();
-    setDataLoaded(false);
     await fetchLeaderboards();
-    setDataLoaded(true);
   };
 
-  // МГНОВЕННЫЙ ПОКАЗ: всегда показываем контент
+  // Show loading state until page is fully initialized
+  if (!pageInitialized || isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+          <p className="text-white">{t("leaderboard.loadingLeaderboards")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Crown className="text-white/60 mx-auto" size={32} />
+          <p className="text-white/80">{error}</p>
+          <button
+            className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
+            onClick={handleRefresh}
+          >
+            {t("leaderboard.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const fullLeaderboard = getFullLeaderboard;
   const currentUserData = getCurrentUserData;
 
@@ -890,10 +889,9 @@ function LeaderboardPageContent() {
             </div>
           ) : (
             <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              <div className="space-y-2">
-                <div className="h-8 bg-white/10 rounded animate-pulse mx-auto w-48" />
-                <div className="h-4 bg-white/10 rounded animate-pulse mx-auto w-32" />
-              </div>
+              <p className="text-white/60 drop-shadow-sm text-lg">
+                {t("leaderboard.loadingUserData")}
+              </p>
             </div>
           )}
         </div>
@@ -902,7 +900,7 @@ function LeaderboardPageContent() {
         <CacheStatusBadge cacheInfo={cacheInfo} />
 
         {/* Mode Tabs */}
-        <div className="text-center mb-4 animate-fade-in">
+        <div className="text-center mb-4">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1 inline-block">
             <div className="flex space-x-1">
               {(
@@ -936,143 +934,120 @@ function LeaderboardPageContent() {
           </div>
         </div>
 
-        {/* Error State */}
-        {error && (
-          <div className="min-h-[400px] flex items-center justify-center animate-fade-in">
-            <div className="text-center space-y-4">
-              <Crown className="text-white/60 mx-auto" size={32} />
-              <p className="text-white/80">{error}</p>
-              <button
-                className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
-                onClick={handleRefresh}
-              >
-                {t("leaderboard.retry")}
-              </button>
+        {/* Leaderboard */}
+        <div className="space-y-0 max-w-2xl mx-auto">
+          {fullLeaderboard.length === 0 ? (
+            <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
+              <p className="font-bold text-white/80 text-xl mb-2">
+                {t("leaderboard.noPlayersYet")}
+              </p>
+              <p className="text-white/60">{t("leaderboard.beFirstToPlay")}</p>
             </div>
-          </div>
-        )}
+          ) : (
+            <div
+              className={`transition-opacity duration-300 ${isTransitioning ? "opacity-0" : "opacity-100"}`}
+            >
+              {fullLeaderboard.map((entry, index) => (
+                <div key={`${activeTab}-${entry.position}`}>
+                  <div
+                    className={`
+                      w-full px-6 py-4 text-left hover:bg-white/5 transition-all duration-200
+                      ${entry.isCurrentUser ? "bg-blue-500/10" : ""}
+                      ${entry.position <= 3 ? getPositionStyling(entry.position) : ""}
+                      opacity-0 animate-[slideIn_0.3s_ease-out_forwards]
+                    `}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 flex-1 min-w-0">
+                        <div className="w-8 text-center font-bold text-lg relative">
+                          <span
+                            className={`
+                              ${entry.position === 1 ? "text-yellow-400" : ""}
+                              ${entry.position === 2 ? "text-gray-300" : ""}
+                              ${entry.position === 3 ? "text-amber-500" : ""}
+                              ${entry.position > 3 ? "text-white/80" : ""}
+                            `}
+                          >
+                            #{entry.position}
+                          </span>
+                        </div>
 
-        {/* Leaderboard Content */}
-        {!error && (
-          <div>
-            {!dataLoaded && isLoading ? (
-              // Показываем скелетон во время первичной загрузки
-              <LeaderboardSkeleton />
-            ) : fullLeaderboard.length === 0 ? (
-              <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-                <p className="font-bold text-white/80 text-xl mb-2">
-                  {t("leaderboard.noPlayersYet")}
-                </p>
-                <p className="text-white/60">{t("leaderboard.beFirstToPlay")}</p>
-              </div>
-            ) : (
-              <div
-                className={`transition-opacity duration-300 ${isTransitioning ? "opacity-0" : "opacity-100"}`}
-              >
-                <div className="space-y-0 max-w-2xl mx-auto">
-                  {fullLeaderboard.map((entry, index) => (
-                    <div key={`${activeTab}-${entry.position}`}>
-                      <div
-                        className={`
-                          w-full px-6 py-4 text-left hover:bg-white/5 transition-all duration-200
-                          ${entry.isCurrentUser ? "bg-blue-500/10" : ""}
-                          ${entry.position <= 3 ? getPositionStyling(entry.position) : ""}
-                          opacity-0 animate-[slideIn_0.3s_ease-out_forwards]
-                        `}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4 flex-1 min-w-0">
-                            <div className="w-8 text-center font-bold text-lg relative">
-                              <span
-                                className={`
-                                  ${entry.position === 1 ? "text-yellow-400" : ""}
-                                  ${entry.position === 2 ? "text-gray-300" : ""}
-                                  ${entry.position === 3 ? "text-amber-500" : ""}
-                                  ${entry.position > 3 ? "text-white/80" : ""}
-                                `}
-                              >
-                                #{entry.position}
-                              </span>
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center space-x-2">
-                                <span
-                                  className={`font-medium truncate ${
-                                    entry.isCurrentUser
-                                      ? "text-white"
-                                      : entry.position === 1
-                                        ? "text-yellow-100"
-                                        : entry.position === 2
-                                          ? "text-gray-100"
-                                          : entry.position === 3
-                                            ? "text-amber-100"
-                                            : "text-white/90"
-                                  }`}
-                                >
-                                  {entry.first_name} {entry.last_name || ""}
-                                </span>
-                              </div>
-                              {entry.username && (
-                                <div
-                                  className={`text-xs truncate ${
-                                    entry.position <= 3
-                                      ? "text-white/60"
-                                      : "text-white/50"
-                                  }`}
-                                >
-                                  @{entry.username}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-right flex-shrink-0">
-                            <div
-                              className={`font-bold text-lg ${
-                                entry.position === 1
-                                  ? "text-yellow-400"
-                                  : entry.position === 2
-                                    ? "text-gray-300"
-                                    : entry.position === 3
-                                      ? "text-amber-500"
-                                      : "text-white"
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span
+                              className={`font-medium truncate ${
+                                entry.isCurrentUser
+                                  ? "text-white"
+                                  : entry.position === 1
+                                    ? "text-yellow-100"
+                                    : entry.position === 2
+                                      ? "text-gray-100"
+                                      : entry.position === 3
+                                        ? "text-amber-100"
+                                        : "text-white/90"
                               }`}
                             >
-                              {getPlayerValue(entry)}
-                            </div>
+                              {entry.first_name} {entry.last_name || ""}
+                            </span>
+                          </div>
+                          {entry.username && (
                             <div
-                              className={`text-xs ${
+                              className={`text-xs truncate ${
                                 entry.position <= 3
                                   ? "text-white/60"
                                   : "text-white/50"
                               }`}
                             >
-                              {activeTab === "season"
-                                ? t("leaderboard.points")
-                                : activeTab === "reaction"
-                                  ? t("leaderboard.time")
-                                  : activeTab === "survival"
-                                    ? t("leaderboard.points")
-                                    : activeTab === "physics"
-                                      ? t("leaderboard.points")
-                                      : t("leaderboard.points")}
+                              @{entry.username}
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
 
-                      {index < fullLeaderboard.length - 1 && (
-                        <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mx-6" />
-                      )}
+                      <div className="text-right flex-shrink-0">
+                        <div
+                          className={`font-bold text-lg ${
+                            entry.position === 1
+                              ? "text-yellow-400"
+                              : entry.position === 2
+                                ? "text-gray-300"
+                                : entry.position === 3
+                                  ? "text-amber-500"
+                                  : "text-white"
+                          }`}
+                        >
+                          {getPlayerValue(entry)}
+                        </div>
+                        <div
+                          className={`text-xs ${
+                            entry.position <= 3
+                              ? "text-white/60"
+                              : "text-white/50"
+                          }`}
+                        >
+                          {activeTab === "season"
+                            ? t("leaderboard.points")
+                            : activeTab === "reaction"
+                              ? t("leaderboard.time")
+                              : activeTab === "survival"
+                                ? t("leaderboard.points")
+                                : activeTab === "physics"
+                                  ? t("leaderboard.points")
+                                  : t("leaderboard.points")}
+                        </div>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {index < fullLeaderboard.length - 1 && (
+                    <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mx-6" />
+                  )}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="h-24" />
       </div>
