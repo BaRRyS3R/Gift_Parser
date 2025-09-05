@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated with simplified navigation and removed greeting
+// src/app/main/page.tsx - Updated main page with repositioned Daily Quest Button
 
 "use client";
 
@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Play, Settings as SettingsIcon, Info } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { usePCDetection } from "@/hooks/usePCDetection"; // NEW: PC Detection
@@ -20,7 +21,31 @@ import TournamentButton from "@/components/Tournaments/TournamentButton";
 import DailyQuestButton from "@/components/DailyQuestButton/DailyQuestButton";
 import DailyQuestModal from "@/components/DailyQuestModal/DailyQuestModal";
 
-import { useAttempts } from "@/hooks/modules/useAttempts";
+// Utility function to format time remaining
+const formatTimeRemaining = (milliseconds: number): string => {
+  if (milliseconds <= 0) return "Ended";
+
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+
+  if (days > 0) {
+    const hours = totalHours % 24;
+
+    return `${days}d ${hours}h`;
+  } else if (totalHours > 0) {
+    const minutes = totalMinutes % 60;
+
+    return `${totalHours}h ${minutes}m`;
+  } else if (totalMinutes > 0) {
+    const seconds = totalSeconds % 60;
+
+    return `${totalMinutes}m ${seconds}s`;
+  } else {
+    return `${totalSeconds}s`;
+  }
+};
 
 function MainPageContent() {
   const router = useRouter();
@@ -57,6 +82,7 @@ function MainPageContent() {
    * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
+
     return !sessionStorage.getItem("mainPageVisited");
   };
 
@@ -85,6 +111,7 @@ function MainPageContent() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
@@ -271,9 +298,9 @@ function MainPageContent() {
         </div>
       )}
 
-      {/* Top Navigation Icons */}
+      {/* Simplified Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${
+        className={`fixed left-0 z-30 px-6 ${
           isFirstVisit
             ? `transition-all duration-1000 transform ${
                 showTopButtons
@@ -284,37 +311,46 @@ function MainPageContent() {
         }`}
         style={{ top: headerOffset }}
       >
-        <div className="flex flex-col gap-3">
-          {/* Top row - Navigation icons and Tournament button */}
-          <div className="flex items-center justify-between">
-            {/* Left side - About and Settings icons */}
-            <div className="flex items-center gap-4">
-              <button
-                aria-label="About"
-                className="text-white hover:opacity-70 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isTransitioning}
-                onClick={handleOpenAbout}
-              >
-                <Info size={16} />
-              </button>
+        <div className="flex items-center gap-4">
+          {/* About Icon */}
+          <button
+            aria-label="About"
+            className="w-10 h-10 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
+            onClick={handleOpenAbout}
+          >
+            <Info size={24} />
+          </button>
 
-              <button
-                aria-label={t("common.settings")}
-                className="text-white hover:opacity-70 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isTransitioning}
-                onClick={handleOpenSettings}
-              >
-                <SettingsIcon size={16} />
-              </button>
-            </div>
-
-            {/* Right side - Tournament button (only shows if there's an active tournament) */}
-            <TournamentButton
-              isTransitioning={isTransitioning}
-              onClick={handleOpenTournaments}
-            />
-          </div>
+          {/* Settings Icon */}
+          <button
+            aria-label={t("common.settings")}
+            className="w-10 h-10 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
+            onClick={handleOpenSettings}
+          >
+            <SettingsIcon size={24} />
+          </button>
         </div>
+      </div>
+
+      {/* Tournament Button - Top Right */}
+      <div
+        className={`fixed right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
+        style={{ top: headerOffset }}
+      >
+        <TournamentButton
+          isTransitioning={isTransitioning}
+          onClick={handleOpenTournaments}
+        />
       </div>
 
       {/* Season Button - Central position */}
