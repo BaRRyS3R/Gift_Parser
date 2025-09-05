@@ -357,8 +357,8 @@ function LeaderboardEntry({
     <>
       <div
         className={`flex items-center justify-between py-3 px-1 transition-all duration-200 ${entry.isCurrentUser
-            ? `border-l-2 pl-3 bg-gradient-to-r ${colors.bg}`
-            : "hover:bg-white/5"
+          ? `border-l-2 pl-3 bg-gradient-to-r ${colors.bg}`
+          : "hover:bg-white/5"
           }`}
         style={{
           borderLeftColor: entry.isCurrentUser ? colors.primary : "transparent",
