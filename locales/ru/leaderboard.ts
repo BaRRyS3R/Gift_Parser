@@ -53,6 +53,5 @@ export const leaderboard = {
   playGame: "Поиграем? 😏",
   loadingUserData: "Загрузка данных пользователя...",
   letsPlay: "Ткни меня 😏",
-
-  updates: "Обновление каждые 5 минут",
+  update: "Обновление каждые 5 минут",
 } as const;

@@ -81,4 +81,6 @@ export const en = {
 
   // About modal
   about,
+
+
 } as const;

@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with final fixed Telegram button management
+// src/app/profile/page.tsx - Updated with integrated skeleton UI
 
 "use client";
 
@@ -29,22 +29,6 @@ export default function ProfilePage() {
 
   // Track if initial data load has been triggered
   const dataLoadedRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
-        tg.close();
-      });
-
-      return () => {
-        tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
-      };
-    }
-  }, []);
 
   // Load profile data when user is authenticated
   useEffect(() => {
@@ -79,24 +63,12 @@ export default function ProfilePage() {
 
   const handleOpenReferrals = () => {
     if (profile.profileData?.referrals) {
-      console.log("ProfilePage: Opening ReferralModal");
       setIsReferralModalOpen(true);
     }
   };
 
-  const handleCloseReferrals = () => {
-    console.log("ProfilePage: Closing ReferralModal");
-    setIsReferralModalOpen(false);
-  };
-
   const handleOpenAchievements = () => {
-    console.log("ProfilePage: Opening AchievementsModal");
     setIsAchievementsModalOpen(true);
-  };
-
-  const handleCloseAchievements = () => {
-    console.log("ProfilePage: Closing AchievementsModal");
-    setIsAchievementsModalOpen(false);
   };
 
   // Show basic error screen if user is not authenticated
@@ -283,12 +255,12 @@ export default function ProfilePage() {
         <div className="h-20" />
       </div>
 
-      {/* Modals - Updated with individual close handlers */}
+      {/* Modals */}
       {profileData?.referrals && (
         <ReferralModal
           isOpen={isReferralModalOpen}
           referralInfo={profileData.referrals}
-          onClose={handleCloseReferrals}
+          onClose={() => setIsReferralModalOpen(false)}
         />
       )}
 
@@ -298,7 +270,7 @@ export default function ProfilePage() {
         isOpen={isAchievementsModalOpen}
         rankings={rankings}
         user={profileUser}
-        onClose={handleCloseAchievements}
+        onClose={() => setIsAchievementsModalOpen(false)}
       />
     </div>
   );

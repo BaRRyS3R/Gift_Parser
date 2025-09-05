@@ -36,7 +36,6 @@ import {
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 
-
 interface SaveStatus {
   isLoading: boolean;
   attempt: number;

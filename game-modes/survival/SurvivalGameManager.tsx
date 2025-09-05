@@ -36,7 +36,6 @@ import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
-
 interface SaveStatus {
   isLoading: boolean;
   attempt: number;

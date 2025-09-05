@@ -23,7 +23,6 @@ import { useT } from "@/contexts/LocalizationContext";
 import BinaryEasterEgg from "@/components/EasterEggs/BinaryEasterEgg";
 import TONPurchaseButton from "@/components/TON/TONPurchaseButton";
 
-
 interface SuccessNotification {
   show: boolean;
   title: string;
@@ -81,15 +80,15 @@ export default function ShopPage() {
 
       tg.BackButton.show();
       tg.BackButton.onClick(() => {
-        tg.close();
+        router.push("/main");
       });
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
-  }, []);
+  }, [router]);
 
   // Cleanup easter egg timeout on unmount
   useEffect(() => {
@@ -170,9 +169,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-        attempts: attemptsText,
-        plural: plural,
-      });
+          attempts: attemptsText,
+          plural: plural,
+        });
 
     setSuccessNotification({
       show: true,
