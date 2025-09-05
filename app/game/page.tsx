@@ -492,19 +492,15 @@ function GamePageContent() {
 
   // Telegram WebApp back button
   useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
+    if (telegramButtonManager.isAvailable()) {
+      telegramButtonManager.setNavigationState(() => {
         router.push("/main");
       });
-
-      return () => {
-        tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
-      };
     }
+
+    return () => {
+      telegramButtonManager.emergencyReset();
+    };
   }, [router]);
 
   return (

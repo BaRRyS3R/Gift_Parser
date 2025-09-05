@@ -42,6 +42,8 @@ import {
 import { useT } from "@/contexts/LocalizationContext";
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
+import { telegramButtonManager } from "@/utils/TelegramButtonManager";
+
 interface SaveStatus {
   isLoading: boolean;
   attempt: number;
@@ -242,20 +244,16 @@ export default function PhysicsGameManager() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
+  if (telegramButtonManager.isAvailable()) {
+    telegramButtonManager.setNavigationState(() => {
+      router.push("/game");
+    });
+  }
 
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
-        router.push("/game");
-      });
-
-      return () => {
-        tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
-      };
-    }
-  }, [router]);
+  return () => {
+    telegramButtonManager.emergencyReset();
+  };
+}, [router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
