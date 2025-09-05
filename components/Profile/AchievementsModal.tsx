@@ -226,19 +226,13 @@ export default function AchievementsModal({
         {() => (
           <>
             <ModalHeader className="flex flex-col gap-1">
-              {/* Header with glowing effect */}
-              <div className="flex items-center justify-center space-x-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg blur-lg opacity-50" />
-                  <div className="relative bg-black/70 p-2 rounded-lg border border-white/20">
-                    <Trophy className="text-white" size={20} />
-                  </div>
-                </div>
+              {/* Header without icon, centered and lower */}
+              <div className="flex items-center justify-center mt-4">
                 <div className="text-center">
-                  <span className="text-white font-bold tracking-wider bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                  <span className="text-white font-bold tracking-wider text-xl bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
                     {t("profile.achievements.title")}
                   </span>
-                  <p className="text-sm text-white/60 font-normal">
+                  <p className="text-sm text-white/60 font-normal mt-2">
                     {t("profile.achievementsUnlocked", {
                       count: unlockedCount,
                       total: totalCount,

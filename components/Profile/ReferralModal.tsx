@@ -18,6 +18,7 @@ import {
   Share2,
   Copy,
   Check,
+  X,
   MessageCircle,
   Camera,
   Star,
@@ -51,7 +52,7 @@ const TelegramSharing = {
     imageUrl: string,
   ) => {
     // Using zero-width characters to embed image in message
-    const embeddedMessage = `${message}\n\n[​​​​​​​​​​​](${imageUrl})\n\n${referralLink}`;
+    const embeddedMessage = `${message}\n\n[‌‌‌‌‌‌‌‌‌‌‌](${imageUrl})\n\n${referralLink}`;
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(embeddedMessage)}`;
 
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -146,13 +147,8 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       const webApp = window.Telegram.WebApp;
       
       if (isOpen) {
-        // Force hide and then show back button to ensure correct state
-        webApp.BackButton.hide();
-        
-        // Small delay to ensure state is reset
-        setTimeout(() => {
-          webApp.BackButton.show();
-        }, 50);
+        // Show back button when modal opens
+        webApp.BackButton.show();
         
         // Handle back button click
         const handleBackClick = () => {
@@ -207,7 +203,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
         backdrop: "bg-black/90 backdrop-blur-md",
         base: "bg-gradient-to-b from-gray-900 via-black to-gray-900 border-0 m-0 rounded-none h-full max-h-full",
         header: "border-b border-white/10 bg-black/50 px-6 py-4",
-        body: "px-6 bg-transparent overflow-y-auto max-h-[calc(100vh-80px)]",
+        body: "px-6 bg-transparent overflow-y-auto max-h-[calc(100vh-120px)]",
         closeButton: "hidden",
       }}
       closeButton={false}
@@ -243,43 +239,37 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
         {() => (
           <>
             <ModalHeader className="flex flex-col gap-1">
-              {/* Header with glowing effect */}
-              <div className="flex items-center justify-center space-x-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg blur-lg opacity-50" />
-                  <div className="relative bg-black/70 p-2 rounded-lg border border-white/20">
-                    <Share2 className="text-white" size={20} />
-                  </div>
-                </div>
+              {/* Header without icon, centered and lower */}
+              <div className="flex items-center justify-center mt-4">
                 <div className="text-center">
-                  <span className="text-white font-bold tracking-wider bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                  <span className="text-white font-bold tracking-wider text-xl">
                     {t("profile.referrals.title")}
                   </span>
-                  <p className="text-sm text-white/60 font-normal">🤞❤️</p>
+                  <p className="text-white/60 text-sm mt-2">🤞❤️</p>
                 </div>
               </div>
             </ModalHeader>
 
-            <ModalBody className="pb-4 space-y-4">
+            <ModalBody className="pb-6 space-y-4">
               {/* Statistics Cards */}
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-2 gap-3">
                 <Card className="bg-white/5 border border-white/20">
-                  <CardBody className="text-center p-4">
-                    <div className="text-2xl font-bold text-white mb-1">
+                  <CardBody className="text-center p-3">
+                    <div className="text-xl font-bold text-white">
                       {referralInfo.count}
                     </div>
-                    <div className="text-sm text-white/60 uppercase tracking-wider">
+                    <div className="text-xs text-white/60 uppercase tracking-wider">
                       {t("profile.referrals.friendsInvited")}
                     </div>
                   </CardBody>
                 </Card>
 
                 <Card className="bg-white/5 border border-white/20">
-                  <CardBody className="text-center p-4">
-                    <div className="text-2xl font-bold text-white mb-1">
+                  <CardBody className="text-center p-3">
+                    <div className="text-xl font-bold text-white">
                       +{referralInfo.bonus}
                     </div>
-                    <div className="text-sm text-white/60 uppercase tracking-wider">
+                    <div className="text-xs text-white/60 uppercase tracking-wider">
                       {t("profile.referrals.attemptsBonus")}
                     </div>
                   </CardBody>
@@ -287,44 +277,42 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               </div>
 
               {/* Sharing Method Selector */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-white">
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-white">
                   {t("profile.referrals.share")}
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    className={`p-4 rounded-lg border text-sm transition-all ${
+                    className={`p-2 rounded-lg border text-xs transition-all ${
                       sharingMethod === "simple"
                         ? "bg-white/20 border-white/40 text-white"
                         : "bg-white/5 border-white/20 text-white/70 hover:bg-white/10"
                     }`}
                     onClick={() => setSharingMethod("simple")}
                   >
-                    <MessageCircle className="mx-auto mb-2" size={32} />
-                    <div className="text-xs">Message</div>
+                    <MessageCircle className="mx-auto mb-1" size={24} />
                   </button>
                   <button
-                    className={`p-4 rounded-lg border text-sm transition-all ${
+                    className={`p-2 rounded-lg border text-xs transition-all ${
                       sharingMethod === "story"
                         ? "bg-white/20 border-white/40 text-white"
                         : "bg-white/5 border-white/20 text-white/70 hover:bg-white/10"
                     }`}
                     onClick={() => setSharingMethod("story")}
                   >
-                    <Camera className="mx-auto mb-2" size={32} />
-                    <div className="text-xs">Story</div>
+                    <Camera className="mx-auto mb-1" size={24} />
                   </button>
                 </div>
               </div>
 
               {/* Referral Code Section */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-white">
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-white">
                   {t("profile.referrals.yourReferralCode")}
                 </h3>
                 <Card className="bg-black/40 border border-white/30">
-                  <CardBody className="p-4">
-                    <div className="text-center font-mono text-2xl font-bold text-white tracking-wider">
+                  <CardBody className="p-3">
+                    <div className="text-center font-mono text-xl font-bold text-white tracking-wider">
                       {referralInfo.code}
                     </div>
                   </CardBody>
@@ -332,13 +320,13 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               </div>
 
               {/* Referral Link Section */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-white">
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-white">
                   {t("profile.referrals.referralLink")}
                 </h3>
                 <Card className="bg-black/40 border border-white/30">
-                  <CardBody className="p-4">
-                    <div className="text-sm font-mono text-white/80 break-all leading-relaxed">
+                  <CardBody className="p-2">
+                    <div className="text-xs font-mono text-white/80 break-all">
                       {referralInfo.referralLink}
                     </div>
                   </CardBody>
@@ -346,13 +334,13 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               </div>
 
               {/* Enhanced Action Buttons */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {/* Main sharing buttons */}
-                <div className="flex space-x-3">
+                <div className="flex space-x-2">
                   <Button
-                    className="flex-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/40 text-white hover:from-blue-500/30 hover:to-purple-500/30 h-12"
-                    size="lg"
-                    startContent={<Share2 className="text-white" size={18} />}
+                    className="flex-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/40 text-white hover:from-blue-500/30 hover:to-purple-500/30 text-sm"
+                    size="sm"
+                    startContent={<Share2 className="text-white" size={14} />}
                     variant="bordered"
                     onPress={handleShareReferralLink}
                   >
@@ -360,13 +348,13 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                   </Button>
 
                   <Button
-                    className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20 h-12"
-                    size="lg"
+                    className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20 text-sm"
+                    size="sm"
                     startContent={
                       copySuccess ? (
-                        <Check className="text-green-400" size={18} />
+                        <Check className="text-green-400" size={14} />
                       ) : (
-                        <Copy className="text-white" size={18} />
+                        <Copy className="text-white" size={14} />
                       )
                     }
                     variant="bordered"
@@ -381,25 +369,25 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 
               {/* How it Works Section */}
               <Card className="bg-white/5 border border-white/20">
-                <CardBody className="p-4 space-y-3">
-                  <h4 className="text-lg font-bold text-white">
+                <CardBody className="p-3 space-y-2">
+                  <h4 className="text-sm font-bold text-white">
                     {t("profile.referrals.howItWorks")}
                   </h4>
-                  <div className="space-y-2 text-sm text-white/70">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                  <div className="space-y-1 text-xs text-white/70">
+                    <div className="flex items-start space-x-2">
+                      <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                       <span>{t("profile.referrals.shareWithFriends")}</span>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                    <div className="flex items-start space-x-2">
+                      <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                       <span>{t("profile.referrals.theyGetExtra")}</span>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                    <div className="flex items-start space-x-2">
+                      <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                       <span>{t("profile.referrals.youGetRecognition")}</span>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 rounded-full bg-blue-400 mt-2 flex-shrink-0" />
+                    <div className="flex items-start space-x-2">
+                      <div className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
                       <span>{t("profile.referrals.helpGrow")}</span>
                     </div>
                   </div>
@@ -409,14 +397,14 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               {/* Referred By Section */}
               {referralInfo.referredBy && (
                 <Card className="bg-white/5 border border-white/20">
-                  <CardBody className="p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Star className="text-white" size={18} />
-                      <h4 className="text-lg font-bold text-white">
+                  <CardBody className="p-3">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Star className="text-white" size={14} />
+                      <h4 className="text-sm font-bold text-white">
                         {t("profile.referrals.referredBy")}
                       </h4>
                     </div>
-                    <div className="text-white font-mono font-bold text-lg">
+                    <div className="text-white font-mono font-bold text-sm">
                       {referralInfo.referredByName || referralInfo.referredBy}
                     </div>
                   </CardBody>
