@@ -1,4 +1,4 @@
-// src/components/Profile/ReferralModal.tsx - Enhanced with proper back button event management
+// src/components/Profile/ReferralModal.tsx - Enhanced with centralized button management
 
 "use client";
 
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
+import { telegramButtonManager } from "@/utils/TelegramButtonManager";
 
 interface ReferralModalProps {
   isOpen: boolean;
@@ -141,76 +142,33 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       "Join me in Circusle - an awesome game where every tap counts! 🎯",
   };
 
-  // Fixed Telegram WebApp back button management with proper event handling
+  // **PRINCIPLE: Force modal state when opened**
   useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const webApp = window.Telegram.WebApp;
-      
+    if (telegramButtonManager.isAvailable()) {
       if (isOpen) {
-        console.log("ReferralModal: Modal opened, setting up back button");
+        console.log("ReferralModal: Modal opened, forcing modal state");
         
-        // Store reference to existing handlers if any
-        const existingHandlers: (() => void)[] = [];
-        
-        // Clear ALL existing BackButton event handlers
-        // This is a workaround since Telegram doesn't provide a way to get current handlers
-        if (webApp.BackButton && typeof webApp.BackButton.offClick === 'function') {
-          // Try to remove any existing handlers by creating dummy functions
-          for (let i = 0; i < 10; i++) {
-            try {
-              const dummyHandler = () => {};
-              webApp.BackButton.offClick(dummyHandler);
-            } catch (e) {
-              // Ignore errors when removing non-existent handlers
-            }
-          }
-        }
-        
-        // Force disable close confirmation to remove close button
-        webApp.disableClosingConfirmation();
-        
-        // Hide any existing main button
-        if (webApp.MainButton) {
-          webApp.MainButton.hide();
-        }
-        
-        // Hide back button first to ensure clean state
-        if (webApp.BackButton) {
-          webApp.BackButton.hide();
-        }
-        
-        // Define our modal-specific handler
-        const modalBackHandler = () => {
-          console.log("ReferralModal: Modal back button clicked");
+        // Force modal state with back button handler
+        telegramButtonManager.setModalState(() => {
+          console.log("ReferralModal: Back button handler triggered");
           onClose();
-        };
-        
-        // Wait a bit then show back button with our handler
-        setTimeout(() => {
-          if (webApp.BackButton) {
-            // Show the back button
-            webApp.BackButton.show();
-            // Add our handler
-            webApp.BackButton.onClick(modalBackHandler);
-            console.log("ReferralModal: Back button shown with modal handler");
-          }
-        }, 150);
-        
-        // Cleanup function
-        return () => {
-          console.log("ReferralModal: Cleaning up back button");
-          if (webApp.BackButton) {
-            // Remove our specific handler
-            webApp.BackButton.offClick(modalBackHandler);
-            // Hide the back button
-            webApp.BackButton.hide();
-          }
-          
-          // Note: We don't restore global handlers here as the parent page will handle that
-        };
+        });
+      } else {
+        console.log("ReferralModal: Modal closed");
+        // Modal state cleanup is handled by the parent component
       }
     }
   }, [isOpen, onClose]);
+
+  // **PRINCIPLE: Emergency cleanup on unmount**
+  useEffect(() => {
+    return () => {
+      if (telegramButtonManager.isAvailable() && isOpen) {
+        console.log("ReferralModal: Component unmounting, emergency reset");
+        telegramButtonManager.emergencyReset();
+      }
+    };
+  }, [isOpen]);
 
   const handleCopyReferralLink = async () => {
     try {

@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with final fixed Telegram button management
+// src/app/profile/page.tsx - Updated with centralized Telegram button management
 
 "use client";
 
@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
+import { telegramButtonManager } from "@/utils/TelegramButtonManager";
 
 // Import components
 import EnhancedProfileHeader from "@/components/Profile/EnhancedProfileHeader";
@@ -30,39 +31,39 @@ export default function ProfilePage() {
   // Track if initial data load has been triggered
   const dataLoadedRef = useRef<boolean>(false);
 
-  // Fixed Telegram WebApp button management - restore proper state after modal close
+  // **PRINCIPLE 1: Force normal state when page opens**
   useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const webApp = window.Telegram.WebApp;
-      
-      // Check if any modal is open
-      const isAnyModalOpen = isReferralModalOpen || isAchievementsModalOpen;
-      
-      if (!isAnyModalOpen) {
-        // No modals open - restore normal app state
-        console.log("ProfilePage: No modals open, restoring normal app state");
-        
-        // Wait a bit for modal cleanup to complete
-        setTimeout(() => {
-          // Make sure back button is hidden (modals should have cleaned this up)
-          if (webApp.BackButton) {
-            webApp.BackButton.hide();
-          }
-          
-          // Hide main button
-          if (webApp.MainButton) {
-            webApp.MainButton.hide();
-          }
-          
-          // Enable close confirmation for app exit
-          webApp.enableClosingConfirmation();
-          
-          console.log("ProfilePage: Normal app state restored");
-        }, 200);
-      } else {
-        // Modal is open - let modal handle everything
-        console.log("ProfilePage: Modal is open, letting modal handle buttons");
+    console.log("ProfilePage: Component mounted, forcing normal state");
+    
+    if (telegramButtonManager.isAvailable()) {
+      // Force normal state immediately
+      telegramButtonManager.setNormalState();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      console.log("ProfilePage: Component unmounting");
+      if (telegramButtonManager.isAvailable()) {
+        telegramButtonManager.emergencyReset();
       }
+    };
+  }, []);
+
+  // **PRINCIPLE 2: Force state changes when modals open/close**
+  useEffect(() => {
+    const isAnyModalOpen = isReferralModalOpen || isAchievementsModalOpen;
+    
+    if (telegramButtonManager.isAvailable()) {
+      if (!isAnyModalOpen) {
+        // **PRINCIPLE 3: Force normal state when no modals**
+        console.log("ProfilePage: No modals open, forcing normal state");
+        
+        // Wait for modal cleanup, then force normal state
+        setTimeout(() => {
+          telegramButtonManager.setNormalState();
+        }, 100);
+      }
+      // Modal state is handled by the modals themselves
     }
   }, [isReferralModalOpen, isAchievementsModalOpen]);
 
@@ -303,7 +304,7 @@ export default function ProfilePage() {
         <div className="h-20" />
       </div>
 
-      {/* Modals - Updated with individual close handlers */}
+      {/* Modals - Updated with centralized button management */}
       {profileData?.referrals && (
         <ReferralModal
           isOpen={isReferralModalOpen}
