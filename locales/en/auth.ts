@@ -4,7 +4,6 @@ export const auth = {
   checkingUser: "Checking user...",
   registering: "Registering...",
   processingReferralBonus: "Processing referral bonus...",
-  continueWithoutVideo: "Continue without video",
   referralBonus: "REFERRAL BONUS!",
   youllGet: "You'll get",
   extraAttempt: "extra attempt",

@@ -1,6 +1,6 @@
-// src/locales/ru/leaderboard.ts - Updated leaderboard localization with new strings
+// src/locales/ru/leaderboard.ts - leaderboard localization
 export const leaderboard = {
-  title: "ТОП",
+  title: "ТОП", // Не актуально
   loadingRanking: "ЗАГРУЗКА РЕЙТИНГОВЫХ ДАННЫХ...",
   failedToLoad: "НЕ УДАЛОСЬ ЗАГРУЗИТЬ РЕЙТИНГОВЫЕ ДАННЫЕ",
   loadingLeaderboards: "Загрузка таблицы лидеров...",
@@ -28,24 +28,24 @@ export const leaderboard = {
   tryPhysics: "ПОПРОБУЙТЕ ФИЗИЧЕСКИЙ ЭКСПЕРИМЕНТ!",
   tryRotation: "ПОПРОБУЙТЕ ВРАЩАЮЩЕЕСЯ ИСПЫТАНИЕ!",
   beFirst: "БУДЬТЕ ПЕРВЫМ КТО СЫГРАЕТ!",
-  speedElite: "ЭЛИТА СКОРОСТИ",
-  survivalElite: "ЭЛИТА ВЫЖИВАНИЯ",
-  physicsElite: "ЭЛИТА ФИЗИКИ",
-  rotationElite: "ЭЛИТА ВРАЩЕНИЯ",
-  topPlayers: "ТОП ИГРОКИ",
-  allPlayers: "ВСЕ ИГРОКИ",
+  speedElite: "ЭЛИТА СКОРОСТИ", // Не актуально
+  survivalElite: "ЭЛИТА ВЫЖИВАНИЯ", // Не актуально
+  physicsElite: "ЭЛИТА ФИЗИКИ", // Не актуально
+  rotationElite: "ЭЛИТА ВРАЩЕНИЯ", // Не актуально
+  topPlayers: "ТОП ИГРОКИ", // Не актуально
+  allPlayers: "ВСЕ ИГРОКИ", // Не актуально
   // Existing strings for the leaderboard page
-  reactionTime: "время реакции",
+  reactionTime: "время реакции", // Не актуально
   points: "скор",
   time: "время",
-  noChampionYet: "Пока нет чемпиона",
-  claimThrone: "Станьте первым, кто завоюет трон!",
+  noChampionYet: "Пока нет чемпиона", // Не актуально
+  claimThrone: "Станьте первым, кто завоюет трон!", // Не актуально
   yourPosition: "Ваша позиция",
   currentRanking: "Текущий рейтинг",
   noPlayersYet: "Пока нет игроков",
   beFirstToPlay: "Будьте первым!",
-  onlyOneChampion: "Только один чемпион",
-  challengeLeader: "Бросьте вызов лидеру!",
+  onlyOneChampion: "Только один чемпион", // Не актуально
+  challengeLeader: "Бросьте вызов лидеру!", // Не актуально
   // NEW: Additional strings for current user display
   position: "Позиция",
   noGamesYet: "Ещё не играли",

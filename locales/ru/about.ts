@@ -1,4 +1,4 @@
-// src/locales/ru/about.ts - Максимально циничная версия
+// src/locales/ru/about.ts
 
 export const about = {
   title: "CIRCUSLE",

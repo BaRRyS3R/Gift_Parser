@@ -3,7 +3,6 @@ export const auth = {
   checkingUser: "Проверка пользователя...",
   registering: "Регистрация...",
   processingReferralBonus: "Обработка реферального бонуса...",
-  continueWithoutVideo: "Продолжить без видео",
   referralBonus: "РЕФЕРАЛЬНЫЙ БОНУС!",
   youllGet: "Вы получите",
   extraAttempt: "дополнительную попытку",

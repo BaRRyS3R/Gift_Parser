@@ -4,20 +4,6 @@ export const attempts = {
   current: "ATTEMPTS",
   resetTime: "RESET TIME",
 
-  // Добавляем секцию для уведомлений о восстановлении
-  notifications: {
-    restored: {
-      title: "⚡ Attempts restored!",
-      greeting: "Yo, {firstName}! Your game attempts have been restored.",
-      attemptsAwarded: "🎮 +{attemptsRestored} attempts are now available!",
-      encouragement: "You can continue playing. If you want, of course. Want.",
-      fullMessage:
-        "🎮 <b>Attempts restored!</b>\n\nYo, {firstName}! Your game attempts have been restored.\n\n⚡ <b>+{attemptsRestored} attempts</b> are now available!",
-      // Добавляем текст для кнопки
-      playButton: "🎮 Play Now",
-    },
-  },
-
   modal: {
     title: "ATTEMPTS SYSTEM",
     noAttemptsLeft: "No attempts remaining",

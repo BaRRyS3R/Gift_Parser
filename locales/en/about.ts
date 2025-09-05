@@ -1,4 +1,4 @@
-// src/locales/en/about.ts - Cynical English translation
+// src/locales/en/about.ts
 export const about = {
   title: "CIRCUSLE",
 

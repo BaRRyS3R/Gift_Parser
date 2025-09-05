@@ -1,4 +1,4 @@
-// src/locales/ru/game.ts - Game modes and gameplay (Updated with play again functionality)
+// src/locales/ru/game.ts - Game Modes, Gameplay, GAME PAGE (Easter Eggs)
 export const game = {
   easterEgg: {
     title: "СЮРПРИЗ!",
@@ -12,12 +12,12 @@ export const game = {
     title: "МОД",
     subtitle: "Выберите испытание",
     buttonBack: "Назад",
-    newBestScore: "НОВЫЙ ЛУЧШИЙ СЧЁТ!",
-    recordUpdated: "Рекорд обновлён!",
+    newBestScore: "НОВЫЙ РЕКОРД!", // Пока не актуально
+    recordUpdated: "Рекорд обновлён!", // Пока не актуально
     reaction: {
       name: "РЕАКЦИЯ",
-      description: "Надеюсь, хоть тут попадёшь.",
-      difficulty: "Нулевая",
+      description: "Надеюсь, хоть тут попадёшь.", // Не актуально
+      difficulty: "Нулевая", // Не актуально
       duration: "~10 секунд",
       objective: "Быстрее ткнёшь - круче реакция. Очевидно же, глупышка))",
       features: [
@@ -47,7 +47,7 @@ export const game = {
         reactionTime: "ТАЙМИНГ",
         missed: "Промазал. Лох",
         testAgain: "ПОВТОРИТЬ",
-        backToMenu: "НАЗАД В МЕНЮ",
+        backToMenu: "НАЗАД В МЕНЮ", // Не актуально
         noAttemptsLeft: "НЕТ ПОПЫТОК",
       },
       playAgain: {
@@ -86,7 +86,7 @@ export const game = {
       name: "ВЫЖИВАНИЕ",
       description: "Выживи. Сколько сможешь.",
       difficulty: "Экстремальный",
-      duration: "До провала",
+      duration: "До провала", // Не актуально
       objective:
         "Жми на белые. Тык тык тык, быстре, еще быстрее! Ой, проиграл.",
       features: [
@@ -101,7 +101,7 @@ export const game = {
         "Не успел ткнуть - беда печаль((",
       ],
       instructions: {
-        oneMistakeDeath: "ОДНА ОШИБКА = СМЕРТЬ",
+        oneMistakeDeath: "ОДНА ОШИБКА = СМЕРТЬ", // Не актуально
       },
       results: {
         title: "КОНЕЦ ВЫЖИВАНИЯ",
@@ -113,7 +113,7 @@ export const game = {
         levelProgress: "Прогресс уровня",
         levelsCompleted: "УРОВНЕЙ ПРОЙДЕНО",
         surviveAgain: "ПОВТОРИТЬ",
-        escapeToMenu: "НАЗАД В МЕНЮ",
+        escapeToMenu: "НАЗАД В МЕНЮ", // Не актуально
         starting: "ЗАПУСК...",
       },
       playAgain: {
@@ -135,7 +135,7 @@ export const game = {
         decoyHit: "2 цвета. Красный и белый. Угадай, куда ты ткнул?!",
         default: "Выживание закончено",
       },
-      levels: {
+      levels: { // Не актуально
         warmingUp: "РАЗМИНКА",
         gettingStarted: "НАЧИНАЕМ",
         basicPrecision: "БАЗОВАЯ ТОЧНОСТЬ",
@@ -151,13 +151,13 @@ export const game = {
         superhuman: "СВЕРХЧЕЛОВЕЧЕСКИЙ",
         beyondLimits: "ЗА ПРЕДЕЛАМИ",
         perfectMachine: "СОВЕРШЕННАЯ МАШИНА",
-      },
+      }, // Не актуально
     },
     physics: {
       name: "ФИЗИКА",
       description: "Физика - это круто.",
       difficulty: "Экспериментальный",
-      duration: "~2 минуты",
+      duration: "~2 минуты", // Не актуально
       objective:
         "Нажимайте на белые круги, мимо не нажимайте. На красные тоже не нажимайте. В целом, можете вообще ничего не делать, всё равно проиграете.",
       features: [
@@ -179,7 +179,7 @@ export const game = {
         mistakesMade: "ОШИБОК",
         survivalTime: "ВРЕМЯ ВЫЖИВАНИЯ",
         playAgain: "ЕЩЁ",
-        backToMenu: "НАЗАД В МЕНЮ",
+        backToMenu: "НАЗАД В МЕНЮ", // Не актуально
         levelsCompleted: "УРОВНЕЙ ПРОЙДЕНО",
       },
       playAgain: {
@@ -205,8 +205,8 @@ export const game = {
     rotation: {
       name: "ВРАЩЕНИЕ",
       description: "Круги крутятся. Ты тоже.",
-      difficulty: "Головокружительный",
-      duration: "Ну такое",
+      difficulty: "Ну такое",
+      duration: "~ 1 минута", // Не актуально
       objective:
         "Круги вращаются по кругу. Жми на белые, не жми на красные. Логично? Не факт.",
       features: [
@@ -234,7 +234,7 @@ export const game = {
         levelProgress: "Прогресс уровня",
         levelsCompleted: "УРОВНЕЙ ПРОЙДЕНО",
         spinAgain: "УЩЕ?",
-        escapeToMenu: "НАЗАД В МЕНЮ",
+        escapeToMenu: "НАЗАД В МЕНЮ", // Не актуально
         starting: "РАСКРУЧИВАЕМСЯ...",
       },
       playAgain: {
@@ -255,7 +255,7 @@ export const game = {
         decoyHit: "Красный круг! Красный значит стоп! Базовые понятия, блин.",
         default: "Вращение остановлено. Надеюсь, не стошнило.",
       },
-      levels: {
+      levels: { // Не актуально
         gentleSpin: "ЛЁГКОЕ КРУЧЕНИЕ",
         steadyRotation: "СТАБИЛЬНОЕ ВРАЩЕНИЕ",
         pickingUpSpeed: "НАБИРАЕМ СКОРОСТЬ",
@@ -266,15 +266,15 @@ export const game = {
         highVelocity: "ВЫСОКАЯ СКОРОСТЬ",
         extremeSpin: "ЭКСТРЕМАЛЬНОЕ КРУЧЕНИЕ",
         maximumRotation: "МАКСИМАЛЬНОЕ ВРАЩЕНИЕ",
-      },
+      }, // Не актуально
     },
   },
   general: {
-    readyToPlay: "Э, паиграй да?",
-    buyMoreAttempts: "Купите больше попыток",
+    readyToPlay: "Э, паиграй да?", // Не актуально
+    buyMoreAttempts: "Купите больше попыток", // Не актуально
     testYourSkills: "Протестируйте свою реакцию",
     initializingGame: "ИНИЦИАЛИЗАЦИЯ ИГРЫ...",
-    noAttempts: "НЕТ ПОПЫТОК",
+    noAttempts: "НЕТ ПОПЫТОК", // Не актуально
     noAttemptsLeft: "НЕТ ПОПЫТОК",
     attemptsUsed: "Все попытки использованы",
     waitForReset: "Дождитесь автоматического сброса или купите больше попыток",
@@ -283,10 +283,10 @@ export const game = {
     useWisely: "Используйте попытки мудро - каждая игра на счету!",
     objective: "ЦЕЛЬ",
     rules: "ПРАВИЛА",
-    proTips: "ПРОФЕССИОНАЛЬНЫЕ СОВЕТЫ",
-    scoringSystem: "СИСТЕМА ОЧКОВ",
+    proTips: "ПРОФЕССИОНАЛЬНЫЕ СОВЕТЫ", // Не актуально
+    scoringSystem: "СИСТЕМА ОЧКОВ", // Не актуально
     difficulty: "Сложность",
-    duration: "Длительность",
+    duration: "Длительность", // Не актуально
     startPlaying: "НАЧАТЬ ИГРАТЬ",
     checkingAttempts: "ПРОВЕРКА ПОПЫТОК...",
     lock: "Блок",

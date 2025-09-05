@@ -40,7 +40,7 @@ export const tasks = {
     finished: "Завершенные",
   },
 
-  // Значки и метки типов заданий
+  // Значки и метки типов заданий НЕ АКТУАЛЬНО
   badges: {
     telegram: "Telegram",
     twitter: "Twitter",

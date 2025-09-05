@@ -65,7 +65,7 @@ const GAME_MODES: GameMode[] = [
     icon: Zap,
     route: "/game/reaction",
     difficulty: "🤡",
-    durationKey: "game.modes.reaction.duration",
+    durationKey: "game.modes.reaction.difficulty",
     videoUrl: "https://notfren.com/circusle/mode_reaction.mp4",
     fallbackImageUrl: "https://notfren.com/circusle/reaction.jpg",
     color: {
@@ -100,7 +100,7 @@ const GAME_MODES: GameMode[] = [
     icon: Crosshair,
     route: "/game/survival",
     difficulty: "💋😈",
-    durationKey: "game.modes.survival.duration",
+    durationKey: "game.modes.survival.difficulty",
     videoUrl: "https://notfren.com/circusle/mode_survival.mp4",
     fallbackImageUrl: "https://notfren.com/circusle/survival.jpg",
     color: {
@@ -135,7 +135,7 @@ const GAME_MODES: GameMode[] = [
     icon: Atom,
     route: "/game/physics",
     difficulty: "👉👌",
-    durationKey: "game.modes.physics.duration",
+    durationKey: "game.modes.physics.difficulty",
     videoUrl: "https://notfren.com/circusle/mode_physics.mp4",
     fallbackImageUrl: "https://notfren.com/circusle/physics.jpg",
     color: {
@@ -170,7 +170,7 @@ const GAME_MODES: GameMode[] = [
     icon: RotateCw,
     route: "/game/rotation",
     difficulty: "🌀",
-    durationKey: "game.modes.rotation.duration",
+    durationKey: "game.modes.rotation.difficulty",
     videoUrl: "https://notfren.com/circusle/mode_rotation.mp4",
     fallbackImageUrl: "https://notfren.com/circusle/rotation.jpg",
     color: {

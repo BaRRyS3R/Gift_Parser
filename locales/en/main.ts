@@ -1,7 +1,7 @@
 // src/locales/en/main.ts - Main page elements
 
 export const main = {
-  title: "something",
+  title: "circusle", 
   greeting: "Hello, {name}",
   startGame: "START GAME",
   loading: "LOADING...",

@@ -58,16 +58,10 @@ export const shop = {
     },
   },
   badges: {
-    test: "Test",
     popular: "d46351ba",
     bestValue: "333607e13db3",
     ultimate: "3ff954c06925",
     instant: "Instant",
-  },
-  testProduct: {
-    title: "Test Product",
-    description: "Visual effects demonstration",
-    button: "Test Effects",
   },
   buy: "Buy",
   loading: "Loading...",

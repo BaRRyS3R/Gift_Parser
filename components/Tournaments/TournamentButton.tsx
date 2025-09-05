@@ -1,4 +1,4 @@
-// src/components/Tournaments/TournamentButton.tsx - ИСПРАВЛЕНО: корректная обработка типов турниров
+// src/components/Tournaments/TournamentButton.tsx - Modified to return null when no active tournament
 
 "use client";
 
@@ -207,6 +207,12 @@ export default function TournamentButton({
     hasError
   });
 
+  // Return null when no tournament and no error - this hides the button completely
+  if (!hasTournament && !hasError && !isLoading) {
+    console.log("[TournamentButton] No tournament available - hiding button");
+    return null;
+  }
+
   // Error state - still show button but with error indicator
   if (hasError && !hasTournament) {
     return (
@@ -246,42 +252,17 @@ export default function TournamentButton({
     );
   }
 
-  // No active tournament - show default tournament button
-  if (!hasTournament) {
+  // Loading state - show minimal loading indicator
+  if (isLoading && !hasTournament) {
     return (
       <button
-        aria-label="Tournaments"
-        className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-slate-600/50 text-white rounded-lg hover:border-slate-500 hover:bg-black/90 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
-        disabled={isTransitioning || isLoading}
-        onClick={onClick}
+        aria-label="Loading tournaments..."
+        className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-slate-600/50 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+        disabled={true}
       >
-        {/* Main icon */}
         <div className="relative z-10 flex items-center justify-center w-full h-full">
-          <Trophy
-            className="text-slate-400 group-hover:text-white transition-colors duration-300"
-            size={18}
-          />
+          <div className="w-3 h-3 border border-transparent border-t-slate-400 rounded-full animate-spin" />
         </div>
-
-        {/* Hover effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-        {/* Border glow */}
-        <div className="absolute inset-0 rounded-lg border border-transparent group-hover:border-slate-400/30 transition-colors duration-300" />
-
-        {/* "Coming Soon" indicator */}
-        <div className="absolute bottom-0 left-0 right-0 z-20">
-          <div className="text-[6px] font-mono leading-none py-0.5 text-center text-slate-500">
-            SOON
-          </div>
-        </div>
-
-        {/* Loading state overlay */}
-        {isLoading && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-30 rounded-lg">
-            <div className="w-3 h-3 border border-transparent border-t-slate-400 rounded-full animate-spin" />
-          </div>
-        )}
       </button>
     );
   }
@@ -294,7 +275,7 @@ export default function TournamentButton({
 
   return (
     <button
-      aria-label={`Active Tournament: ${tournamentMode} - ${activeTournament.name}`}
+      aria-label={`Active Tournament: ${tournamentMode || 'Unknown'} - ${activeTournament?.name || 'Unknown'}`}
       className="group relative w-12 h-12 bg-black/90 backdrop-blur-sm border text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
       disabled={isTransitioning || isLoading}
       style={{

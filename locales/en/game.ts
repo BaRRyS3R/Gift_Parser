@@ -1,4 +1,4 @@
-// src/locales/en/game.ts - Game modes and gameplay (Updated with play again functionality)
+// src/locales/en/game.ts - Game Modes, Gameplay, GAME PAGE (Easter Eggs)
 export const game = {
   easterEgg: {
     title: "SURPRISE!",

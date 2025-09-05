@@ -3,7 +3,7 @@ export const save = {
   recording: "Запись данных выживания...",
   recordingReaction: "Запись времени реакции...",
   recordingPhysics: "Запись физического эксперимента...",
-  recordingRotation: "Запись вращающегося эксперимента...", // NEW
+  recordingRotation: "Запись вращающегося эксперимента...",
   retrying: "Повтор сохранения ({attempt}/{max})...",
   connectionIssue: "Проблема соединения - автоматический повтор",
   savedSuccessfully: "✓ Результат успешно сохранён",
@@ -11,5 +11,11 @@ export const save = {
   synchronized: "Данные синхронизированы с таблицей лидеров",
   recordedSuccessfully: "✓ Запись выживания успешно сохранена",
   physicsRecordedSuccessfully: "✓ Физический эксперимент успешно сохранён",
-  rotationRecordedSuccessfully: "✓ Вращающийся эксперимент успешно сохранён", // NEW
+  rotationRecordedSuccessfully: "✓ Вращающийся эксперимент успешно сохранён",
+
+  attemptNotRecorded: "⚠ Попытка не записана",
+  onlySuccessful: "Только успешное время реакции сохраняется в таблицу лидеров",
+  saveFailed: "✗ Сохранение не удалось после {attempts} попыток",
+  recordedLocally: "Ваше время записано локально, но не синхронизировано",
+  retrySave: "ПОВТОРИТЬ СОХРАНЕНИЕ",
 } as const;

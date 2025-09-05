@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated main page with repositioned Daily Quest Button
+// src/app/main/page.tsx - Updated with simplified navigation and removed greeting
 
 "use client";
 
@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { Play, Settings as SettingsIcon, Info } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { usePCDetection } from "@/hooks/usePCDetection"; // NEW: PC Detection
@@ -21,31 +20,7 @@ import TournamentButton from "@/components/Tournaments/TournamentButton";
 import DailyQuestButton from "@/components/DailyQuestButton/DailyQuestButton";
 import DailyQuestModal from "@/components/DailyQuestModal/DailyQuestModal";
 
-// Utility function to format time remaining
-const formatTimeRemaining = (milliseconds: number): string => {
-  if (milliseconds <= 0) return "Ended";
-
-  const totalSeconds = Math.floor(milliseconds / 1000);
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const totalHours = Math.floor(totalMinutes / 60);
-  const days = Math.floor(totalHours / 24);
-
-  if (days > 0) {
-    const hours = totalHours % 24;
-
-    return `${days}d ${hours}h`;
-  } else if (totalHours > 0) {
-    const minutes = totalMinutes % 60;
-
-    return `${totalHours}h ${minutes}m`;
-  } else if (totalMinutes > 0) {
-    const seconds = totalSeconds % 60;
-
-    return `${totalMinutes}m ${seconds}s`;
-  } else {
-    return `${totalSeconds}s`;
-  }
-};
+import { useAttempts } from "@/hooks/modules/useAttempts";
 
 function MainPageContent() {
   const router = useRouter();
@@ -82,7 +57,6 @@ function MainPageContent() {
    * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
-
     return !sessionStorage.getItem("mainPageVisited");
   };
 
@@ -94,8 +68,6 @@ function MainPageContent() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
   const [showButton, setShowButton] = useState(!isFirstVisit);
-  const [showGreeting, setShowGreeting] = useState(!isFirstVisit);
-  const [greetingText, setGreetingText] = useState("");
   const [showTopButtons, setShowTopButtons] = useState(!isFirstVisit);
   const [isSeasonModalOpen, setIsSeasonModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -113,7 +85,6 @@ function MainPageContent() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
-
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
@@ -125,15 +96,6 @@ function MainPageContent() {
       sessionStorage.setItem("mainPageVisited", "true");
     }
   }, [isFirstVisit]);
-
-  // Initialize greeting for non-first visits
-  useEffect(() => {
-    if (!isFirstVisit && user?.first_name) {
-      const fullGreeting = t("main.greeting", { name: user.first_name });
-
-      setGreetingText(fullGreeting);
-    }
-  }, [isFirstVisit, user?.first_name, t]);
 
   // Initialize telegramUser if not set
   useEffect(() => {
@@ -179,8 +141,6 @@ function MainPageContent() {
    * Background video logic
    * -------------------------------------------------*/
   const videoRef = useRef<HTMLVideoElement>(null);
-  const username = user?.first_name || "unknown";
-  const fullGreeting = t("main.greeting", { name: username });
 
   useEffect(() => {
     const video = videoRef.current;
@@ -213,32 +173,12 @@ function MainPageContent() {
       setPageLoaded(true);
       if (isFirstVisit) {
         setTimeout(() => setShowButton(true), 150);
-        setTimeout(() => setShowGreeting(true), 300);
         setTimeout(() => setShowTopButtons(true), 450);
       }
     }, 300);
 
     return () => clearTimeout(pageLoadTimer);
   }, [isFirstVisit]);
-
-  // Greeting typing animation for first visit only
-  useEffect(() => {
-    if (!showGreeting || userLoading || !isFirstVisit) {
-      return;
-    }
-
-    let currentChar = 0;
-    const typingInterval = setInterval(() => {
-      if (currentChar <= fullGreeting.length) {
-        setGreetingText(fullGreeting.slice(0, currentChar));
-        currentChar++;
-      } else {
-        clearInterval(typingInterval);
-      }
-    }, 60);
-
-    return () => clearInterval(typingInterval);
-  }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
   /* -------------------------------------------------
    * Handlers
@@ -345,67 +285,34 @@ function MainPageContent() {
         style={{ top: headerOffset }}
       >
         <div className="flex flex-col gap-3">
-          {/* Top row - About and Tournament buttons */}
+          {/* Top row - Navigation icons and Tournament button */}
           <div className="flex items-center justify-between">
-            <button
-              aria-label="About"
-              className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-blue-600/50 text-white rounded-lg hover:border-blue-500 hover:bg-black/90 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
-              disabled={isTransitioning}
-              onClick={handleOpenAbout}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="relative z-10 flex items-center justify-center w-full h-full">
-                <Info
-                  className="text-blue-400 group-hover:text-white group-hover:rotate-12 transition-all duration-300"
-                  size={18}
-                />
-              </div>
-              <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="absolute inset-0 bg-blue-500/20 rounded-lg blur-sm" />
-              </div>
-              <div
-                className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-blue-500/40 to-blue-600/20"
-                style={{ zIndex: -1 }}
-              />
-              <div
-                className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-blue-400 to-transparent"
-                style={{ animation: "shimmer 2s ease-in-out infinite" }}
-              />
-            </button>
+            {/* Left side - About and Settings icons */}
+            <div className="flex items-center gap-4">
+              <button
+                aria-label="About"
+                className="text-white hover:opacity-70 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isTransitioning}
+                onClick={handleOpenAbout}
+              >
+                <Info size={16} />
+              </button>
 
+              <button
+                aria-label={t("common.settings")}
+                className="text-white hover:opacity-70 transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isTransitioning}
+                onClick={handleOpenSettings}
+              >
+                <SettingsIcon size={16} />
+              </button>
+            </div>
+
+            {/* Right side - Tournament button (only shows if there's an active tournament) */}
             <TournamentButton
               isTransitioning={isTransitioning}
               onClick={handleOpenTournaments}
             />
-          </div>
-
-          {/* Bottom row - Settings button */}
-          <div className="flex items-center">
-            <button
-              aria-label={t("common.settings")}
-              className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-slate-600/50 text-white rounded-lg hover:border-slate-500 hover:bg-black/90 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
-              disabled={isTransitioning}
-              onClick={handleOpenSettings}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="relative z-10 flex items-center justify-center w-full h-full">
-                <SettingsIcon
-                  className="text-slate-400 group-hover:text-white group-hover:rotate-90 transition-all duration-300"
-                  size={18}
-                />
-              </div>
-              <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="absolute inset-0 bg-slate-500/20 rounded-lg blur-sm" />
-              </div>
-              <div
-                className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-slate-500/40 to-slate-600/20"
-                style={{ zIndex: -1 }}
-              />
-              <div
-                className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-slate-400 to-transparent"
-                style={{ animation: "shimmer 2s ease-in-out infinite" }}
-              />
-            </button>
           </div>
         </div>
       </div>
@@ -470,40 +377,6 @@ function MainPageContent() {
               </div>
             </button>
           </div>
-        </div>
-
-        {/* User Greeting */}
-        <div
-          className={`${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${
-                  showGreeting
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-8"
-                }`
-              : "opacity-100 translate-y-0"
-          }`}
-        >
-          {userLoading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
-              <div
-                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
-                style={{ animationDelay: "0.2s" }}
-              />
-              <div
-                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
-                style={{ animationDelay: "0.4s" }}
-              />
-            </div>
-          ) : (
-            <p className="text-xl text-white/80 tracking-wider">
-              {greetingText}
-              {isFirstVisit && greetingText.length < fullGreeting.length && (
-                <span className="animate-pulse">|</span>
-              )}
-            </p>
-          )}
         </div>
       </div>
 

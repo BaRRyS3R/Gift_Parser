@@ -28,7 +28,7 @@ const NOTIFICATION_TRANSLATIONS: NotificationTranslations = {
       restored: {
         fullMessage:
           "🎮 <b>Attempts Restored!</b>\n\nYo {firstName}! Your game attempts have been restored.\n\n⚡ <b>+{attemptsRestored} attempts</b> are now available!\n\nGo and play, buddy!",
-        playButton: "🎮 Play Now",
+        playButton: "🎮 Play",
       },
     },
   },
@@ -37,7 +37,7 @@ const NOTIFICATION_TRANSLATIONS: NotificationTranslations = {
       restored: {
         fullMessage:
           "🎮 <b>Попытки восстановлены!</b>\n\nЙоу, {firstName}! Твои игровые попытки были восстановлены.\n\n⚡ <b>+{attemptsRestored} попыток</b> теперь доступно!\n\nМож это, поиграем?",
-        playButton: "🎮 Играть сейчас",
+        playButton: "🎮 Играть",
       },
     },
   },
