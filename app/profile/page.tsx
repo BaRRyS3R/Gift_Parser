@@ -196,44 +196,55 @@ export default function ProfilePage() {
 
         {/* Game Statistics with Skeleton */}
         {isLoading ? (
-          <div className="space-y-6">
-            {/* Stats Grid Skeleton */}
-            <div className="grid grid-cols-2 gap-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="text-center space-y-2">
-                  <div 
-                    className="h-8 w-16 bg-white/10 rounded animate-pulse mx-auto"
-                    style={{ animationDelay: `${i * 0.1}s` }}
-                  />
-                  <div 
-                    className="h-4 w-20 bg-white/10 rounded animate-pulse mx-auto"
-                    style={{ animationDelay: `${i * 0.1 + 0.05}s` }}
-                  />
-                </div>
-              ))}
+          <div className="space-y-6 px-4">
+            {/* Stats Title Skeleton */}
+            <div className="flex items-center space-x-2">
+              <div className="w-5 h-5 bg-white/10 rounded animate-pulse" />
+              <div className="h-5 w-32 bg-white/10 rounded animate-pulse" />
             </div>
-            
-            {/* Best Scores Section Skeleton */}
-            <div className="space-y-4">
-              <div className="h-6 w-32 bg-white/10 rounded animate-pulse mx-auto" />
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex justify-between items-center py-2">
-                  <div className="flex items-center space-x-3">
-                    <div 
-                      className="w-6 h-6 bg-white/10 rounded animate-pulse"
-                      style={{ animationDelay: `${i * 0.1}s` }}
-                    />
-                    <div 
-                      className="h-4 w-24 bg-white/10 rounded animate-pulse"
-                      style={{ animationDelay: `${i * 0.1 + 0.05}s` }}
-                    />
+
+            {/* Stats Card Skeleton */}
+            <div className="bg-black/40 border border-white/20 rounded-lg p-5">
+              <div className="space-y-6">
+                {/* 5 Stats Sections (Overall + 4 Game Modes) */}
+                {[...Array(5)].map((_, sectionIndex) => (
+                  <div key={sectionIndex} className={sectionIndex < 4 ? "border-b border-white/10 pb-4" : ""}>
+                    {/* Section Header */}
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div 
+                        className="w-6 h-6 rounded bg-white/10 animate-pulse"
+                        style={{ animationDelay: `${sectionIndex * 0.1}s` }}
+                      />
+                      <div 
+                        className="h-4 w-28 bg-white/10 rounded animate-pulse"
+                        style={{ animationDelay: `${sectionIndex * 0.1 + 0.05}s` }}
+                      />
+                    </div>
+
+                    {/* Stats Items */}
+                    <div className="ml-8 space-y-1">
+                      {[...Array(sectionIndex === 0 ? 1 : 4)].map((_, itemIndex) => (
+                        <div key={itemIndex} className="flex items-center justify-between py-1.5">
+                          <div className="flex items-center space-x-2">
+                            <div 
+                              className="w-4 h-4 bg-white/5 rounded animate-pulse"
+                              style={{ animationDelay: `${sectionIndex * 0.1 + itemIndex * 0.05}s` }}
+                            />
+                            <div 
+                              className="h-3 w-20 bg-white/5 rounded animate-pulse"
+                              style={{ animationDelay: `${sectionIndex * 0.1 + itemIndex * 0.05 + 0.02}s` }}
+                            />
+                          </div>
+                          <div 
+                            className="h-3 w-12 bg-white/10 rounded animate-pulse"
+                            style={{ animationDelay: `${sectionIndex * 0.1 + itemIndex * 0.05 + 0.04}s` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div 
-                    className="h-4 w-16 bg-white/10 rounded animate-pulse"
-                    style={{ animationDelay: `${i * 0.1 + 0.1}s` }}
-                  />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         ) : (
