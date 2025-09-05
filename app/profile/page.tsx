@@ -31,33 +31,27 @@ export default function ProfilePage() {
   // Track if initial data load has been triggered
   const dataLoadedRef = useRef<boolean>(false);
 
-  // **PRINCIPLE 1: Force normal state when page opens**
   useEffect(() => {
-    console.log("ProfilePage: Component mounted, forcing normal state");
-    
     if (telegramButtonManager.isAvailable()) {
-      // Force normal state immediately
-      telegramButtonManager.setNormalState();
+      telegramButtonManager.setClosingState({
+        showConfirmation: false
+      });
     }
 
-    // Cleanup on unmount
     return () => {
-      console.log("ProfilePage: Component unmounting");
-      if (telegramButtonManager.isAvailable()) {
-        telegramButtonManager.emergencyReset();
-      }
+      telegramButtonManager.emergencyReset();
     };
   }, []);
 
   // **PRINCIPLE 2: Force state changes when modals open/close**
   useEffect(() => {
     const isAnyModalOpen = isReferralModalOpen || isAchievementsModalOpen;
-    
+
     if (telegramButtonManager.isAvailable()) {
       if (!isAnyModalOpen) {
         // **PRINCIPLE 3: Force normal state when no modals**
         console.log("ProfilePage: No modals open, forcing normal state");
-        
+
         // Wait for modal cleanup, then force normal state
         setTimeout(() => {
           telegramButtonManager.setNormalState();
@@ -196,12 +190,12 @@ export default function ProfilePage() {
                 </p>
               )}
             </div>
-            
+
             {/* Achievement Icons Skeleton */}
             <div className="flex justify-center space-x-2 mt-4">
               {[...Array(3)].map((_, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className="w-8 h-8 bg-white/10 rounded-full animate-pulse"
                   style={{ animationDelay: `${i * 0.1}s` }}
                 />
@@ -226,7 +220,7 @@ export default function ProfilePage() {
         {isLoading ? (
           <div className="flex space-x-4 px-4 mb-6">
             {[...Array(2)].map((_, i) => (
-              <div 
+              <div
                 key={i}
                 className="flex-1 h-12 bg-white/10 rounded-lg animate-pulse"
                 style={{ animationDelay: `${i * 0.1}s` }}
@@ -260,11 +254,11 @@ export default function ProfilePage() {
                   <div key={sectionIndex} className={sectionIndex < 4 ? "border-b border-white/10 pb-4" : ""}>
                     {/* Section Header */}
                     <div className="flex items-center space-x-2 mb-3">
-                      <div 
+                      <div
                         className="w-6 h-6 rounded bg-white/10 animate-pulse"
                         style={{ animationDelay: `${sectionIndex * 0.1}s` }}
                       />
-                      <div 
+                      <div
                         className="h-4 w-28 bg-white/10 rounded animate-pulse"
                         style={{ animationDelay: `${sectionIndex * 0.1 + 0.05}s` }}
                       />
@@ -275,16 +269,16 @@ export default function ProfilePage() {
                       {[...Array(sectionIndex === 0 ? 1 : 4)].map((_, itemIndex) => (
                         <div key={itemIndex} className="flex items-center justify-between py-1.5">
                           <div className="flex items-center space-x-2">
-                            <div 
+                            <div
                               className="w-4 h-4 bg-white/5 rounded animate-pulse"
                               style={{ animationDelay: `${sectionIndex * 0.1 + itemIndex * 0.05}s` }}
                             />
-                            <div 
+                            <div
                               className="h-3 w-20 bg-white/5 rounded animate-pulse"
                               style={{ animationDelay: `${sectionIndex * 0.1 + itemIndex * 0.05 + 0.02}s` }}
                             />
                           </div>
-                          <div 
+                          <div
                             className="h-3 w-12 bg-white/10 rounded animate-pulse"
                             style={{ animationDelay: `${sectionIndex * 0.1 + itemIndex * 0.05 + 0.04}s` }}
                           />

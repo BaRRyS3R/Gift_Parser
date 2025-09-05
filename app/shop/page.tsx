@@ -23,6 +23,8 @@ import { useT } from "@/contexts/LocalizationContext";
 import BinaryEasterEgg from "@/components/EasterEggs/BinaryEasterEgg";
 import TONPurchaseButton from "@/components/TON/TONPurchaseButton";
 
+import { telegramButtonManager } from "@/utils/TelegramButtonManager";
+
 interface SuccessNotification {
   show: boolean;
   title: string;
@@ -75,20 +77,16 @@ export default function ShopPage() {
 
   // Setup Telegram WebApp back button
   useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
-        router.push("/main");
+    if (telegramButtonManager.isAvailable()) {
+      telegramButtonManager.setClosingState({
+        showConfirmation: false
       });
-
-      return () => {
-        tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
-      };
     }
-  }, [router]);
+
+    return () => {
+      telegramButtonManager.emergencyReset();
+    };
+  }, []);
 
   // Cleanup easter egg timeout on unmount
   useEffect(() => {
@@ -169,9 +167,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-          attempts: attemptsText,
-          plural: plural,
-        });
+        attempts: attemptsText,
+        plural: plural,
+      });
 
     setSuccessNotification({
       show: true,

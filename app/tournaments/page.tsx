@@ -27,6 +27,8 @@ import type {
   Prize,
 } from "@/types/tournaments";
 
+import { telegramButtonManager } from "@/utils/TelegramButtonManager";
+
 // Состояние страницы
 interface TournamentPageState {
   activeTournament: Tournament | null;
@@ -73,7 +75,7 @@ interface RawPrizeData {
 // Future Tech цвета для режимов (упрощенные)
 function getFutureTechModeColors(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
-  
+
   switch (normalizedMode) {
     case "survival":
       return {
@@ -125,7 +127,7 @@ function getFutureTechModeColors(mode?: string) {
 // Получение иконки и название режима
 function getModeIcon(mode?: string) {
   const normalizedMode = mode?.toLowerCase();
-  
+
   switch (normalizedMode) {
     case "survival": return "⚡";
     case "physics": return "⚛️";
@@ -136,7 +138,7 @@ function getModeIcon(mode?: string) {
 
 function getModeName(mode: string | undefined, t: any) {
   const normalizedMode = mode?.toLowerCase();
-  
+
   switch (normalizedMode) {
     case "survival": return t("tournaments.modes.survival");
     case "physics": return t("tournaments.modes.physics");
@@ -241,7 +243,7 @@ function NonParticipatingNotice({ colors, t }: { colors: any; t: any }) {
 // Компонент отображения призов (локализован)
 function PrizesSection({ prizes, colors, t }: { prizes: RawPrizeData[]; colors: any; t: any }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   if (!prizes || prizes.length === 0) return null;
 
   const normalizePrize = (prize: RawPrizeData, index: number) => {
@@ -249,7 +251,7 @@ function PrizesSection({ prizes, colors, t }: { prizes: RawPrizeData[]; colors: 
     const description = prize.description ?? prize.prize ?? "Unknown prize";
     const attemptsMatch = description.match(/(\d+)\s+(?:bonus\s+)?attempts/i);
     const attempts = prize.attempts ?? (attemptsMatch ? parseInt(attemptsMatch[1]) : undefined);
-    const reward_type = prize.reward_type ?? 
+    const reward_type = prize.reward_type ??
       (description.toLowerCase().includes('attempts') ? 'attempts' : 'custom');
 
     return { position, description, attempts, reward_type, special_title: prize.special_title };
@@ -293,26 +295,26 @@ function PrizesSection({ prizes, colors, t }: { prizes: RawPrizeData[]; colors: 
           )}
         </div>
       </CardHeader>
-      
+
       {isExpanded && (
         <CardBody className="pt-0">
           <div className="grid gap-3">
             {prizes.map((rawPrize, index) => {
               const prize = normalizePrize(rawPrize, index);
-              
+
               return (
                 <div key={index} className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/10">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center w-8 h-8">
                       <span className="text-lg">{getPrizeIcon(prize.position, prize.reward_type)}</span>
                     </div>
-                    
+
                     <div>
                       <span className={`font-mono text-sm font-bold ${getPrizeColor(prize.position)}`}>
                         {getPositionText(prize.position)}
                       </span>
                       <div className="text-white/80 text-xs font-mono mt-1">{prize.description}</div>
-                      
+
                       {prize.special_title && (
                         <div className="flex items-center gap-1 mt-1">
                           <Star className="text-yellow-400" size={10} />
@@ -321,7 +323,7 @@ function PrizesSection({ prizes, colors, t }: { prizes: RawPrizeData[]; colors: 
                       )}
                     </div>
                   </div>
-                  
+
                   {prize.attempts && (
                     <div className="text-right">
                       <div className="text-blue-400 font-mono text-sm font-bold">+{prize.attempts}</div>
@@ -354,11 +356,10 @@ function LeaderboardEntry({
   return (
     <>
       <div
-        className={`flex items-center justify-between py-3 px-1 transition-all duration-200 ${
-          entry.isCurrentUser
+        className={`flex items-center justify-between py-3 px-1 transition-all duration-200 ${entry.isCurrentUser
             ? `border-l-2 pl-3 bg-gradient-to-r ${colors.bg}`
             : "hover:bg-white/5"
-        }`}
+          }`}
         style={{
           borderLeftColor: entry.isCurrentUser ? colors.primary : "transparent",
           backgroundColor: entry.isCurrentUser ? colors.glow + "10" : "transparent",
@@ -512,9 +513,8 @@ function TournamentsPageContent() {
     try {
       setState(prev => ({ ...prev, isLeaderboardLoading: true, leaderboardError: null }));
 
-      const endpoint = `/api/tournaments/leaderboard?tournamentId=${encodeURIComponent(tournamentId)}&limit=100${
-        force ? "&force_refresh=true" : ""
-      }`;
+      const endpoint = `/api/tournaments/leaderboard?tournamentId=${encodeURIComponent(tournamentId)}&limit=100${force ? "&force_refresh=true" : ""
+        }`;
 
       const response = await makeAuthenticatedRequest(endpoint);
 
@@ -582,24 +582,20 @@ function TournamentsPageContent() {
 
   // Telegram WebApp back button
   useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
+    if (telegramButtonManager.isAvailable()) {
+      telegramButtonManager.setNavigationState(() => {
         router.push("/main");
       });
-
-      return () => {
-        tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
-      };
     }
+
+    return () => {
+      telegramButtonManager.emergencyReset();
+    };
   }, [router]);
 
   // Расчет позиции пользователя из кешированных данных
   const clientUserPosition = calculateUserPosition(state.userStats);
-  
+
   const isActiveTournament = isTournamentActive(state.activeTournament);
   const colors = getFutureTechModeColors(state.activeTournament?.mode);
   const tournamentMode = state.activeTournament?.mode;
@@ -748,8 +744,8 @@ function TournamentsPageContent() {
                                 className="text-2xl font-bold font-mono"
                                 style={{ color: getPositionColor(clientUserPosition.position) }}
                               >
-                                #{typeof clientUserPosition.position === "number" 
-                                  ? clientUserPosition.position.toLocaleString() 
+                                #{typeof clientUserPosition.position === "number"
+                                  ? clientUserPosition.position.toLocaleString()
                                   : clientUserPosition.position}
                               </div>
                             </div>

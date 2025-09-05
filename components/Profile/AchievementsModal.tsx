@@ -1,4 +1,4 @@
-// src/components/Profile/AchievementsModal.tsx - Enhanced with centralized button management
+// src/components/Profile/AchievementsModal.tsx - Исправленная версия с централизованным управлением кнопками
 
 "use client";
 
@@ -132,33 +132,27 @@ export default function AchievementsModal({
   const totalCount = achievements?.totalCount || 7; // Updated total to include Easter Eggs
   const totalAttemptsEarned = achievements?.totalAttemptsEarned || 0;
 
-  // **PRINCIPLE: Force modal state when opened**
+  // ✅ ИСПРАВЛЕННОЕ управление Telegram кнопками с использованием централизованного менеджера
   useEffect(() => {
-    if (telegramButtonManager.isAvailable()) {
-      if (isOpen) {
-        console.log("AchievementsModal: Modal opened, forcing modal state");
+    if (!telegramButtonManager.isAvailable()) {
+      return;
+    }
+
+    if (isOpen) {
+      console.log("AchievementsModal: Modal opened, setting up modal state");
+      
+      // Устанавливаем модальное состояние с обработчиком закрытия
+      telegramButtonManager.setModalState(onClose);
+      
+      // Cleanup function
+      return () => {
+        console.log("AchievementsModal: Cleaning up modal state");
         
-        // Force modal state with back button handler
-        telegramButtonManager.setModalState(() => {
-          console.log("AchievementsModal: Back button handler triggered");
-          onClose();
-        });
-      } else {
-        console.log("AchievementsModal: Modal closed");
-        // Modal state cleanup is handled by the parent component
-      }
+        // Восстанавливаем предыдущее состояние
+        telegramButtonManager.restorePreviousState();
+      };
     }
   }, [isOpen, onClose]);
-
-  // **PRINCIPLE: Emergency cleanup on unmount**
-  useEffect(() => {
-    return () => {
-      if (telegramButtonManager.isAvailable() && isOpen) {
-        console.log("AchievementsModal: Component unmounting, emergency reset");
-        telegramButtonManager.emergencyReset();
-      }
-    };
-  }, [isOpen]);
 
   // Helper function to convert snake_case to camelCase for localization keys
   const toCamelCase = (str: string) => {

@@ -26,6 +26,8 @@ import { usePCDetection } from "@/hooks/usePCDetection";
 import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
+import { telegramButtonManager } from "@/utils/TelegramButtonManager";
+
 // Easter Egg chance configuration
 const EASTER_EGG_CHANCE = 0.001; // 0.1% chance
 
@@ -238,12 +240,12 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
   // Функция для определения CSS стилей видео
   const getVideoStyles = useCallback(() => {
     const baseStyles = "z-0 w-full h-full transition-all duration-300";
-    
+
     // Адаптация по ширине с обрезкой высоты
     const fitStyles = "object-cover object-center";
-    
+
     const opacityStyles = isLoaded ? 'opacity-100' : 'opacity-0';
-    
+
     return `${baseStyles} ${fitStyles} ${opacityStyles} ${className}`;
   }, [isLoaded, className]);
 
@@ -280,7 +282,7 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
   }
 
   return (
-    <div 
+    <div
       className="relative w-full h-full overflow-hidden"
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
@@ -305,13 +307,12 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
         <source src={mode.videoUrl} type="video/mp4" />
         Ваш браузер не поддерживает видео.
       </video>
-      
+
       {/* Кастомные контроли, показываются по ховеру */}
       {isLoaded && (
-        <div 
-          className={`absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 flex items-center justify-center ${
-            showControls ? 'opacity-100' : 'opacity-0'
-          }`}
+        <div
+          className={`absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 flex items-center justify-center ${showControls ? 'opacity-100' : 'opacity-0'
+            }`}
         >
           <button
             onClick={togglePlayPause}
@@ -319,25 +320,24 @@ function GameModeVideo({ mode, className = "" }: GameModeVideoProps) {
           >
             {isPlaying ? (
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
               </svg>
             ) : (
               <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z"/>
+                <path d="M8 5v14l11-7z" />
               </svg>
             )}
           </button>
         </div>
       )}
-      
+
       {/* Показываем fallback картинку пока видео не загрузилось */}
       {!isLoaded && (
         <img
           src={mode.fallbackImageUrl}
           alt={`${mode.id}_game_card_loading`}
-          className={`absolute inset-0 z-0 w-full h-full object-cover object-center transition-all duration-300 ${
-            isLoaded ? 'opacity-0' : 'opacity-100'
-          }`}
+          className={`absolute inset-0 z-0 w-full h-full object-cover object-center transition-all duration-300 ${isLoaded ? 'opacity-0' : 'opacity-100'
+            }`}
         />
       )}
     </div>
@@ -413,7 +413,7 @@ function GamePageContent() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       console.log("[GamePage] Service Worker supported, videos should be cached");
-      
+
       // Опционально: можем принудительно запросить кэширование
       GAME_MODES.forEach(mode => {
         fetch(mode.videoUrl, { mode: 'no-cors' })

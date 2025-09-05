@@ -1,4 +1,4 @@
-// src/components/Profile/ReferralModal.tsx - Enhanced with centralized button management
+// src/components/Profile/ReferralModal.tsx - Исправленная версия с централизованным управлением кнопками
 
 "use client";
 
@@ -142,33 +142,27 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       "Join me in Circusle - an awesome game where every tap counts! 🎯",
   };
 
-  // **PRINCIPLE: Force modal state when opened**
+  // ✅ ИСПРАВЛЕННОЕ управление Telegram кнопками с использованием централизованного менеджера
   useEffect(() => {
-    if (telegramButtonManager.isAvailable()) {
-      if (isOpen) {
-        console.log("ReferralModal: Modal opened, forcing modal state");
+    if (!telegramButtonManager.isAvailable()) {
+      return;
+    }
+
+    if (isOpen) {
+      console.log("ReferralModal: Modal opened, setting up modal state");
+      
+      // Устанавливаем модальное состояние с обработчиком закрытия
+      telegramButtonManager.setModalState(onClose);
+      
+      // Cleanup function
+      return () => {
+        console.log("ReferralModal: Cleaning up modal state");
         
-        // Force modal state with back button handler
-        telegramButtonManager.setModalState(() => {
-          console.log("ReferralModal: Back button handler triggered");
-          onClose();
-        });
-      } else {
-        console.log("ReferralModal: Modal closed");
-        // Modal state cleanup is handled by the parent component
-      }
+        // Восстанавливаем предыдущее состояние
+        telegramButtonManager.restorePreviousState();
+      };
     }
   }, [isOpen, onClose]);
-
-  // **PRINCIPLE: Emergency cleanup on unmount**
-  useEffect(() => {
-    return () => {
-      if (telegramButtonManager.isAvailable() && isOpen) {
-        console.log("ReferralModal: Component unmounting, emergency reset");
-        telegramButtonManager.emergencyReset();
-      }
-    };
-  }, [isOpen]);
 
   const handleCopyReferralLink = async () => {
     try {
