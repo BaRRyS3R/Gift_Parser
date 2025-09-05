@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with integrated skeleton UI
+// src/app/profile/page.tsx - Updated with Telegram button management for fullscreen modals
 
 "use client";
 
@@ -29,6 +29,43 @@ export default function ProfilePage() {
 
   // Track if initial data load has been triggered
   const dataLoadedRef = useRef<boolean>(false);
+
+  // Telegram WebApp button management
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const webApp = window.Telegram.WebApp;
+      
+      // Check if any modal is open
+      const isAnyModalOpen = isReferralModalOpen || isAchievementsModalOpen;
+      
+      if (!isAnyModalOpen) {
+        // No modals open - show close button for app exit
+        webApp.BackButton.hide();
+        
+        // Enable close confirmation (this will show close button in top-right)
+        webApp.enableClosingConfirmation();
+        
+        // Optional: Add close button event handler if supported
+        if (webApp.onEvent) {
+          const handleClose = () => {
+            // App is being closed
+            console.log("App closing");
+          };
+          
+          // Add event listener for app close
+          webApp.onEvent('mainButtonClicked', handleClose);
+          
+          return () => {
+            webApp.offEvent('mainButtonClicked', handleClose);
+          };
+        }
+      } else {
+        // Modal is open - disable close confirmation
+        // The modals will handle their own back button logic
+        webApp.disableClosingConfirmation();
+      }
+    }
+  }, [isReferralModalOpen, isAchievementsModalOpen]);
 
   // Load profile data when user is authenticated
   useEffect(() => {
@@ -67,8 +104,16 @@ export default function ProfilePage() {
     }
   };
 
+  const handleCloseReferrals = () => {
+    setIsReferralModalOpen(false);
+  };
+
   const handleOpenAchievements = () => {
     setIsAchievementsModalOpen(true);
+  };
+
+  const handleCloseAchievements = () => {
+    setIsAchievementsModalOpen(false);
   };
 
   // Show basic error screen if user is not authenticated
@@ -255,12 +300,12 @@ export default function ProfilePage() {
         <div className="h-20" />
       </div>
 
-      {/* Modals */}
+      {/* Modals - Updated with individual close handlers */}
       {profileData?.referrals && (
         <ReferralModal
           isOpen={isReferralModalOpen}
           referralInfo={profileData.referrals}
-          onClose={() => setIsReferralModalOpen(false)}
+          onClose={handleCloseReferrals}
         />
       )}
 
@@ -270,7 +315,7 @@ export default function ProfilePage() {
         isOpen={isAchievementsModalOpen}
         rankings={rankings}
         user={profileUser}
-        onClose={() => setIsAchievementsModalOpen(false)}
+        onClose={handleCloseAchievements}
       />
     </div>
   );

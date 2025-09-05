@@ -1,4 +1,4 @@
-// src/components/Profile/AchievementsModal.tsx - Updated with Easter Egg achievement icons
+// src/components/Profile/AchievementsModal.tsx - Enhanced with fullscreen mode and Telegram back button
 
 "use client";
 
@@ -9,14 +9,13 @@ import type {
   UserAchievementsData,
 } from "@/hooks/modules/useProfile";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@nextui-org/react";
 import {
   Trophy,
   Users,
   Gamepad2,
   Zap,
-  X,
   Gift,
   Lock,
   Sparkles,
@@ -132,6 +131,34 @@ export default function AchievementsModal({
   const totalCount = achievements?.totalCount || 7; // Updated total to include Easter Eggs
   const totalAttemptsEarned = achievements?.totalAttemptsEarned || 0;
 
+  // Telegram WebApp back button management
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const webApp = window.Telegram.WebApp;
+      
+      if (isOpen) {
+        // Show back button when modal opens
+        webApp.BackButton.show();
+        
+        // Handle back button click
+        const handleBackClick = () => {
+          onClose();
+        };
+        
+        webApp.BackButton.onClick(handleBackClick);
+        
+        // Cleanup function
+        return () => {
+          webApp.BackButton.offClick(handleBackClick);
+          webApp.BackButton.hide();
+        };
+      } else {
+        // Hide back button when modal closes
+        webApp.BackButton.hide();
+      }
+    }
+  }, [isOpen, onClose]);
+
   // Helper function to convert snake_case to camelCase for localization keys
   const toCamelCase = (str: string) => {
     return str.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
@@ -161,15 +188,15 @@ export default function AchievementsModal({
       backdrop="blur"
       classNames={{
         backdrop: "bg-black/90 backdrop-blur-md",
-        base: "bg-gradient-to-b from-gray-900 via-black to-gray-900 border border-white/10",
-        header: "border-b border-white/10 bg-black/50",
-        body: "px-0 bg-transparent",
+        base: "bg-gradient-to-b from-gray-900 via-black to-gray-900 border-0 m-0 rounded-none h-full max-h-full",
+        header: "border-b border-white/10 bg-black/50 px-6 py-4",
+        body: "px-6 bg-transparent overflow-y-auto max-h-[calc(100vh-120px)]",
         closeButton: "hidden",
       }}
       closeButton={false}
       hideCloseButton={true}
-      isDismissable={true}
-      isKeyboardDismissDisabled={false}
+      isDismissable={false}
+      isKeyboardDismissDisabled={true}
       isOpen={isOpen}
       motionProps={{
         variants: {
@@ -182,7 +209,7 @@ export default function AchievementsModal({
             },
           },
           exit: {
-            y: -20,
+            y: 20,
             opacity: 0,
             transition: {
               duration: 0.2,
@@ -192,30 +219,22 @@ export default function AchievementsModal({
         },
       }}
       scrollBehavior="inside"
-      size="2xl"
+      size="full"
       onClose={onClose}
     >
       <ModalContent>
-        {(onClose) => (
+        {() => (
           <>
-            <ModalHeader className="flex flex-col gap-1 relative px-6 py-4">
-              {/* Futuristic close button */}
-              <button
-                className="absolute top-4 right-4 p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 z-10 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                onClick={onClose}
-              >
-                <X size={20} />
-              </button>
-
+            <ModalHeader className="flex flex-col gap-1">
               {/* Header with glowing effect */}
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center justify-center space-x-3">
                 <div className="relative">
                   <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg blur-lg opacity-50" />
                   <div className="relative bg-black/70 p-2 rounded-lg border border-white/20">
                     <Trophy className="text-white" size={20} />
                   </div>
                 </div>
-                <div>
+                <div className="text-center">
                   <span className="text-white font-bold tracking-wider bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
                     {t("profile.achievements.title")}
                   </span>
@@ -230,9 +249,9 @@ export default function AchievementsModal({
 
               {/* Total Attempts Display with neon effect */}
               {totalAttemptsEarned > 0 && (
-                <div className="flex items-center gap-2 mt-3">
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-full">
-                    <Gift className="text-green-400" size={14} />
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-full">
+                    <Gift className="text-green-400" size={16} />
                     <span className="text-sm text-green-400 font-mono">
                       +{totalAttemptsEarned} {t("profile.attempts")}
                     </span>
@@ -241,18 +260,18 @@ export default function AchievementsModal({
               )}
             </ModalHeader>
 
-            <ModalBody className="px-6 pb-6">
+            <ModalBody className="pb-6">
               {/* Info Banner with tech styling */}
-              <div className="relative mb-4">
+              <div className="relative mb-6 mt-4">
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-lg blur" />
-                <div className="relative bg-black/50 border border-white/10 rounded-lg p-3 backdrop-blur-sm">
-                  <div className="flex items-start space-x-2">
-                    <Sparkles className="text-cyan-400 mt-0.5" size={16} />
+                <div className="relative bg-black/50 border border-white/10 rounded-lg p-4 backdrop-blur-sm">
+                  <div className="flex items-start space-x-3">
+                    <Sparkles className="text-cyan-400 mt-0.5" size={18} />
                     <div className="flex-1">
-                      <p className="text-sm text-white/80">
+                      <p className="text-sm text-white/80 mb-2">
                         {t("profile.achievements.rewardsInfo")}
                       </p>
-                      <p className="text-xs text-white/50 mt-1 font-mono">
+                      <p className="text-xs text-white/50 font-mono">
                         {t("profile.achievements.automaticRewards")}
                       </p>
                     </div>
@@ -261,15 +280,15 @@ export default function AchievementsModal({
               </div>
 
               {achievementsList.length === 0 ? (
-                <div className="text-center py-12">
+                <div className="text-center py-16">
                   <div className="relative inline-block">
                     <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full blur-xl opacity-30" />
                     <Trophy
-                      className="relative text-white/40 mx-auto mb-4"
-                      size={48}
+                      className="relative text-white/40 mx-auto mb-6"
+                      size={64}
                     />
                   </div>
-                  <p className="text-white/60 mb-2">
+                  <p className="text-white/60 mb-3 text-lg">
                     {t("profile.achievements.noAchievements")}
                   </p>
                   <p className="text-sm text-white/40 font-mono">
@@ -277,7 +296,7 @@ export default function AchievementsModal({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {achievementsList.map((achievement) => {
                     const Icon = ACHIEVEMENT_ICONS[achievement.id] || Trophy;
                     const colors = getAchievementColors(achievement);
@@ -286,7 +305,7 @@ export default function AchievementsModal({
                       <div
                         key={achievement.id}
                         className={`
-                          relative p-4 rounded-lg border transition-all duration-300
+                          relative p-5 rounded-lg border transition-all duration-300
                           ${
                             achievement.unlocked
                               ? `bg-gradient-to-r ${colors.gradient} ${colors.border} ${colors.glow}`
@@ -306,7 +325,7 @@ export default function AchievementsModal({
                           </div>
                         )}
 
-                        <div className="relative flex items-start space-x-3">
+                        <div className="relative flex items-start space-x-4">
                           {/* Icon with holographic effect */}
                           <div className="relative">
                             {achievement.unlocked && (
@@ -316,7 +335,7 @@ export default function AchievementsModal({
                             )}
                             <div
                               className={`
-                              relative w-10 h-10 rounded-lg flex items-center justify-center
+                              relative w-12 h-12 rounded-lg flex items-center justify-center
                               ${
                                 achievement.unlocked
                                   ? `bg-black/50 border ${colors.border}`
@@ -330,7 +349,7 @@ export default function AchievementsModal({
                                     ? colors.icon
                                     : "text-white/30"
                                 }
-                                size={20}
+                                size={24}
                               />
                             </div>
                           </div>
@@ -338,7 +357,7 @@ export default function AchievementsModal({
                           <div className="flex-1 min-w-0">
                             <h3
                               className={`
-                              font-bold text-sm mb-1
+                              font-bold text-base mb-2
                               ${achievement.unlocked ? "text-white" : "text-white/40"}
                             `}
                             >
@@ -349,18 +368,18 @@ export default function AchievementsModal({
 
                             <p
                               className={`
-                              text-xs mb-2 font-mono
+                              text-sm mb-3 font-mono leading-relaxed
                               ${achievement.unlocked ? "text-white/70" : "text-white/30"}
                             `}
                             >
                               {formatDescriptionValue(achievement)}
                             </p>
 
-                            {/* Reward Badge with neon effect - moved here */}
-                            <div className="mb-2">
+                            {/* Reward Badge with neon effect */}
+                            <div className="mb-3">
                               <div
                                 className={`
-                                inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono
+                                inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-mono
                                 ${
                                   achievement.unlocked
                                     ? "bg-green-500/20 text-green-400 border border-green-500/30"
@@ -369,9 +388,9 @@ export default function AchievementsModal({
                               `}
                               >
                                 {achievement.unlocked ? (
-                                  <Gift size={12} />
+                                  <Gift size={14} />
                                 ) : (
-                                  <Lock size={12} />
+                                  <Lock size={14} />
                                 )}
                                 <span>+{achievement.attempts_reward}</span>
                               </div>
@@ -381,8 +400,8 @@ export default function AchievementsModal({
                             {achievement.progress !== undefined &&
                               achievement.max_progress !== undefined &&
                               achievement.max_progress > 1 && ( // Only show progress for multi-step achievements
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-xs font-mono">
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-sm font-mono">
                                     <span className="text-white/50">
                                       {t("profile.progress")}
                                     </span>
@@ -397,7 +416,7 @@ export default function AchievementsModal({
                                       {achievement.max_progress}
                                     </span>
                                   </div>
-                                  <div className="relative w-full bg-black/50 rounded-full h-1.5 overflow-hidden border border-white/10">
+                                  <div className="relative w-full bg-black/50 rounded-full h-2 overflow-hidden border border-white/10">
                                     <div
                                       className={`
                                       h-full transition-all duration-500
@@ -419,9 +438,9 @@ export default function AchievementsModal({
                           {achievement.unlocked && (
                             <div className="flex-shrink-0 relative">
                               <div className="absolute inset-0 bg-green-500 rounded-full blur-md opacity-50 animate-pulse" />
-                              <div className="relative w-6 h-6 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center border border-green-400/50">
+                              <div className="relative w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center border border-green-400/50">
                                 <svg
-                                  className="w-3 h-3 text-black"
+                                  className="w-4 h-4 text-black"
                                   fill="currentColor"
                                   viewBox="0 0 20 20"
                                 >
@@ -438,7 +457,7 @@ export default function AchievementsModal({
 
                         {/* Unlocked Date with tech font */}
                         {achievement.unlocked && achievement.unlocked_at && (
-                          <div className="mt-2 pt-2 border-t border-white/10">
+                          <div className="mt-3 pt-3 border-t border-white/10">
                             <p className="text-xs text-white/40 font-mono">
                               {t("profile.achievements.unlockedOn", {
                                 date: new Date(
@@ -453,6 +472,9 @@ export default function AchievementsModal({
                   })}
                 </div>
               )}
+
+              {/* Bottom spacing for safe scrolling */}
+              <div className="h-8" />
             </ModalBody>
           </>
         )}
