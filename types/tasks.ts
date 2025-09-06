@@ -259,7 +259,7 @@ export const getRewardIcon = (rewardType: RewardType): string => {
 // Task type display configuration - UPDATED with reward types
 export const TASK_TYPE_CONFIG = {
   [TaskType.TELEGRAM_CHANNEL]: {
-    name: "Telegram Channel",
+    name: "Channel",
     icon: "📢",
     color: "blue",
     requiresVerification: true,
@@ -267,7 +267,7 @@ export const TASK_TYPE_CONFIG = {
     rewardType: RewardType.RESTORE_BONUS,
   },
   [TaskType.TELEGRAM_CHAT]: {
-    name: "Telegram Chat",
+    name: "Chat",
     icon: "💬",
     color: "blue",
     requiresVerification: true,
@@ -275,7 +275,7 @@ export const TASK_TYPE_CONFIG = {
     rewardType: RewardType.RESTORE_BONUS,
   },
   [TaskType.WEBSITE_VISIT]: {
-    name: "Website Visit",
+    name: "Website",
     icon: "🌐",
     color: "green",
     requiresVerification: false,
@@ -283,7 +283,7 @@ export const TASK_TYPE_CONFIG = {
     rewardType: RewardType.ATTEMPTS,
   },
   [TaskType.TWITTER_FOLLOW]: {
-    name: "Twitter Follow",
+    name: "Twitter",
     icon: "🐦",
     color: "sky",
     requiresVerification: false,
@@ -291,7 +291,7 @@ export const TASK_TYPE_CONFIG = {
     rewardType: RewardType.ATTEMPTS,
   },
   [TaskType.TWITTER_REPOST]: {
-    name: "Twitter Repost",
+    name: "Twitter",
     icon: "🔄",
     color: "sky",
     requiresVerification: false,
