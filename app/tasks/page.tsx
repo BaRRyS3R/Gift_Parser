@@ -508,14 +508,13 @@ function TaskCard({
   t,
 }: TaskCardProps) {
   const button = getTaskButton(task);
-  const badge = getTaskBadge(task);
-  const rewardInfo = getRewardInfo(task);
   const taskIcon = getTaskIcon(task.task_type as TaskType);
   const backgroundIcon = getBackgroundIcon(task.task_type as TaskType);
 
-  // NEW: Determine if this is a special reward type task
+  // Determine reward type and get task type name
   const rewardType = getTaskRewardType(task.task_type as TaskType);
   const isRestoreBonus = rewardType === RewardType.RESTORE_BONUS;
+  const taskTypeConfig = TASK_TYPE_CONFIG[task.task_type as TaskType];
 
   return (
     <Card
@@ -524,7 +523,6 @@ function TaskCard({
         hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
         transition-all duration-200
         ${task.image_url ? "" : "bg-gradient-to-r from-white/5 to-white/10"}
-        ${isRestoreBonus ? "border-l-4 border-l-blue-400/50" : "border-l-4 border-l-yellow-400/50"}
       `}
       style={
         task.image_url
@@ -547,55 +545,33 @@ function TaskCard({
       <CardBody className="p-4 relative z-10">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <div className="flex items-start space-x-3 mb-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="flex items-center space-x-2">
-                    {taskIcon}
-                    <h3 className="font-bold text-white truncate">
-                      {task.title}
-                    </h3>
-                  </div>
-                  {badge && (
-                    <Chip
-                      className={`
-                        ${badge.color === "success" ? "bg-green-500/20 text-green-400 border border-green-500/30" : ""}
-                        ${badge.color === "warning" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" : ""}
-                        ${badge.color === "primary" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : ""}
-                      `}
-                      size="sm"
-                      variant="flat"
-                    >
-                      {badge.text}
-                    </Chip>
-                  )}
-                  {/* NEW: Special reward type indicator */}
-                  {isRestoreBonus && (
-                    <Chip
-                      className="bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                      size="sm"
-                      variant="flat"
-                    >
-                      {t("tasks.special.telegramReward")}
-                    </Chip>
-                  )}
-                </div>
-                <p className="text-white/70 text-sm mb-2">{task.description}</p>
-              </div>
+            {/* First row: Icon | Task name | Task type badge */}
+            <div className="flex items-center space-x-3 mb-2">
+              {taskIcon}
+              <h3 className="font-bold text-white truncate flex-1">
+                {task.title}
+              </h3>
+              <Chip
+                className={`
+                  ${isRestoreBonus 
+                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
+                    : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                  }
+                `}
+                size="sm"
+                variant="flat"
+              >
+                {taskTypeConfig?.name || task.task_type}
+              </Chip>
             </div>
 
+            {/* Second row: Task description */}
+            <p className="text-white/70 text-sm mb-3">{task.description}</p>
+
+            {/* Third row: Reward amount (no icon, no text) and Action button */}
             <div className="flex items-center justify-between">
-              {/* UPDATED: Reward display with differentiated types */}
-              <div className={`flex items-center space-x-2 ${rewardInfo.color}`}>
-                {rewardInfo.icon}
-                <span className="font-bold">
-                  {rewardInfo.text}
-                </span>
-                {isRestoreBonus && (
-                  <span className="text-xs text-white/60">
-                    ({t("tasks.rewards.restoreBonusDescription")})
-                  </span>
-                )}
+              <div className={`${isRestoreBonus ? "text-blue-400" : "text-yellow-400"} font-bold text-lg`}>
+                +{task.attempts_reward}
               </div>
 
               <Button
