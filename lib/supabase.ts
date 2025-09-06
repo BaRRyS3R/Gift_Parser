@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Cleaned client service with moved logic to API endpoints
+// src/lib/supabase.ts - Updated with bonus_restore_attempts field
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -34,6 +34,7 @@ export interface User {
   attempts_remaining: number;
   last_attempt_at?: string;
   attempts_reset_at?: string;
+  bonus_restore_attempts: number; // NEW: Bonus attempts for restore operations
 
   // Referral system
   referral_code: string;

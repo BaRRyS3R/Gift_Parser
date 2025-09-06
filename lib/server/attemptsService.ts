@@ -1,11 +1,11 @@
-// src/lib/server/attemptsService.ts - ОПТИМИЗИРОВАННАЯ версия
+// src/lib/server/attemptsService.ts - Updated with bonus_restore_attempts logic
 
 import { supabaseServer } from "@/lib/supabase_server";
 
-// Configuration constants
+// Configuration constants - Updated with bonus restore attempts support
 const ATTEMPTS_CONFIG = {
   BASE_ATTEMPTS: 10,
-  RESET_ATTEMPTS: 10,
+  BASE_RESET_ATTEMPTS: 10, // Base amount for reset operations
   RESET_INTERVAL_MS: 2 * 60 * 60 * 1000, // 2 hours
   REFERRAL_BONUS: 5,
   INSTANT_RESET_COST: 100,
@@ -27,13 +27,17 @@ export interface AttemptsStatusWithLevel extends AttemptsStatus {
   };
 }
 
-// Оптимизированный сервис attempts
+// Helper function to calculate restore amount based on user's bonus
+function calculateRestoreAmount(bonusRestoreAttempts: number): number {
+  return ATTEMPTS_CONFIG.BASE_RESET_ATTEMPTS + bonusRestoreAttempts;
+}
+
+// Optimized attempts service
 export const serverAttemptsService = {
   /**
-   * ОПТИМИЗАЦИЯ: Убираем отдельный getServerTime - используем server time в RPC
+   * Get server time for operations
    */
   async getServerTime(): Promise<Date> {
-    // Оставляем для обратной совместимости, но стараемся не использовать
     try {
       const { data, error } = await supabaseServer.rpc("get_current_timestamp");
 
@@ -55,8 +59,7 @@ export const serverAttemptsService = {
   },
 
   /**
-   * ОПТИМИЗАЦИЯ: Атомарная проверка и обновление через RPC
-   * Было: 2-3 запроса, стало: 1 запрос
+   * Atomic check and update through RPC
    */
   async checkAndUpdateAttempts(
     telegramId: number,
@@ -97,8 +100,7 @@ export const serverAttemptsService = {
   },
 
   /**
-   * ОПТИМИЗАЦИЯ: Атомарное потребление через RPC
-   * Было: 3-4 запроса, стало: 1 запрос с блокировкой
+   * Atomic consumption through RPC
    */
   async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
     try {
@@ -134,8 +136,7 @@ export const serverAttemptsService = {
   },
 
   /**
-   * ОПТИМИЗАЦИЯ: Быстрая проверка без side effects
-   * Для cases когда нужно только проверить можно ли играть
+   * Fast check if user can play (cached)
    */
   async canUserPlay(telegramId: number): Promise<boolean> {
     try {
@@ -158,16 +159,17 @@ export const serverAttemptsService = {
   },
 
   /**
-   * УЛУЧШЕННАЯ версия reset attempts - использует существующую оптимизированную функцию
+   * UPDATED: Reset attempts with bonus restore amount
+   * New formula: BASE_RESET_ATTEMPTS (10) + user.bonus_restore_attempts
    */
   async resetAttempts(telegramId: number): Promise<void> {
     try {
       const serverTime = new Date();
 
-      // Находим пользователя и получаем current attempts
+      // Get user data including bonus_restore_attempts
       const { data: user, error: userError } = await supabaseServer
         .from("users")
-        .select("attempts_remaining")
+        .select("attempts_remaining, bonus_restore_attempts")
         .eq("telegram_id", telegramId)
         .single();
 
@@ -175,10 +177,11 @@ export const serverAttemptsService = {
         throw new Error("User not found");
       }
 
-      const newAttempts = Math.max(
-        ATTEMPTS_CONFIG.RESET_ATTEMPTS,
-        user.attempts_remaining,
-      );
+      // Calculate restore amount using bonus
+      const restoreAmount = calculateRestoreAmount(user.bonus_restore_attempts);
+      const newAttempts = Math.max(restoreAmount, user.attempts_remaining);
+
+      console.log(`[ATTEMPTS] Resetting attempts for user ${telegramId}: base=${ATTEMPTS_CONFIG.BASE_RESET_ATTEMPTS}, bonus=${user.bonus_restore_attempts}, total=${restoreAmount}`);
 
       const { error } = await supabaseServer
         .from("users")
@@ -200,16 +203,33 @@ export const serverAttemptsService = {
   },
 
   /**
-   * ОПТИМИЗИРОВАННАЯ версия instant reset
+   * UPDATED: Instant reset with bonus restore amount
+   * New formula: BASE_RESET_ATTEMPTS (10) + user.bonus_restore_attempts
    */
   async instantResetAttempts(telegramId: number): Promise<AttemptsStatus> {
     try {
       const serverTime = new Date();
 
+      // Get user data including bonus_restore_attempts
+      const { data: user, error: userError } = await supabaseServer
+        .from("users")
+        .select("bonus_restore_attempts")
+        .eq("telegram_id", telegramId)
+        .single();
+
+      if (userError || !user) {
+        throw new Error("User not found");
+      }
+
+      // Calculate restore amount using bonus
+      const restoreAmount = calculateRestoreAmount(user.bonus_restore_attempts);
+
+      console.log(`[ATTEMPTS] Instant resetting attempts for user ${telegramId}: base=${ATTEMPTS_CONFIG.BASE_RESET_ATTEMPTS}, bonus=${user.bonus_restore_attempts}, total=${restoreAmount}`);
+
       const { error } = await supabaseServer
         .from("users")
         .update({
-          attempts_remaining: ATTEMPTS_CONFIG.RESET_ATTEMPTS,
+          attempts_remaining: restoreAmount,
           attempts_reset_at: null,
           updated_at: serverTime.toISOString(),
         })
@@ -222,7 +242,7 @@ export const serverAttemptsService = {
 
       return {
         canPlay: true,
-        attemptsRemaining: ATTEMPTS_CONFIG.RESET_ATTEMPTS,
+        attemptsRemaining: restoreAmount,
         resetTime: undefined,
         timeUntilReset: undefined,
       };
@@ -233,8 +253,7 @@ export const serverAttemptsService = {
   },
 
   /**
-   * УЛУЧШЕННАЯ версия добавления bonus attempts
-   * Использует атомарный increment через RPC
+   * Add bonus attempts (unchanged - this is for additional bonuses, not restore operations)
    */
   async addBonusAttempts(
     telegramId: number,
@@ -242,7 +261,7 @@ export const serverAttemptsService = {
     reason: string,
   ): Promise<AttemptsStatus> {
     try {
-      // Получаем пользователя и обновляем атомарно
+      // Get user and update atomically
       const { data: user, error: userError } = await supabaseServer
         .from("users")
         .select("attempts_remaining")
@@ -254,6 +273,8 @@ export const serverAttemptsService = {
       }
 
       const newAttempts = user.attempts_remaining + bonusAmount;
+
+      console.log(`[ATTEMPTS] Adding bonus attempts for user ${telegramId}: ${bonusAmount} (reason: ${reason})`);
 
       const { error } = await supabaseServer
         .from("users")
@@ -282,8 +303,64 @@ export const serverAttemptsService = {
   },
 
   /**
-   * НОВЫЙ: Batch операция для обновления attempts у нескольких пользователей
-   * Полезно для referral bonuses и других массовых операций
+   * NEW: Update user's bonus restore attempts
+   * This function allows changing the bonus_restore_attempts value for a user
+   */
+  async updateBonusRestoreAttempts(
+    telegramId: number,
+    newBonusAmount: number,
+    reason: string,
+  ): Promise<void> {
+    try {
+      // Validate bonus amount (prevent negative values)
+      if (newBonusAmount < 0) {
+        throw new Error("Bonus restore attempts cannot be negative");
+      }
+
+      console.log(`[ATTEMPTS] Updating bonus restore attempts for user ${telegramId}: ${newBonusAmount} (reason: ${reason})`);
+
+      const { error } = await supabaseServer
+        .from("users")
+        .update({
+          bonus_restore_attempts: newBonusAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("telegram_id", telegramId);
+
+      if (error) {
+        console.error("Error updating bonus restore attempts:", error);
+        throw new Error("Failed to update bonus restore attempts");
+      }
+    } catch (error) {
+      console.error("Error in updateBonusRestoreAttempts:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * NEW: Get user's current bonus restore attempts value
+   */
+  async getUserBonusRestoreAttempts(telegramId: number): Promise<number> {
+    try {
+      const { data: user, error } = await supabaseServer
+        .from("users")
+        .select("bonus_restore_attempts")
+        .eq("telegram_id", telegramId)
+        .single();
+
+      if (error || !user) {
+        throw new Error("User not found");
+      }
+
+      return user.bonus_restore_attempts || 0;
+    } catch (error) {
+      console.error("Error getting user bonus restore attempts:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Batch operations for multiple users
    */
   async batchUpdateAttempts(
     updates: Array<{
@@ -295,7 +372,7 @@ export const serverAttemptsService = {
     if (updates.length === 0) return;
 
     try {
-      // Выполняем batch updates через Promise.all для лучшей производительности
+      // Execute batch updates through Promise.all for better performance
       await Promise.all(
         updates.map(async (update) => {
           const { data: user, error: selectError } = await supabaseServer
@@ -342,5 +419,12 @@ export const serverAttemptsService = {
    */
   getAttemptsConfig() {
     return ATTEMPTS_CONFIG;
+  },
+
+  /**
+   * Calculate what the restore amount would be for a given bonus
+   */
+  calculateRestoreAmount(bonusRestoreAttempts: number): number {
+    return calculateRestoreAmount(bonusRestoreAttempts);
   },
 };

@@ -48,6 +48,7 @@ create table public.users (
   current_level integer null default 1,
   trust_score integer null default 50,
   blocked_until timestamp with time zone null,
+  bonus_restore_attempts integer not null default 0,
   constraint users_pkey primary key (id),
   constraint users_referral_code_key unique (referral_code),
   constraint users_telegram_id_key unique (telegram_id),
@@ -63,6 +64,8 @@ create table public.users (
   constraint check_survival_best_streak check ((survival_best_streak >= 0)),
   constraint check_survival_best_time check ((survival_best_time >= 0))
 ) TABLESPACE pg_default;
+
+create index IF not exists idx_users_bonus_restore_attempts on public.users using btree (bonus_restore_attempts) TABLESPACE pg_default;
 
 create index IF not exists idx_users_survival_best_time on public.users using btree (survival_best_time desc) TABLESPACE pg_default
 where

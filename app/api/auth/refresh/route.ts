@@ -1,4 +1,4 @@
-// src/app/api/auth/refresh/route.ts - Token refresh endpoint
+// src/app/api/auth/refresh/route.ts - Updated with bonus_restore_attempts field
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -10,7 +10,7 @@ import {
   extractTokenFromHeader,
 } from "@/lib/jwt";
 
-// Response interface
+// Response interface - Updated with bonus_restore_attempts
 interface RefreshResponse {
   success: boolean;
   tokens?: {
@@ -35,6 +35,7 @@ interface RefreshResponse {
     attempts_remaining: number;
     last_attempt_at?: string;
     attempts_reset_at?: string;
+    bonus_restore_attempts: number; // NEW: Include bonus restore attempts
     referral_code: string;
     referral_count: number;
     created_at: string;
@@ -108,7 +109,7 @@ export async function POST(
       },
     });
 
-    // Prepare user data for response
+    // Prepare user data for response - Updated with bonus_restore_attempts
     const userData = {
       id: user.id,
       telegram_id: user.telegram_id,
@@ -130,6 +131,7 @@ export async function POST(
       attempts_remaining: user.attempts_remaining,
       last_attempt_at: user.last_attempt_at,
       attempts_reset_at: user.attempts_reset_at,
+      bonus_restore_attempts: user.bonus_restore_attempts, // NEW: Include bonus restore attempts
       referral_code: user.referral_code,
       referral_count: user.referral_count,
       created_at: user.created_at,

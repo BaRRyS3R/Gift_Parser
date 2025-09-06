@@ -1,4 +1,4 @@
-// src/app/api/auth/login/route.ts - ИСПРАВЛЕННАЯ ВЕРСИЯ с усиленной безопасностью
+// src/app/api/auth/login/route.ts - Updated with bonus_restore_attempts field
 
 import type { TelegramUser } from "@/lib/supabase";
 
@@ -18,7 +18,7 @@ interface LoginRequest {
   initData: string;
 }
 
-// Response interface with Nebula integration
+// Response interface with Nebula integration - Updated with bonus_restore_attempts
 interface LoginResponse {
   success: boolean;
   user?: {
@@ -39,6 +39,7 @@ interface LoginResponse {
     attempts_remaining: number;
     last_attempt_at?: string;
     attempts_reset_at?: string;
+    bonus_restore_attempts: number; // NEW: Include bonus restore attempts
     referral_code: string;
     referral_count: number;
     created_at: string;
@@ -60,7 +61,7 @@ interface LoginResponse {
   error?: string;
 }
 
-// 🚨 НОВАЯ ФУНКЦИЯ: Логирование событий безопасности
+// Функция логирования событий безопасности
 function logSecurityEvent(type: string, data: any, request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || 
             request.headers.get("x-real-ip") || 
@@ -82,7 +83,6 @@ function logSecurityEvent(type: string, data: any, request: NextRequest) {
 /**
  * POST /api/auth/login
  * Authenticates existing user with Telegram WebApp data validation and Nebula security checks
- * 🚨 УСИЛЕННАЯ ВЕРСИЯ с многоуровневой защитой
  */
 export async function POST(
   request: NextRequest,
@@ -106,7 +106,7 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // 🚨 БЫСТРАЯ ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА AUTH_DATE
+    // Быстрая предварительная проверка AUTH_DATE
     const quickCheck = quickAuthDateCheck(initData);
     if (!quickCheck.isValid) {
       console.error(`[LOGIN] Quick auth_date check failed: ${quickCheck.error}`);
@@ -123,10 +123,10 @@ export async function POST(
 
     console.log(`[LOGIN] Quick check passed, auth_date: ${quickCheck.authDate}`);
 
-    // 🚨 ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ БЕЗОПАСНОСТИ
+    // Дополнительные проверки безопасности
     
-    // Проверка размера initData (увеличили лимит для высокой нагрузки)
-    if (initData.length > 10000) { // 10KB максимум (увеличили с 5KB)
+    // Проверка размера initData
+    if (initData.length > 10000) { // 10KB максимум
       console.error(`[LOGIN] InitData too large: ${initData.length} characters`);
       logSecurityEvent('INIT_DATA_TOO_LARGE', { 
         length: initData.length 
@@ -190,7 +190,7 @@ export async function POST(
 
     console.log(`[LOGIN] Found existing user: ${existingUser.id}`);
 
-    // 🚨 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Сравнение данных пользователя
+    // Дополнительная проверка: Сравнение данных пользователя
     if (existingUser.first_name !== telegramUser.first_name) {
       console.warn(`[LOGIN] First name mismatch for user ${telegramUser.id}: DB="${existingUser.first_name}" vs Telegram="${telegramUser.first_name}"`);
       // Не блокируем, так как пользователь мог изменить имя, но логируем
@@ -267,6 +267,7 @@ export async function POST(
           attempts_remaining: updatedUser.attempts_remaining,
           last_attempt_at: updatedUser.last_attempt_at,
           attempts_reset_at: updatedUser.attempts_reset_at,
+          bonus_restore_attempts: updatedUser.bonus_restore_attempts, // NEW: Include bonus restore attempts
           referral_code: updatedUser.referral_code,
           referral_count: updatedUser.referral_count,
           created_at: updatedUser.created_at,
@@ -347,6 +348,7 @@ export async function POST(
           attempts_remaining: updatedUser.attempts_remaining,
           last_attempt_at: updatedUser.last_attempt_at,
           attempts_reset_at: updatedUser.attempts_reset_at,
+          bonus_restore_attempts: updatedUser.bonus_restore_attempts, // NEW: Include bonus restore attempts
           referral_code: updatedUser.referral_code,
           referral_count: updatedUser.referral_count,
           created_at: updatedUser.created_at,
@@ -395,7 +397,7 @@ export async function POST(
       },
     });
 
-    // Prepare user data for response (excluding sensitive fields)
+    // Prepare user data for response (excluding sensitive fields) - Updated with bonus_restore_attempts
     const userData = {
       id: updatedUser.id,
       telegram_id: updatedUser.telegram_id,
@@ -414,6 +416,7 @@ export async function POST(
       attempts_remaining: updatedUser.attempts_remaining,
       last_attempt_at: updatedUser.last_attempt_at,
       attempts_reset_at: updatedUser.attempts_reset_at,
+      bonus_restore_attempts: updatedUser.bonus_restore_attempts, // NEW: Include bonus restore attempts
       referral_code: updatedUser.referral_code,
       referral_count: updatedUser.referral_count,
       created_at: updatedUser.created_at,

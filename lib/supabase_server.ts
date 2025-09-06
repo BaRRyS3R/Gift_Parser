@@ -1,4 +1,4 @@
-// src/lib/supabase_server.ts - Updated with simplified season service integration
+// src/lib/supabase_server.ts - Updated with bonus_restore_attempts field
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -33,7 +33,7 @@ export const supabaseServer = createClient(supabaseUrl, supabaseServiceKey, {
   },
 });
 
-// Types for server operations (existing interfaces remain the same)
+// Types for server operations - Updated with bonus_restore_attempts
 export interface ServerUser {
   id: string;
   telegram_id: number;
@@ -49,6 +49,7 @@ export interface ServerUser {
   attempts_remaining: number;
   last_attempt_at?: string;
   attempts_reset_at?: string;
+  bonus_restore_attempts: number; // NEW: Bonus attempts for restore operations
   referral_code: string;
   referred_by?: string;
   referral_bonus: number;
@@ -228,6 +229,7 @@ export const serverUserService = {
       trust_score: trustScore,
       blocked_until: null,
       attempts_remaining: additionalAttempts,
+      bonus_restore_attempts: 0, // NEW: Initialize with 0 bonus attempts
       referral_code: referralCodeToUse,
       referred_by: referredBy,
       referral_bonus: 5,

@@ -1,4 +1,4 @@
-// src/app/api/auth/register/route.ts - ИСПРАВЛЕННАЯ ВЕРСИЯ с усиленной безопасностью
+// src/app/api/auth/register/route.ts - Updated with bonus_restore_attempts field
 
 import type { TelegramUser } from "@/lib/supabase";
 
@@ -19,7 +19,7 @@ interface RegisterRequest {
   referralCode?: string;
 }
 
-// Response interface
+// Response interface - Updated with bonus_restore_attempts
 interface RegisterResponse {
   success: boolean;
   user?: {
@@ -35,6 +35,7 @@ interface RegisterResponse {
     current_level: number;
     total_games: number;
     attempts_remaining: number;
+    bonus_restore_attempts: number; // NEW: Include bonus restore attempts
     referral_code: string;
     created_at: string;
   };
@@ -50,7 +51,7 @@ interface RegisterResponse {
   error?: string;
 }
 
-// 🚨 НОВАЯ ФУНКЦИЯ: Логирование событий безопасности
+// Функция логирования событий безопасности
 function logSecurityEvent(type: string, data: any, request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || 
             request.headers.get("x-real-ip") || 
@@ -69,7 +70,7 @@ function logSecurityEvent(type: string, data: any, request: NextRequest) {
   console.error(`[REGISTER SECURITY] ${type}:`, JSON.stringify(logEntry, null, 2));
 }
 
-// 🚨 НОВАЯ ФУНКЦИЯ: Мягкая проверка подозрительного поведения (только логирование)
+// Функция: Мягкая проверка подозрительного поведения (только логирование)
 function detectSuspiciousRegistration(telegramUser: TelegramUser, request: NextRequest): {
   isSuspicious: boolean;
   reasons: string[];
@@ -86,9 +87,6 @@ function detectSuspiciousRegistration(telegramUser: TelegramUser, request: NextR
     reasons.push("suspicious_name_keywords");
   }
   
-  // УБРАЛИ: Проверку на новые аккаунты (может блокировать легитимных новых пользователей)
-  // УБРАЛИ: Проверку на отсутствие username (многие легитимные пользователи не имеют username)
-  
   return {
     isSuspicious: reasons.length > 0,
     reasons
@@ -98,7 +96,6 @@ function detectSuspiciousRegistration(telegramUser: TelegramUser, request: NextR
 /**
  * POST /api/auth/register
  * Registers a new user with Telegram WebApp data validation
- * 🚨 УСИЛЕННАЯ ВЕРСИЯ с многоуровневой защитой и анти-фрод проверками
  */
 export async function POST(
   request: NextRequest,
@@ -122,7 +119,7 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // 🚨 БЫСТРАЯ ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА AUTH_DATE
+    // Быстрая предварительная проверка AUTH_DATE
     const quickCheck = quickAuthDateCheck(initData);
     if (!quickCheck.isValid) {
       console.error(`[REGISTER] Quick auth_date check failed: ${quickCheck.error}`);
@@ -139,10 +136,10 @@ export async function POST(
 
     console.log(`[REGISTER] Quick check passed, auth_date: ${quickCheck.authDate}`);
 
-    // 🚨 ДОПОЛНИТЕЛЬНЫЕ ПРОВЕРКИ БЕЗОПАСНОСТИ
+    // Дополнительные проверки безопасности
     
-    // Проверка размера initData (увеличили лимит для высокой нагрузки)
-    if (initData.length > 10000) { // 10KB максимум (увеличили с 5KB)
+    // Проверка размера initData
+    if (initData.length > 10000) { // 10KB максимум
       console.error(`[REGISTER] InitData too large: ${initData.length} characters`);
       logSecurityEvent('INIT_DATA_TOO_LARGE', { 
         length: initData.length 
@@ -187,7 +184,7 @@ export async function POST(
     const telegramUser: TelegramUser = validation.user;
     console.log(`[REGISTER] Validation successful for user ${telegramUser.id} (${telegramUser.first_name})`);
 
-    // 🚨 ПРОВЕРКА НА ПОДОЗРИТЕЛЬНУЮ РЕГИСТРАЦИЮ
+    // Проверка на подозрительную регистрацию
     const suspiciousCheck = detectSuspiciousRegistration(telegramUser, request);
     if (suspiciousCheck.isSuspicious) {
       console.warn(`[REGISTER] Suspicious registration detected for user ${telegramUser.id}: ${suspiciousCheck.reasons.join(', ')}`);
@@ -200,7 +197,6 @@ export async function POST(
       }, request);
       
       // Не блокируем, но логируем для мониторинга
-      // В будущем можно добавить дополнительную верификацию для подозрительных регистраций
     }
 
     // Check if user already exists
@@ -269,14 +265,13 @@ export async function POST(
       }
     }
 
-    // 🚨 ДОПОЛНИТЕЛЬНАЯ АНТИ-ФРОД ПРОВЕРКА
+    // Дополнительная анти-фрод проверка
     // Проверяем количество регистраций с одного IP за последний час
     const ip = request.headers.get("x-forwarded-for") || 
               request.headers.get("x-real-ip") || 
               "unknown";
     
-    // Здесь можно добавить проверку в Redis или базе данных
-    // Пока логируем для мониторинга
+    // Логируем для мониторинга
     logSecurityEvent('REGISTRATION_ATTEMPT', {
       telegramId: telegramUser.id,
       firstName: telegramUser.first_name,
@@ -320,7 +315,7 @@ export async function POST(
       },
     });
 
-    // Prepare user data for response (excluding sensitive fields)
+    // Prepare user data for response (excluding sensitive fields) - Updated with bonus_restore_attempts
     const userData = {
       id: newUser.id,
       telegram_id: newUser.telegram_id,
@@ -337,6 +332,7 @@ export async function POST(
       current_level: newUser.current_level,
       total_games: newUser.total_games,
       attempts_remaining: newUser.attempts_remaining,
+      bonus_restore_attempts: newUser.bonus_restore_attempts, // NEW: Include bonus restore attempts
       referral_code: newUser.referral_code,
       created_at: newUser.created_at,
     };

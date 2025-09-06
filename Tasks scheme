@@ -1,0 +1,159 @@
+create table public.tasks (
+  id uuid not null default gen_random_uuid (),
+  title character varying(255) not null,
+  description text null,
+  task_type character varying(50) not null,
+  url character varying(500) not null,
+  telegram_id bigint null,
+  attempts_reward integer not null default 0,
+  image_url character varying(500) null,
+  is_active boolean not null default true,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint tasks_pkey primary key (id),
+  constraint tasks_task_type_check check (
+    (
+      (task_type)::text = any (
+        (
+          array[
+            'telegram_channel'::character varying,
+            'telegram_chat'::character varying,
+            'website_visit'::character varying,
+            'twitter_follow'::character varying,
+            'twitter_repost'::character varying
+          ]
+        )::text[]
+      )
+    )
+  ),
+  constraint valid_telegram_task check (
+    (
+      (
+        (
+          (task_type)::text = any (
+            (
+              array[
+                'telegram_channel'::character varying,
+                'telegram_chat'::character varying
+              ]
+            )::text[]
+          )
+        )
+        and (telegram_id is not null)
+      )
+      or (
+        (task_type)::text <> all (
+          (
+            array[
+              'telegram_channel'::character varying,
+              'telegram_chat'::character varying
+            ]
+          )::text[]
+        )
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_tasks_type_active on public.tasks using btree (task_type, is_active) TABLESPACE pg_default;
+
+create index IF not exists idx_tasks_active_type on public.tasks using btree (is_active, task_type) TABLESPACE pg_default
+where
+  (is_active = true);
+
+create trigger update_tasks_updated_at BEFORE
+update on tasks for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.user_tasks (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  task_id uuid not null,
+  status character varying(20) not null default 'not_started'::character varying,
+  started_at timestamp with time zone null,
+  completed_at timestamp with time zone null,
+  rewarded_at timestamp with time zone null,
+  verification_data jsonb null,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint user_tasks_pkey primary key (id),
+  constraint user_tasks_user_id_task_id_key unique (user_id, task_id),
+  constraint user_tasks_task_id_fkey foreign KEY (task_id) references tasks (id) on delete CASCADE,
+  constraint user_tasks_user_id_fkey foreign KEY (user_id) references users (id) on delete CASCADE,
+  constraint user_tasks_status_check check (
+    (
+      (status)::text = any (
+        (
+          array[
+            'not_started'::character varying,
+            'started'::character varying,
+            'completed'::character varying,
+            'rewarded'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_user_tasks_user_status on public.user_tasks using btree (user_id, status) TABLESPACE pg_default;
+
+create index IF not exists idx_user_tasks_task_status on public.user_tasks using btree (task_id, status) TABLESPACE pg_default;
+
+create index IF not exists idx_user_tasks_user_status_created on public.user_tasks using btree (user_id, status, created_at) TABLESPACE pg_default;
+
+create trigger update_user_tasks_updated_at BEFORE
+update on user_tasks for EACH row
+execute FUNCTION update_updated_at_column ();
+
+BEGIN
+    -- Update user attempts in a single transaction
+    UPDATE users 
+    SET 
+        attempts_remaining = attempts_remaining + p_attempts_to_add,
+        attempts_reset_at = NULL,
+        updated_at = p_completed_at
+    WHERE id = p_user_id;
+    
+    -- Update task status to rewarded
+    UPDATE user_tasks 
+    SET 
+        status = 'rewarded',
+        rewarded_at = p_completed_at,
+        updated_at = p_completed_at
+    WHERE user_id = p_user_id AND task_id = p_task_id;
+    
+    -- If either update failed, the transaction will be rolled back
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Failed to update user task or user data';
+    END IF;
+END;
+
+
+BEGIN
+    RETURN QUERY
+    SELECT 
+        t.id,
+        t.title,
+        t.description,
+        t.task_type,
+        t.url,
+        t.telegram_id,
+        t.attempts_reward,
+        t.image_url,
+        COALESCE(ut.status, 'not_started'::VARCHAR) as user_status,
+        ut.started_at,
+        ut.completed_at,
+        ut.rewarded_at
+    FROM tasks t
+    LEFT JOIN user_tasks ut ON t.id = ut.task_id AND ut.user_id = user_id_param
+    WHERE t.is_active = true
+    ORDER BY 
+        CASE 
+            WHEN ut.status IS NULL OR ut.status = 'not_started' THEN 1
+            WHEN ut.status = 'started' THEN 2
+            WHEN ut.status = 'completed' THEN 3
+            WHEN ut.status = 'rewarded' THEN 4
+        END,
+        t.created_at ASC;
+END;

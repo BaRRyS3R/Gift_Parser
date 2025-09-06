@@ -1,10 +1,9 @@
-// src/hooks/modules/useAuth.ts - Fixed 404 handling for new users
+// src/hooks/modules/useAuth.ts - Updated with bonus_restore_attempts field
 
 import type { User } from "@/lib/supabase";
 
 import { useState, useCallback, useRef } from "react";
 
-// [Previous interfaces remain the same...]
 export interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
@@ -18,6 +17,7 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+// Updated with bonus_restore_attempts field
 export interface RegistrationResult {
   success: boolean;
   user?: {
@@ -33,6 +33,7 @@ export interface RegistrationResult {
     current_level: number;
     total_games: number;
     attempts_remaining: number;
+    bonus_restore_attempts: number; // NEW: Include bonus restore attempts
     referral_code: string;
     created_at: string;
   };
@@ -45,6 +46,7 @@ export interface RegistrationResult {
   error?: string;
 }
 
+// Updated with bonus_restore_attempts field
 export interface LoginResult {
   success: boolean;
   user?: {
@@ -65,6 +67,7 @@ export interface LoginResult {
     attempts_remaining: number;
     last_attempt_at?: string;
     attempts_reset_at?: string;
+    bonus_restore_attempts: number; // NEW: Include bonus restore attempts
     referral_code: string;
     referral_count: number;
     created_at: string;
@@ -210,7 +213,7 @@ export function useAuth() {
   );
 
   /**
-   * FIXED: Login with proper 404 handling for new users
+   * Login with proper 404 handling for new users
    */
   const login = useCallback(
     async (initData: string): Promise<LoginResult> => {
@@ -237,17 +240,17 @@ export function useAuth() {
           }),
         });
 
-        // CRITICAL FIX: Handle 404 (user not found) as expected behavior for new users
+        // Handle 404 (user not found) as expected behavior for new users
         if (response.status === 404) {
           setAuthState((prev) => ({
             ...prev,
             isLoading: false,
-            error: null, // Clear any previous errors
+            error: null,
           }));
 
           return {
             success: false,
-            error: "USER_NOT_FOUND", // Use a specific error code
+            error: "USER_NOT_FOUND",
           };
         }
 
@@ -290,7 +293,7 @@ export function useAuth() {
             success: true,
             user: result.user,
             tokens: result.tokens,
-            security: result.security, // Добавить эту строку
+            security: result.security,
           };
         } else {
           const errorMessage = result.error || "Login failed";
@@ -500,7 +503,7 @@ export function useAuth() {
   }, [clearTokens]);
 
   /**
-   * FIXED: Check auth status with better error handling
+   * Check auth status with better error handling
    */
   const checkAuthStatus = useCallback(async (): Promise<boolean> => {
     const tokens = getStoredTokens();
