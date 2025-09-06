@@ -1,422 +1,454 @@
-// src/app/api/cron/validate-tasks/route.ts - Optimized CRON service for validating Telegram tasks
+// src/app/api/cron/verify-telegram-tasks/route.ts
+// CRON service for verifying Telegram channel/chat subscriptions
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase_server";
 
-const VALIDATION_CONFIG = {
-  MAX_TASKS_PER_RUN: parseInt(process.env.CRON_MAX_VALIDATION_TASKS || "10000"),
-  EXECUTION_TIMEOUT: parseInt(process.env.CRON_VALIDATION_TIMEOUT || "50"),
+// Configuration
+const CRON_CONFIG = {
+  // Telegram API rate limits
+  TELEGRAM_RATE_LIMIT: 25, // Requests per second (with buffer from 30 limit)
+  BATCH_DELAY_MS: 1100, // Delay between batches (with buffer)
+  
+  // CRON job settings
+  MAX_USERS_PER_RUN: parseInt(process.env.MAX_TELEGRAM_CHECKS_PER_RUN || "10000"),
+  EXECUTION_TIMEOUT: parseInt(process.env.CRON_EXECUTION_TIMEOUT || "50"),
+  
+  // API keys
   CRON_API_KEY: process.env.CRON_API_KEY,
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_API,
-  PARALLEL_BATCH_SIZE: parseInt(process.env.CRON_PARALLEL_BATCH_SIZE || "100"),
 } as const;
 
-interface ValidationResponse {
+// Response interface
+interface CronResponse {
   success: boolean;
-  validated_tasks: number;
+  processed_tasks: number;
+  unsubscribed_users: number;
   penalties_applied: number;
-  total_penalty_amount: number;
-  failed_validations: number;
+  total_bonus_deducted: number;
+  errors_count: number;
   execution_time_ms: number;
   error?: string;
+  details?: {
+    checked_users: number;
+    telegram_channels_checked: number;
+    telegram_chats_checked: number;
+    api_errors: number;
+  };
 }
 
-interface TaskValidationResult {
+// Task check result
+interface TaskCheckResult {
   user_task_id: string;
   user_id: string;
   telegram_id: number;
   task_id: string;
   chat_id: number;
+  task_type: string;
   reward_amount: number;
-  is_member: boolean;
+  is_subscribed: boolean;
   penalty_applied: boolean;
-  validation_error?: string;
-}
-
-interface PenaltyResult {
-  user_task_id: string;
-  penalty_applied: boolean;
-  penalty_amount: number;
   error?: string;
 }
 
 /**
- * POST /api/cron/validate-tasks
- * Validates Telegram channel/chat memberships for rewarded tasks
+ * Check Telegram membership status
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<ValidationResponse>> {
-  const startTime = Date.now();
-
+async function checkTelegramMembership(
+  telegramUserId: number,
+  chatId: number
+): Promise<{ isSubscribed: boolean; error?: string }> {
   try {
-    const authHeader = request.headers.get("Authorization");
-    const apiKey = authHeader?.replace("Bearer ", "");
-
-    if (!apiKey || apiKey !== VALIDATION_CONFIG.CRON_API_KEY) {
-      console.warn("[CRON] Unauthorized attempt to access validate-tasks endpoint");
-      return NextResponse.json(
-        {
-          success: false,
-          validated_tasks: 0,
-          penalties_applied: 0,
-          total_penalty_amount: 0,
-          failed_validations: 0,
-          execution_time_ms: Date.now() - startTime,
-          error: "Unauthorized access",
-        },
-        { status: 401 }
-      );
-    }
-
-    console.log("[CRON] Starting Telegram tasks validation process");
-
-    if (!VALIDATION_CONFIG.TELEGRAM_BOT_TOKEN) {
-      throw new Error("Telegram Bot Token not configured");
-    }
-
-    const tasksToValidate = await getTasksRequiringValidation();
-
-    console.log(`[CRON] Found ${tasksToValidate.length} tasks requiring validation`);
-
-    if (tasksToValidate.length === 0) {
-      return NextResponse.json({
-        success: true,
-        validated_tasks: 0,
-        penalties_applied: 0,
-        total_penalty_amount: 0,
-        failed_validations: 0,
-        execution_time_ms: Date.now() - startTime,
-      });
-    }
-
-    const tasksToProcess = tasksToValidate.slice(0, VALIDATION_CONFIG.MAX_TASKS_PER_RUN);
-    console.log(`[CRON] Task processing decision: ${tasksToValidate.length} found, ${tasksToProcess.length} will be processed (limit: ${VALIDATION_CONFIG.MAX_TASKS_PER_RUN})`);
-
-    if (tasksToProcess.length !== tasksToValidate.length) {
-      console.warn(`[CRON] WARNING: Processing limit reached. ${tasksToValidate.length - tasksToProcess.length} tasks will be deferred to next execution`);
-    }
-
-    console.log(`[CRON] === STARTING VALIDATION PHASE ===`);
-    const validationResults = await validateTasksInParallel(tasksToProcess);
-    console.log(`[CRON] === VALIDATION PHASE COMPLETED ===`);
-    console.log(`[CRON] Validation results count: ${validationResults.length}`);
-
-    console.log(`[CRON] === STARTING PENALTY PHASE ===`);
-    const penaltyResults = await applyPenaltiesForInvalidTasks(validationResults);
-    console.log(`[CRON] === PENALTY PHASE COMPLETED ===`);
-    console.log(`[CRON] Penalty results count: ${penaltyResults.length}`);
-
-    // Calculate detailed statistics
-    const totalValidated = validationResults.length;
-    const totalPenalties = penaltyResults.filter(r => r.penalty_applied).length;
-    const totalPenaltyAmount = penaltyResults
-      .filter(r => r.penalty_applied)
-      .reduce((sum, r) => sum + r.penalty_amount, 0);
-    const failedValidations = validationResults.filter(r => r.validation_error).length;
-
-    const executionTime = Date.now() - startTime;
-
-    console.log(`[CRON] === FINAL EXECUTION STATISTICS ===`);
-    console.log(`[CRON] Execution time: ${executionTime}ms`);
-    console.log(`[CRON] Tasks found for validation: ${tasksToValidate.length}`);
-    console.log(`[CRON] Tasks actually processed: ${tasksToProcess.length}`);
-    console.log(`[CRON] Validation results generated: ${totalValidated}`);
-    console.log(`[CRON] Successful validations: ${validationResults.filter(r => !r.validation_error).length}`);
-    console.log(`[CRON] Failed validations: ${failedValidations}`);
-    console.log(`[CRON] Users still members: ${validationResults.filter(r => r.is_member && !r.validation_error).length}`);
-    console.log(`[CRON] Users no longer members: ${validationResults.filter(r => !r.is_member && !r.validation_error).length}`);
-    console.log(`[CRON] Penalties applied: ${totalPenalties}`);
-    console.log(`[CRON] Total bonus attempts removed: ${totalPenaltyAmount}`);
-    console.log(`[CRON] Failed penalty applications: ${penaltyResults.filter(r => !r.penalty_applied && r.error).length}`);
-    console.log(`[CRON] === END STATISTICS ===`);
-
-    const responsePayload = {
-      success: true,
-      validated_tasks: totalValidated,
-      penalties_applied: totalPenalties,
-      total_penalty_amount: totalPenaltyAmount,
-      failed_validations: failedValidations,
-      execution_time_ms: executionTime,
-    };
-
-    console.log(`[CRON] Returning success response:`, JSON.stringify(responsePayload, null, 2));
-    return NextResponse.json(responsePayload);
-
-  } catch (error) {
-    console.error("[CRON] Error in tasks validation:", error);
-
-    const executionTime = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-
-    return NextResponse.json(
-      {
-        success: false,
-        validated_tasks: 0,
-        penalties_applied: 0,
-        total_penalty_amount: 0,
-        failed_validations: 0,
-        execution_time_ms: executionTime,
-        error: errorMessage,
-      },
-      { status: 500 }
+    const response = await fetch(
+      `https://api.telegram.org/bot${CRON_CONFIG.TELEGRAM_BOT_TOKEN}/getChatMember?chat_id=${chatId}&user_id=${telegramUserId}`,
+      { 
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      }
     );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      // Handle specific Telegram API errors
+      if (errorData.error_code === 400) {
+        // User not found in chat - means unsubscribed
+        return { isSubscribed: false };
+      }
+      
+      if (errorData.error_code === 403) {
+        // Bot was kicked from chat or chat deleted
+        console.error(`[CRON] Bot access error for chat ${chatId}: ${errorData.description}`);
+        return { isSubscribed: true, error: "Bot access denied" }; // Skip check
+      }
+      
+      return { isSubscribed: true, error: `API error: ${errorData.description || response.status}` };
+    }
+
+    const data = await response.json();
+    
+    if (!data.ok) {
+      return { isSubscribed: true, error: data.description }; // Skip on error
+    }
+
+    const memberStatus = data.result.status;
+    const isSubscribed = ["creator", "administrator", "member", "restricted"].includes(memberStatus);
+    
+    // "left" or "kicked" means unsubscribed
+    return { isSubscribed };
+    
+  } catch (error) {
+    console.error(`[CRON] Error checking membership for user ${telegramUserId} in chat ${chatId}:`, error);
+    return { 
+      isSubscribed: true, // Skip on error to avoid false penalties
+      error: error instanceof Error ? error.message : "Check failed"
+    };
   }
 }
 
 /**
- * Get all rewarded Telegram tasks that haven't been penalized yet
+ * Get tasks that need verification
  */
-async function getTasksRequiringValidation() {
+async function getTasksToVerify(): Promise<any[]> {
   const { data, error } = await supabaseServer
     .from("user_tasks")
     .select(`
       id,
       user_id,
       task_id,
-      rewarded_at,
+      status,
       penalty_applied,
-      users!inner(telegram_id),
-      tasks!inner(telegram_id, task_type, attempts_reward)
+      users!inner (
+        id,
+        telegram_id,
+        bonus_restore_attempts
+      ),
+      tasks!inner (
+        id,
+        task_type,
+        telegram_id,
+        attempts_reward
+      )
     `)
     .eq("status", "rewarded")
-    .in("tasks.task_type", ["telegram_channel", "telegram_chat"])
-    .eq("tasks.is_active", true)
     .eq("penalty_applied", false)
-    .limit(VALIDATION_CONFIG.MAX_TASKS_PER_RUN);
+    .in("tasks.task_type", ["telegram_channel", "telegram_chat"])
+    .not("tasks.telegram_id", "is", null)
+    .limit(CRON_CONFIG.MAX_USERS_PER_RUN);
 
   if (error) {
-    console.error("[CRON] Error fetching tasks requiring validation:", error);
-    throw new Error("Failed to fetch tasks requiring validation");
+    console.error("[CRON] Error fetching tasks to verify:", error);
+    throw new Error("Failed to fetch tasks for verification");
   }
 
   return data || [];
 }
 
 /**
- * Validate all tasks in parallel batches without rate limiting
+ * Apply penalty for unsubscribed users
  */
-async function validateTasksInParallel(tasks: any[]): Promise<TaskValidationResult[]> {
-  const results: TaskValidationResult[] = [];
-  const batchSize = VALIDATION_CONFIG.PARALLEL_BATCH_SIZE;
+async function applyPenalty(
+  userTaskId: string,
+  userId: string,
+  penaltyAmount: number
+): Promise<boolean> {
+  try {
+    // First, get current bonus_restore_attempts value
+    const { data: userData, error: fetchError } = await supabaseServer
+      .from("users")
+      .select("bonus_restore_attempts")
+      .eq("id", userId)
+      .single();
 
-  console.log(`[CRON] Validating ${tasks.length} tasks in parallel batches of ${batchSize}`);
+    if (fetchError || !userData) {
+      console.error(`[CRON] Error fetching user ${userId}:`, fetchError);
+      return false;
+    }
 
-  for (let i = 0; i < tasks.length; i += batchSize) {
-    const batch = tasks.slice(i, i + batchSize);
-    const batchNumber = Math.floor(i / batchSize) + 1;
-    const totalBatches = Math.ceil(tasks.length / batchSize);
+    const currentBonus = userData.bonus_restore_attempts || 0;
+    const newBonus = Math.max(0, currentBonus - penaltyAmount);
 
-    console.log(`[CRON] Processing validation batch ${batchNumber}/${totalBatches} (${batch.length} tasks)`);
+    // Update user's bonus_restore_attempts
+    const { error: userError } = await supabaseServer
+      .from("users")
+      .update({
+        bonus_restore_attempts: newBonus,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", userId);
 
-    const batchPromises = batch.map(async (task) => {
-      try {
-        const membershipResult = await validateTelegramMembership(
-          task.user_telegram_id,
-          task.chat_id
-        );
+    if (userError) {
+      console.error(`[CRON] Error updating user ${userId}:`, userError);
+      return false;
+    }
 
-        return {
-          user_task_id: task.id,
-          user_id: task.user_id,
-          telegram_id: task.user_telegram_id,
-          task_id: task.task_id,
-          chat_id: task.chat_id,
-          reward_amount: task.attempts_reward,
-          is_member: membershipResult.is_member,
-          penalty_applied: false,
-          validation_error: membershipResult.error,
-        };
-      } catch (error) {
-        console.error(`[CRON] Error validating task ${task.id}:`, error);
-        
-        return {
-          user_task_id: task.id,
-          user_id: task.user_id,
-          telegram_id: task.user_telegram_id,
-          task_id: task.task_id,
-          chat_id: task.chat_id,
-          reward_amount: task.attempts_reward,
-          is_member: true, // Assume member if validation fails
-          penalty_applied: false,
-          validation_error: error instanceof Error ? error.message : "Unknown validation error",
-        };
-      }
-    });
+    // Mark penalty as applied
+    const { error: taskError } = await supabaseServer
+      .from("user_tasks")
+      .update({
+        penalty_applied: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", userTaskId);
 
-    const batchResults = await Promise.allSettled(batchPromises);
-    
-    const validatedResults: TaskValidationResult[] = [];
-    
-    batchResults.forEach(result => {
-      if (result.status === 'fulfilled') {
-        validatedResults.push(result.value);
-      } else {
-        console.error(`[CRON] Batch promise rejected:`, result.reason);
-      }
-    });
+    if (taskError) {
+      console.error(`[CRON] Error updating user_task ${userTaskId}:`, taskError);
+      // Try to rollback user update
+      await supabaseServer
+        .from("users")
+        .update({
+          bonus_restore_attempts: currentBonus,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", userId);
+      return false;
+    }
 
-    results.push(...validatedResults);
+    console.log(`[CRON] Penalty applied: User ${userId} bonus reduced from ${currentBonus} to ${newBonus} (-${penaltyAmount})`);
+    return true;
+  } catch (error) {
+    console.error(`[CRON] Error applying penalty for user_task ${userTaskId}:`, error);
+    return false;
   }
+}
 
-  const successfulValidations = results.filter(r => !r.validation_error).length;
-  const nonMembers = results.filter(r => !r.is_member && !r.validation_error).length;
-
-  console.log(`[CRON] Validation summary: ${successfulValidations} successful, ${nonMembers} users not members`);
-
+/**
+ * Process tasks in batches with rate limiting
+ */
+async function processTaskBatches(tasks: any[]): Promise<TaskCheckResult[]> {
+  const results: TaskCheckResult[] = [];
+  
+  console.log(`[CRON] Processing ${tasks.length} tasks in batches of ${CRON_CONFIG.TELEGRAM_RATE_LIMIT}`);
+  
+  // Group tasks by unique telegram_id to minimize API calls
+  const userTasksMap = new Map<string, any[]>();
+  
+  for (const task of tasks) {
+    const key = `${task.users.telegram_id}_${task.tasks.telegram_id}`;
+    if (!userTasksMap.has(key)) {
+      userTasksMap.set(key, []);
+    }
+    userTasksMap.get(key)?.push(task);
+  }
+  
+  console.log(`[CRON] Grouped into ${userTasksMap.size} unique user-channel combinations`);
+  
+  // Process in batches respecting rate limits
+  const entries = Array.from(userTasksMap.entries());
+  
+  for (let i = 0; i < entries.length; i += CRON_CONFIG.TELEGRAM_RATE_LIMIT) {
+    const batch = entries.slice(i, i + CRON_CONFIG.TELEGRAM_RATE_LIMIT);
+    const batchNumber = Math.floor(i / CRON_CONFIG.TELEGRAM_RATE_LIMIT) + 1;
+    const totalBatches = Math.ceil(entries.length / CRON_CONFIG.TELEGRAM_RATE_LIMIT);
+    
+    console.log(`[CRON] Processing batch ${batchNumber}/${totalBatches}`);
+    
+    // Process batch in parallel
+    const batchPromises = batch.map(async ([key, userTasks]) => {
+      const firstTask = userTasks[0];
+      const telegramUserId = firstTask.users.telegram_id;
+      const chatId = firstTask.tasks.telegram_id;
+      
+      // Check membership once for all tasks with same user-channel
+      const { isSubscribed, error } = await checkTelegramMembership(telegramUserId, chatId);
+      
+      // Process all tasks for this user-channel combination
+      const taskResults: TaskCheckResult[] = [];
+      
+      for (const task of userTasks) {
+        const result: TaskCheckResult = {
+          user_task_id: task.id,
+          user_id: task.user_id,
+          telegram_id: telegramUserId,
+          task_id: task.task_id,
+          chat_id: chatId,
+          task_type: task.tasks.task_type,
+          reward_amount: task.tasks.attempts_reward,
+          is_subscribed: isSubscribed,
+          penalty_applied: false,
+          error
+        };
+        
+        // Apply penalty if unsubscribed
+        if (!isSubscribed && !error) {
+          const penaltyApplied = await applyPenalty(
+            task.id,
+            task.user_id,
+            task.tasks.attempts_reward
+          );
+          
+          result.penalty_applied = penaltyApplied;
+          
+          if (penaltyApplied) {
+            console.log(`[CRON] Penalty applied: User ${telegramUserId} unsubscribed from ${chatId}, deducted ${task.tasks.attempts_reward} bonus attempts`);
+          }
+        }
+        
+        taskResults.push(result);
+      }
+      
+      return taskResults;
+    });
+    
+    // Wait for batch to complete
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults.flat());
+    
+    // Delay before next batch (except for last batch)
+    if (i + CRON_CONFIG.TELEGRAM_RATE_LIMIT < entries.length) {
+      console.log(`[CRON] Waiting ${CRON_CONFIG.BATCH_DELAY_MS}ms before next batch...`);
+      await new Promise(resolve => setTimeout(resolve, CRON_CONFIG.BATCH_DELAY_MS));
+    }
+  }
+  
   return results;
 }
 
 /**
- * Apply penalties for users who are no longer members
+ * POST /api/cron/verify-telegram-tasks
+ * Verify Telegram channel/chat subscriptions and apply penalties
  */
-async function applyPenaltiesForInvalidTasks(
-  validationResults: TaskValidationResult[]
-): Promise<PenaltyResult[]> {
-  const penaltyResults: PenaltyResult[] = [];
-
-  const tasksRequiringPenalty = validationResults.filter(
-    result => !result.is_member && !result.validation_error
-  );
-
-  console.log(`[CRON] Applying penalties for ${tasksRequiringPenalty.length} invalid tasks`);
-
-  for (const task of tasksRequiringPenalty) {
-    try {
-      const penaltyResult = await applyPenaltyForTask(task);
-      penaltyResults.push(penaltyResult);
-
-      if (penaltyResult.penalty_applied) {
-        console.log(`[CRON] Penalty applied for user ${task.telegram_id}, task ${task.task_id}: -${penaltyResult.penalty_amount} bonus attempts`);
-      }
-    } catch (error) {
-      console.error(`[CRON] Error applying penalty for task ${task.user_task_id}:`, error);
-      
-      penaltyResults.push({
-        user_task_id: task.user_task_id,
-        penalty_applied: false,
-        penalty_amount: 0,
-        error: error instanceof Error ? error.message : "Unknown penalty error",
+export async function POST(request: NextRequest): Promise<NextResponse<CronResponse>> {
+  const startTime = Date.now();
+  
+  try {
+    // Verify authorization
+    const authHeader = request.headers.get("Authorization");
+    const apiKey = authHeader?.replace("Bearer ", "");
+    
+    if (!apiKey || apiKey !== CRON_CONFIG.CRON_API_KEY) {
+      console.warn("[CRON] Unauthorized attempt to access verify-telegram-tasks endpoint");
+      return NextResponse.json({
+        success: false,
+        processed_tasks: 0,
+        unsubscribed_users: 0,
+        penalties_applied: 0,
+        total_bonus_deducted: 0,
+        errors_count: 0,
+        execution_time_ms: Date.now() - startTime,
+        error: "Unauthorized access"
+      }, { status: 401 });
+    }
+    
+    console.log("[CRON] Starting Telegram subscription verification process");
+    
+    // Verify Telegram Bot Token
+    if (!CRON_CONFIG.TELEGRAM_BOT_TOKEN) {
+      throw new Error("Telegram Bot Token not configured");
+    }
+    
+    // Get tasks to verify
+    const tasksToVerify = await getTasksToVerify();
+    
+    console.log(`[CRON] Found ${tasksToVerify.length} tasks to verify`);
+    
+    if (tasksToVerify.length === 0) {
+      return NextResponse.json({
+        success: true,
+        processed_tasks: 0,
+        unsubscribed_users: 0,
+        penalties_applied: 0,
+        total_bonus_deducted: 0,
+        errors_count: 0,
+        execution_time_ms: Date.now() - startTime
       });
     }
-  }
-
-  validationResults
-    .filter(result => result.is_member || result.validation_error)
-    .forEach(task => {
-      penaltyResults.push({
-        user_task_id: task.user_task_id,
-        penalty_applied: false,
-        penalty_amount: 0,
-      });
-    });
-
-  return penaltyResults;
-}
-
-/**
- * Apply penalty for a single invalid task
- */
-async function applyPenaltyForTask(task: TaskValidationResult): Promise<PenaltyResult> {
-  try {
-    console.log(`[CRON] Applying penalty for user ${task.telegram_id}, removing ${task.reward_amount} bonus attempts`);
-
-    const { error } = await supabaseServer.rpc('apply_task_validation_penalty', {
-      p_user_id: task.user_id,
-      p_user_task_id: task.user_task_id,
-      p_penalty_amount: task.reward_amount
-    });
-
-    if (error) {
-      console.error(`[CRON] Database error applying penalty:`, error);
-      throw error;
-    }
-
-    return {
-      user_task_id: task.user_task_id,
-      penalty_applied: true,
-      penalty_amount: task.reward_amount,
-    };
-
-  } catch (error) {
-    console.error(`[CRON] Error in applyPenaltyForTask:`, error);
     
-    return {
-      user_task_id: task.user_task_id,
-      penalty_applied: false,
-      penalty_amount: 0,
-      error: error instanceof Error ? error.message : "Unknown error",
+    // Process tasks with rate limiting
+    const results = await processTaskBatches(tasksToVerify);
+    
+    // Calculate statistics
+    const stats = {
+      processed_tasks: results.length,
+      unsubscribed_users: results.filter(r => !r.is_subscribed && !r.error).length,
+      penalties_applied: results.filter(r => r.penalty_applied).length,
+      total_bonus_deducted: results
+        .filter(r => r.penalty_applied)
+        .reduce((sum, r) => sum + r.reward_amount, 0),
+      errors_count: results.filter(r => r.error).length,
+      checked_users: new Set(results.map(r => r.telegram_id)).size,
+      telegram_channels_checked: results.filter(r => r.task_type === 'telegram_channel').length,
+      telegram_chats_checked: results.filter(r => r.task_type === 'telegram_chat').length,
+      api_errors: results.filter(r => r.error?.includes('API')).length
     };
-  }
-}
-
-/**
- * Validate Telegram channel/chat membership
- */
-async function validateTelegramMembership(
-  telegramUserId: number,
-  chatId: number
-): Promise<{ is_member: boolean; error?: string }> {
-  try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${VALIDATION_CONFIG.TELEGRAM_BOT_TOKEN}/getChatMember?chat_id=${chatId}&user_id=${telegramUserId}`
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error(`[CRON] Telegram API error for user ${telegramUserId}, chat ${chatId}:`, errorData);
-
-      if (errorData.error_code === 400) {
-        return { is_member: false, error: "User not found in chat" };
+    
+    const executionTime = Date.now() - startTime;
+    
+    console.log(`[CRON] Verification completed in ${executionTime}ms`);
+    console.log(`[CRON] Stats:`, stats);
+    
+    return NextResponse.json({
+      success: true,
+      processed_tasks: stats.processed_tasks,
+      unsubscribed_users: stats.unsubscribed_users,
+      penalties_applied: stats.penalties_applied,
+      total_bonus_deducted: stats.total_bonus_deducted,
+      errors_count: stats.errors_count,
+      execution_time_ms: executionTime,
+      details: {
+        checked_users: stats.checked_users,
+        telegram_channels_checked: stats.telegram_channels_checked,
+        telegram_chats_checked: stats.telegram_chats_checked,
+        api_errors: stats.api_errors
       }
-
-      throw new Error(`Telegram API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.ok) {
-      return { 
-        is_member: false, 
-        error: data.description || "Telegram verification failed" 
-      };
-    }
-
-    const memberStatus = data.result.status;
-    const isMember = ["creator", "administrator", "member"].includes(memberStatus);
-
-    return { is_member: isMember };
-
-  } catch (error) {
-    console.error(`[CRON] Error validating membership for user ${telegramUserId}:`, error);
+    });
     
-    return {
-      is_member: true, // Default to member if validation fails to avoid false penalties
-      error: error instanceof Error ? error.message : "Validation failed",
-    };
+  } catch (error) {
+    console.error("[CRON] Error in Telegram subscription verification:", error);
+    
+    const executionTime = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    return NextResponse.json({
+      success: false,
+      processed_tasks: 0,
+      unsubscribed_users: 0,
+      penalties_applied: 0,
+      total_bonus_deducted: 0,
+      errors_count: 1,
+      execution_time_ms: executionTime,
+      error: errorMessage
+    }, { status: 500 });
   }
 }
 
 /**
- * GET /api/cron/validate-tasks
- * Information about validation service for debugging
+ * GET /api/cron/verify-telegram-tasks
+ * Information endpoint for debugging
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  // Simple authorization check
   const authHeader = request.headers.get("Authorization");
   const apiKey = authHeader?.replace("Bearer ", "");
-
-  if (!apiKey || apiKey !== VALIDATION_CONFIG.CRON_API_KEY) {
+  
+  if (!apiKey || apiKey !== CRON_CONFIG.CRON_API_KEY) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
+  
+  // Get current statistics
+  const { data: pendingTasks } = await supabaseServer
+    .from("user_tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "rewarded")
+    .eq("penalty_applied", false)
+    .in("tasks.task_type", ["telegram_channel", "telegram_chat"]);
+  
+  const { data: appliedPenalties } = await supabaseServer
+    .from("user_tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("penalty_applied", true);
+  
   return NextResponse.json({
     config: {
-      max_tasks_per_run: VALIDATION_CONFIG.MAX_TASKS_PER_RUN,
-      execution_timeout: VALIDATION_CONFIG.EXECUTION_TIMEOUT,
-      parallel_batch_size: VALIDATION_CONFIG.PARALLEL_BATCH_SIZE,
+      telegram_rate_limit: CRON_CONFIG.TELEGRAM_RATE_LIMIT,
+      batch_delay_ms: CRON_CONFIG.BATCH_DELAY_MS,
+      max_users_per_run: CRON_CONFIG.MAX_USERS_PER_RUN,
+      execution_timeout: CRON_CONFIG.EXECUTION_TIMEOUT
     },
-    status: "Task validation service is active with optimized parallel processing",
-    description: "Validates Telegram memberships without rate limiting since no notifications are sent",
-    next_execution_url: `${request.nextUrl.origin}/api/cron/validate-tasks`,
+    statistics: {
+      pending_verifications: pendingTasks || 0,
+      total_penalties_applied: appliedPenalties || 0
+    },
+    status: "Telegram subscription verification CRON endpoint is active",
+    next_execution_url: `${request.nextUrl.origin}/api/cron/validate-tasks`
   });
 }
