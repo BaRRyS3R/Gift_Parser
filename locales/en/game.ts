@@ -87,17 +87,17 @@ export const game = {
       difficulty: "Extreme",
       duration: "Until failure",
       objective:
-        "Click on the white ones. Click click click, faster, even faster! Oops, you lost.",
+        "Click on the white circles. Missed? Game over",
       features: [
-        "There are levels here",
-        "There are many targets",
-        "Trap circles (red) (not white)",
-        "Make a mistake - lose. As always.",
+        "There are levels",
+        "Many targets",
+        "Red circles are traps. Stay away from them",
+        "One mistake and it’s over",
       ],
       rules: [
         "Click only on white circles",
-        "Don't click on red ones, as in other modes",
-        "If you don't have time to click - trouble, sadness((",
+        "Red circles are traps. Don’t touch them.",
+        "Too slow? You lose.",
       ],
       instructions: {
         oneMistakeDeath: "ONE MISTAKE = DEATH",
@@ -130,8 +130,8 @@ export const game = {
       deathCauses: {
         miss: "Circle faded. And you.. )) No negativity.",
         wrongClick:
-          "Where are you clicking? Circle isn't active yet. Failed even here.",
-        decoyHit: "Two colors. Red and white. Guess where you clicked?!",
+          "Too early. The circle wasn’t active.",
+        decoyHit: "Two colors: red and white. Why did you go for the red?",
         default: "Survival ended",
       },
       levels: {
@@ -194,7 +194,7 @@ export const game = {
         redirecting: "Redirecting...",
       },
       deathCauses: {
-        mistakes: "So many mistakes... Just like your life.",
+        mistakes: "Too many mistakes. Quite a collection.",
         escapedCircles: "Circles escaped the container. Getting away from you.",
         timeout: "Time's up. No idea how, since it's infinite.",
         default: "Totally owned physics. Well done.",
@@ -249,10 +249,10 @@ export const game = {
         redirecting: "Redirecting...",
       },
       deathCauses: {
-        miss: "Circle disappeared while you were thinking where to click. Slow reflexes.",
+        miss: "The circle disappeared while you were aiming. Took too long.",
         wrongClick:
-          "Clicked past the active circle. Got too dizzy, apparently.",
-        decoyHit: "Red circle! Red means stop! Basic concepts, duh.",
+          "Clicked past the active circle. Guess you got dizzy.",
+        decoyHit: "Red circle! Red means stop! Basic concept.",
         default: "Rotation stopped. Hope you didn't get sick.",
       },
       levels: {

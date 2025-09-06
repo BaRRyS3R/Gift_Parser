@@ -970,7 +970,7 @@ export default function RotationGameManager() {
                 {t("game.modes.rotation.results.levelsCompleted")}
               </div>
               <div className="text-xl font-bold text-yellow-400">
-                {gameResult.maxLevelReached}/10
+                {gameResult.maxLevelReached}
               </div>
             </div>
           </div>

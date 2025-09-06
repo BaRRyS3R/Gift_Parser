@@ -108,7 +108,7 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     initialActivationTimeMax: 3500,
     circleActiveTime: 3000,
     impulseForce: 0.08,
-    maxMistakes: 5, // Maximum 5 mistakes
+    maxMistakes: 1, // Maximum 5 mistakes
     levelDuration: 360, // 3 minutes
   };
 };

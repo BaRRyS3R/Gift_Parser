@@ -1051,7 +1051,7 @@ export default function SurvivalGameManager() {
                 {t("game.modes.survival.results.levelsCompleted")}
               </div>
               <div className="text-xl font-bold text-yellow-400">
-                {gameResult.maxLevelReached}/15
+                {gameResult.maxLevelReached}
               </div>
             </div>
           </div>

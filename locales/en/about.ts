@@ -18,7 +18,7 @@ export const about = {
     survival: {
       name: "Survival",
       description:
-        "15 levels where one mistake sends you to digital oblivion. Like Dark Souls, just without graphics.",
+        "One mistake sends you to digital oblivion. Like Dark Souls, just without graphics.",
     },
     physics: {
       name: "Physics",
@@ -33,7 +33,7 @@ export const about = {
   monetization: {
     title: "How We Profit Off You",
     description:
-      "10 attempts every 2 hours - just enough to understand that you are hopeless. Wait 2 hours or pay - your choice between patience and humiliation.",
+      "Attempts restoring every 2 hours - just enough to understand that you are hopeless. Wait 2 hours or pay - your choice between patience and humiliation.",
     details:
       "Want more suffering? Invite friends — a great way to score free attempts. Or buy tries for Telegram Stars: we're already eyeing a new ride.",
   },
