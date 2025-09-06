@@ -91,11 +91,23 @@ export async function POST(
     }
 
     const tasksToProcess = tasksToValidate.slice(0, VALIDATION_CONFIG.MAX_TASKS_PER_RUN);
+    console.log(`[CRON] Task processing decision: ${tasksToValidate.length} found, ${tasksToProcess.length} will be processed (limit: ${VALIDATION_CONFIG.MAX_TASKS_PER_RUN})`);
 
+    if (tasksToProcess.length !== tasksToValidate.length) {
+      console.warn(`[CRON] WARNING: Processing limit reached. ${tasksToValidate.length - tasksToProcess.length} tasks will be deferred to next execution`);
+    }
+
+    console.log(`[CRON] === STARTING VALIDATION PHASE ===`);
     const validationResults = await validateTasksInParallel(tasksToProcess);
+    console.log(`[CRON] === VALIDATION PHASE COMPLETED ===`);
+    console.log(`[CRON] Validation results count: ${validationResults.length}`);
 
+    console.log(`[CRON] === STARTING PENALTY PHASE ===`);
     const penaltyResults = await applyPenaltiesForInvalidTasks(validationResults);
+    console.log(`[CRON] === PENALTY PHASE COMPLETED ===`);
+    console.log(`[CRON] Penalty results count: ${penaltyResults.length}`);
 
+    // Calculate detailed statistics
     const totalValidated = validationResults.length;
     const totalPenalties = penaltyResults.filter(r => r.penalty_applied).length;
     const totalPenaltyAmount = penaltyResults
@@ -105,17 +117,31 @@ export async function POST(
 
     const executionTime = Date.now() - startTime;
 
-    console.log(`[CRON] Validation completed: ${totalValidated} tasks validated, ${totalPenalties} penalties applied`);
-    console.log(`[CRON] Total penalty amount: ${totalPenaltyAmount} bonus attempts removed`);
+    console.log(`[CRON] === FINAL EXECUTION STATISTICS ===`);
+    console.log(`[CRON] Execution time: ${executionTime}ms`);
+    console.log(`[CRON] Tasks found for validation: ${tasksToValidate.length}`);
+    console.log(`[CRON] Tasks actually processed: ${tasksToProcess.length}`);
+    console.log(`[CRON] Validation results generated: ${totalValidated}`);
+    console.log(`[CRON] Successful validations: ${validationResults.filter(r => !r.validation_error).length}`);
+    console.log(`[CRON] Failed validations: ${failedValidations}`);
+    console.log(`[CRON] Users still members: ${validationResults.filter(r => r.is_member && !r.validation_error).length}`);
+    console.log(`[CRON] Users no longer members: ${validationResults.filter(r => !r.is_member && !r.validation_error).length}`);
+    console.log(`[CRON] Penalties applied: ${totalPenalties}`);
+    console.log(`[CRON] Total bonus attempts removed: ${totalPenaltyAmount}`);
+    console.log(`[CRON] Failed penalty applications: ${penaltyResults.filter(r => !r.penalty_applied && r.error).length}`);
+    console.log(`[CRON] === END STATISTICS ===`);
 
-    return NextResponse.json({
+    const responsePayload = {
       success: true,
       validated_tasks: totalValidated,
       penalties_applied: totalPenalties,
       total_penalty_amount: totalPenaltyAmount,
       failed_validations: failedValidations,
       execution_time_ms: executionTime,
-    });
+    };
+
+    console.log(`[CRON] Returning success response:`, JSON.stringify(responsePayload, null, 2));
+    return NextResponse.json(responsePayload);
 
   } catch (error) {
     console.error("[CRON] Error in tasks validation:", error);
