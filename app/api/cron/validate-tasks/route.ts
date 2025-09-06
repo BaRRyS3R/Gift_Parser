@@ -186,17 +186,17 @@ async function validateTasksInParallel(tasks: any[]): Promise<TaskValidationResu
     const batchPromises = batch.map(async (task) => {
       try {
         const membershipResult = await validateTelegramMembership(
-          task.users.telegram_id,
-          task.tasks.telegram_id
+          task.user_telegram_id,
+          task.chat_id
         );
 
         return {
           user_task_id: task.id,
           user_id: task.user_id,
-          telegram_id: task.users.telegram_id,
+          telegram_id: task.user_telegram_id,
           task_id: task.task_id,
-          chat_id: task.tasks.telegram_id,
-          reward_amount: task.tasks.attempts_reward,
+          chat_id: task.chat_id,
+          reward_amount: task.attempts_reward,
           is_member: membershipResult.is_member,
           penalty_applied: false,
           validation_error: membershipResult.error,
@@ -207,10 +207,10 @@ async function validateTasksInParallel(tasks: any[]): Promise<TaskValidationResu
         return {
           user_task_id: task.id,
           user_id: task.user_id,
-          telegram_id: task.users.telegram_id,
+          telegram_id: task.user_telegram_id,
           task_id: task.task_id,
-          chat_id: task.tasks.telegram_id,
-          reward_amount: task.tasks.attempts_reward,
+          chat_id: task.chat_id,
+          reward_amount: task.attempts_reward,
           is_member: true, // Assume member if validation fails
           penalty_applied: false,
           validation_error: error instanceof Error ? error.message : "Unknown validation error",
