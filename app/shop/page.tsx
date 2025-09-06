@@ -78,14 +78,18 @@ export default function ShopPage() {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
+      // Store the handler function reference
+      const handleBackButton = () => {
         router.push("/main");
-      });
+      };
+
+      tg.BackButton.show();
+      tg.BackButton.onClick(handleBackButton);
 
       return () => {
+        // Use the same handler reference for cleanup
+        tg.BackButton.offClick(handleBackButton);
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -169,9 +173,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-          attempts: attemptsText,
-          plural: plural,
-        });
+        attempts: attemptsText,
+        plural: plural,
+      });
 
     setSuccessNotification({
       show: true,
