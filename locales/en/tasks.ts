@@ -1,4 +1,4 @@
-// src/locales/en/tasks.ts - Updated with differentiated reward system
+// src/locales/en/tasks.ts - Updated with differentiated reward system and subscription verification warning
 
 export const tasks = {
   // Main elements
@@ -162,6 +162,16 @@ export const tasks = {
       icon: "🔄",
       advantage: "Permanent advantage with every restoration",
       formula: "Restoration = 10 base + your bonus",
+    },
+
+    // NEW: Important notice about subscription verification
+    importantNotice: {
+      title: "Important Notice",
+      telegramWarning: "Telegram Subscription Terms",
+      periodicCheck: "We periodically verify that you remain subscribed to Telegram channels and chats",
+      unsubscribePenalty: "If you unsubscribe, your restore bonus will be permanently removed",
+      noRecovery: "Once removed, the same bonus cannot be earned again from that channel",
+      staySubscribed: "Stay subscribed to keep your restore bonus active!",
     },
 
     comparison: {

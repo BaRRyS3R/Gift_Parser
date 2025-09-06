@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Zap, RotateCcw, Info, ArrowRight } from "lucide-react";
+import { Zap, RotateCcw, Info, ArrowRight, AlertTriangle } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -90,16 +90,6 @@ const BonusAttemptsInfoModal: React.FC<BonusAttemptsInfoModalProps> = ({
                   {t("tasks.bonusInfo.modalTitle")}
                 </h2>
               </div>
-              <button
-                className="w-8 h-8 border border-white/40 bg-white/5 hover:bg-white/10 transition-all duration-300 flex items-center justify-center"
-                style={{
-                  clipPath:
-                    "polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)",
-                }}
-                onClick={onClose}
-              >
-                <X className="text-white" size={14} />
-              </button>
             </div>
             <p className="text-white/70 text-sm mt-2 font-mono tracking-wider">
               {t("tasks.bonusInfo.modalSubtitle")}
@@ -129,7 +119,7 @@ const BonusAttemptsInfoModal: React.FC<BonusAttemptsInfoModalProps> = ({
                   </p>
                   <div className="bg-yellow-500/10 border border-yellow-400/20 p-3 rounded">
                     <p className="text-yellow-300 text-sm font-mono">
-                      ✓ {t("tasks.bonusInfo.instantAttempts.advantage")}
+                      ✔ {t("tasks.bonusInfo.instantAttempts.advantage")}
                     </p>
                   </div>
                 </div>
@@ -158,12 +148,52 @@ const BonusAttemptsInfoModal: React.FC<BonusAttemptsInfoModalProps> = ({
                   </p>
                   <div className="bg-blue-500/10 border border-blue-400/20 p-3 rounded">
                     <p className="text-blue-300 text-sm font-mono mb-2">
-                      ✓ {t("tasks.bonusInfo.restoreBonus.advantage")}
+                      ✔ {t("tasks.bonusInfo.restoreBonus.advantage")}
                     </p>
                     <p className="text-blue-200 text-xs font-mono">
-                      📝 {t("tasks.bonusInfo.restoreBonus.formula")}
+                      📊 {t("tasks.bonusInfo.restoreBonus.formula")}
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+              {/* Important Notice Section - NEW */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-8 h-8 bg-red-500/20 border border-red-400/40 flex items-center justify-center rounded">
+                    <AlertTriangle className="text-red-400" size={16} />
+                  </div>
+                  <h3 className="font-mono text-lg tracking-wider text-red-400">
+                    {t("tasks.bonusInfo.importantNotice.title")}
+                  </h3>
+                </div>
+                
+                <div className="pl-11 space-y-3">
+                  <div className="bg-red-500/10 border border-red-400/20 p-4 rounded">
+                    <p className="text-red-300 text-sm font-mono mb-3">
+                      ⚠️ {t("tasks.bonusInfo.importantNotice.telegramWarning")}
+                    </p>
+                    <ul className="space-y-2 text-red-200 text-xs">
+                      <li className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{t("tasks.bonusInfo.importantNotice.periodicCheck")}</span>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{t("tasks.bonusInfo.importantNotice.unsubscribePenalty")}</span>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{t("tasks.bonusInfo.importantNotice.noRecovery")}</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <p className="text-white/60 text-xs italic">
+                    {t("tasks.bonusInfo.importantNotice.staySubscribed")}
+                  </p>
                 </div>
               </div>
 

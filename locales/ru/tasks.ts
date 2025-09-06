@@ -1,4 +1,4 @@
-// src/locales/ru/tasks.ts - Updated with differentiated reward system
+// src/locales/ru/tasks.ts - Updated with differentiated reward system and subscription verification warning
 
 export const tasks = {
   // Основные элементы
@@ -162,6 +162,16 @@ export const tasks = {
       icon: "🔄",
       advantage: "Постоянное преимущество при каждом восстановлении",
       formula: "Восстановление = 10 базовых + ваш бонус",
+    },
+
+    // НОВОЕ: Важное предупреждение о проверке подписок
+    importantNotice: {
+      title: "Важное предупреждение",
+      telegramWarning: "Условия подписки Telegram",
+      periodicCheck: "Мы периодически проверяем, что вы остаетесь подписанными на Telegram каналы и чаты",
+      unsubscribePenalty: "При отписке ваш бонус восстановления будет безвозвратно удален",
+      noRecovery: "После удаления тот же бонус нельзя будет получить повторно от этого канала",
+      staySubscribed: "Оставайтесь подписанными, чтобы сохранить свой бонус восстановления!",
     },
 
     comparison: {
