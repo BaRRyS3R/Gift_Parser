@@ -73,27 +73,6 @@ export default function ShopPage() {
     }
   }, [purchaseModule.error, purchaseModule.clearError]);
 
-  // Setup Telegram WebApp back button
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      // Store the handler function reference
-      const handleBackButton = () => {
-        router.push("/main");
-      };
-
-      tg.BackButton.show();
-      tg.BackButton.onClick(handleBackButton);
-
-      return () => {
-        // Use the same handler reference for cleanup
-        tg.BackButton.offClick(handleBackButton);
-        tg.BackButton.hide();
-      };
-    }
-  }, [router]);
-
   // Cleanup easter egg timeout on unmount
   useEffect(() => {
     return () => {

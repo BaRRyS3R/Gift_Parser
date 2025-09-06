@@ -106,23 +106,6 @@ export default function TasksPage() {
     }
   }, [tasksModule.error, tasksModule.clearError]);
 
-  // Setup Telegram WebApp back button
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
-        router.push("/main");
-      });
-
-      return () => {
-        tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
-      };
-    }
-  }, [router]);
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {

@@ -297,14 +297,18 @@ export default function RotationGameManager() {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
+      // Store the handler function reference
+      const handleBackButton = () => {
         router.push("/game");
-      });
+      };
+
+      tg.BackButton.show();
+      tg.BackButton.onClick(handleBackButton);
 
       return () => {
+        // Use the same handler reference for cleanup
+        tg.BackButton.offClick(handleBackButton);
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -1078,8 +1082,8 @@ export default function RotationGameManager() {
                   )}
                   <span
                     className={`text-sm font-bold ${playAgainError.isSessionError
-                        ? "text-orange-400"
-                        : "text-red-400"
+                      ? "text-orange-400"
+                      : "text-red-400"
                       }`}
                   >
                     {t("game.modes.rotation.playAgain.cannotPlay")}
@@ -1107,8 +1111,8 @@ export default function RotationGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
-                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                  : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
+                ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
                 }`}
               disabled={
                 isPlayingAgain || playAgainError.show || saveStatus.isLoading
