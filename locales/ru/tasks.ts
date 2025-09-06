@@ -2,14 +2,14 @@
 
 export const tasks = {
   // Основные элементы
-  title: "ЗАДАНИЯ",
+  title: "TASKS",
   subtitle: "Выполняйте задания для получения наград",
   loading: "Загрузка заданий...",
   refresh: "Обновить",
 
   // Состояния кнопок и действия
   start: "НАЧАТЬ",
-  checking: "ПРОВЕРИТЬ",
+  checking: "ПРОВЕРЯЕМ",
   claim: "ПОЛУЧИТЬ",
   completed: "ВЫПОЛНЕНО",
   subscribe: "ПОДПИСАТЬСЯ",
@@ -45,6 +45,19 @@ export const tasks = {
     available: "Доступные",
     pending: "В ожидании",
     finished: "Завершенные",
+    readyToClaim: "Готово к получению", // НОВОЕ: Для приоритетной секции
+  },
+
+  // НОВОЕ: Расширенная система бейджей
+  badges: {
+    telegram: "Telegram",
+    twitter: "Twitter",
+    website: "Веб-сайт",
+    social: "Соцсети",
+    verification: "Авто-проверка",
+    trust: "На доверии",
+    attempts: "Попытки", // НОВОЕ: Для бейджа награды попыток
+    restoreBonus: "Восстановление", // НОВОЕ: Для бейджа бонуса восстановления
   },
 
   // Типы заданий с описанием действий
@@ -90,8 +103,10 @@ export const tasks = {
     taskCompleted: "Задание выполнено!",
     taskCompletedMessage: "Отлично! Вы выполнили: {title}",
     rewardClaimed: "Награда получена!",
+    rewardClaimedMessage: "Вы заработали +{count} попыток за {title}!",
+    // НОВОЕ: Расширенные сообщения о наградах
     attemptsRewardClaimedMessage: "Вы заработали +{count} попыток за {title}!",
-    restoreBonusRewardClaimedMessage: "Вы получили +{count} к восстановлению попыток за {title}!",
+    restoreBonusRewardClaimedMessage: "Вы заработали +{count} бонус восстановления за {title}!",
     subscriptionVerified: "Подписка успешно подтверждена",
     actionCompleted: "Действие успешно выполнено",
   },
@@ -131,7 +146,7 @@ export const tasks = {
   bonusInfo: {
     modalTitle: "Система бонусных попыток",
     modalSubtitle: "Как работают разные типы наград",
-    
+
     instantAttempts: {
       title: "Мгновенные попытки",
       description: "Добавляются сразу к вашему текущему счетчику попыток",
@@ -139,7 +154,7 @@ export const tasks = {
       icon: "⚡",
       advantage: "Можно использовать немедленно",
     },
-    
+
     restoreBonus: {
       title: "Бонус к восстановлению",
       description: "Увеличивает количество попыток при их автоматическом восстановлении",
@@ -148,14 +163,14 @@ export const tasks = {
       advantage: "Постоянное преимущество при каждом восстановлении",
       formula: "Восстановление = 10 базовых + ваш бонус",
     },
-    
+
     comparison: {
       title: "Сравнение",
       instant: "Мгновенные: разовое использование",
       restore: "Восстановление: долгосрочное преимущество",
       strategy: "Комбинируйте оба типа для максимальной эффективности",
     },
-    
+
     example: {
       title: "Пример",
       scenario: "У вас +5 к восстановлению:",
@@ -163,7 +178,7 @@ export const tasks = {
       after: "С бонусом: 15 попыток",
       benefit: "На 50% больше попыток при каждом восстановлении!",
     },
-    
+
     close: "Понятно",
   },
 

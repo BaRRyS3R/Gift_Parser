@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Updated with differentiated reward system
+// src/app/tasks/page.tsx - Updated with task sections and reward type badges
 
 "use client";
 
@@ -126,6 +126,21 @@ export default function TasksPage() {
       }
     };
   }, []);
+
+  // NEW: Group tasks by status
+  const groupedTasks = React.useMemo(() => {
+    const available = tasksModule.tasks.filter(task => 
+      task.user_status === TaskStatus.NOT_STARTED || task.user_status === TaskStatus.STARTED
+    );
+    const readyToClaim = tasksModule.tasks.filter(task => 
+      task.user_status === TaskStatus.COMPLETED
+    );
+    const completed = tasksModule.tasks.filter(task => 
+      task.user_status === TaskStatus.REWARDED
+    );
+
+    return { available, readyToClaim, completed };
+  }, [tasksModule.tasks]);
 
   const handleTaskAction = async (
     task: TaskWithStatus,
@@ -287,40 +302,50 @@ export default function TasksPage() {
     };
   };
 
-  const getTaskBadge = (task: TaskWithStatus) => {
-    if (isTaskRewarded(task)) {
-      return { text: t("tasks.completed"), color: "success" };
-    }
-    if (canClaimReward(task)) {
-      return { text: t("tasks.readyToClaim"), color: "warning" };
-    }
-    if (task.user_status === TaskStatus.STARTED) {
-      const timer = tasksModule.getTaskTimer(task.task_id);
-
-      // During timer countdown, show "checking" status, not the timer
-      if (timer > 0) {
-        return { text: t("tasks.checking"), color: "primary" };
-      }
-
-      return { text: t("tasks.checking"), color: "primary" };
-    }
-
-    return null;
-  };
-
-  // NEW: Get reward display info for a task
-  const getRewardInfo = (task: TaskWithStatus) => {
+  // NEW: Get reward badge for display in first row
+  const getRewardBadge = (task: TaskWithStatus) => {
     const rewardType = getTaskRewardType(task.task_type as TaskType);
     const isRestoreBonus = rewardType === RewardType.RESTORE_BONUS;
     
     return {
-      icon: isRestoreBonus ? <RestoreIcon size={16} /> : <Zap size={16} />,
-      text: isRestoreBonus 
-        ? t("tasks.rewards.restoreBonusReward", { count: task.attempts_reward })
-        : t("tasks.rewards.attemptsReward", { count: task.attempts_reward }),
-      color: isRestoreBonus ? "text-blue-400" : "text-yellow-400",
-      bgColor: isRestoreBonus ? "text-blue-400" : "text-yellow-400",
+      icon: isRestoreBonus ? <RestoreIcon size={12} /> : <Zap size={12} />,
+      text: isRestoreBonus ? t("tasks.badges.restoreBonus") : t("tasks.badges.attempts"),
+      className: isRestoreBonus 
+        ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
+        : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
     };
+  };
+
+  // NEW: Render task section
+  const renderTaskSection = (title: string, tasks: TaskWithStatus[], sectionKey: string) => {
+    if (tasks.length === 0) return null;
+
+    return (
+      <div className="space-y-4 mb-8">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white uppercase tracking-wider">
+            {title}
+          </h2>
+          <span className="text-white/50 text-sm">
+            {tasks.length}
+          </span>
+        </div>
+        <div className="space-y-3">
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.task_id}
+              getBackgroundIcon={getBackgroundIcon}
+              getTaskButton={getTaskButton}
+              getTaskIcon={getTaskIcon}
+              getRewardBadge={getRewardBadge}
+              t={t}
+              task={task}
+              onAction={handleTaskAction}
+            />
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -436,22 +461,29 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Tasks list - single list without categorization */}
+      {/* Tasks sections - NEW: Organized by status */}
       {!tasksModule.isLoading && tasksModule.tasks.length > 0 && (
-        <div className="max-w-2xl mx-auto space-y-4">
-          {tasksModule.tasks.map((task) => (
-            <TaskCard
-              key={task.task_id}
-              getBackgroundIcon={getBackgroundIcon}
-              getTaskBadge={getTaskBadge}
-              getTaskButton={getTaskButton}
-              getTaskIcon={getTaskIcon}
-              getRewardInfo={getRewardInfo}
-              t={t}
-              task={task}
-              onAction={handleTaskAction}
-            />
-          ))}
+        <div className="max-w-2xl mx-auto">
+          {/* Ready to Claim section (highest priority) */}
+          {renderTaskSection(
+            t("tasks.sections.readyToClaim"),
+            groupedTasks.readyToClaim,
+            "readyToClaim"
+          )}
+
+          {/* Available Tasks section */}
+          {renderTaskSection(
+            t("tasks.sections.available"),
+            groupedTasks.available,
+            "available"
+          )}
+
+          {/* Completed Tasks section */}
+          {renderTaskSection(
+            t("tasks.sections.completed"),
+            groupedTasks.completed,
+            "completed"
+          )}
         </div>
       )}
 
@@ -492,8 +524,7 @@ interface TaskCardProps {
   getTaskIcon: (taskType: TaskType) => React.ReactNode;
   getBackgroundIcon: (taskType: TaskType) => React.ReactNode;
   getTaskButton: (task: TaskWithStatus) => any;
-  getTaskBadge: (task: TaskWithStatus) => any;
-  getRewardInfo: (task: TaskWithStatus) => any;
+  getRewardBadge: (task: TaskWithStatus) => any; // NEW: Added reward badge prop
   t: any;
 }
 
@@ -503,14 +534,16 @@ function TaskCard({
   getTaskIcon,
   getBackgroundIcon,
   getTaskButton,
-  getTaskBadge,
-  getRewardInfo,
+  getRewardBadge, // NEW: Added reward badge prop
   t,
 }: TaskCardProps) {
   const button = getTaskButton(task);
   const taskIcon = getTaskIcon(task.task_type as TaskType);
   const backgroundIcon = getBackgroundIcon(task.task_type as TaskType);
 
+  // NEW: Get reward badge info
+  const rewardBadge = getRewardBadge(task);
+  
   // Determine reward type and get task type name
   const rewardType = getTaskRewardType(task.task_type as TaskType);
   const isRestoreBonus = rewardType === RewardType.RESTORE_BONUS;
@@ -545,19 +578,24 @@ function TaskCard({
       <CardBody className="p-4 relative z-10">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            {/* First row: Icon | Task name | Task type badge */}
+            {/* UPDATED: First row with reward type badge */}
             <div className="flex items-center space-x-3 mb-2">
               {taskIcon}
               <h3 className="font-bold text-white truncate flex-1">
                 {task.title}
               </h3>
+              {/* NEW: Reward type badge */}
               <Chip
-                className={`
-                  ${isRestoreBonus 
-                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
-                    : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                  }
-                `}
+                className={rewardBadge.className}
+                size="sm"
+                startContent={rewardBadge.icon}
+                variant="flat"
+              >
+                {rewardBadge.text}
+              </Chip>
+              {/* Task type badge */}
+              <Chip
+                className="bg-white/10 text-white/80 border border-white/20"
                 size="sm"
                 variant="flat"
               >
@@ -568,7 +606,7 @@ function TaskCard({
             {/* Second row: Task description */}
             <p className="text-white/70 text-sm mb-3">{task.description}</p>
 
-            {/* Third row: Reward amount (no icon, no text) and Action button */}
+            {/* Third row: Reward amount and Action button */}
             <div className="flex items-center justify-between">
               <div className={`${isRestoreBonus ? "text-blue-400" : "text-yellow-400"} font-bold text-lg`}>
                 +{task.attempts_reward}

@@ -42,9 +42,10 @@ export const tasks = {
     active: "Active Tasks",
     completed: "Completed Tasks",
     all: "All Tasks",
-    available: "Available",
+    available: "Available Tasks",
     pending: "Pending",
     finished: "Finished",
+    readyToClaim: "Ready to Claim", // NEW: Added for priority section
   },
 
   // Task types with action descriptions
@@ -54,6 +55,18 @@ export const tasks = {
     twitter_follow: "Follow Account",
     twitter_repost: "Repost Tweet",
     website_visit: "Visit Website",
+  },
+
+  // NEW: Enhanced badges system
+  badges: {
+    telegram: "Telegram",
+    twitter: "Twitter",
+    website: "Website",
+    social: "Social",
+    verification: "Auto-verify",
+    trust: "Trust-based",
+    attempts: "Attempts", // NEW: For attempts reward badge
+    restoreBonus: "Restore", // NEW: For restore bonus reward badge
   },
 
   // Action buttons for different task types
@@ -90,8 +103,10 @@ export const tasks = {
     taskCompleted: "Task Completed!",
     taskCompletedMessage: "Great job! You completed: {title}",
     rewardClaimed: "Reward Claimed!",
+    rewardClaimedMessage: "You earned +{count} attempts from {title}!",
+    // NEW: Enhanced reward messages
     attemptsRewardClaimedMessage: "You earned +{count} attempts from {title}!",
-    restoreBonusRewardClaimedMessage: "You gained +{count} restore bonus from {title}!",
+    restoreBonusRewardClaimedMessage: "You earned +{count} restore bonus from {title}!",
     subscriptionVerified: "Subscription verified successfully",
     actionCompleted: "Action completed successfully",
   },
@@ -131,7 +146,7 @@ export const tasks = {
   bonusInfo: {
     modalTitle: "Bonus Attempts System",
     modalSubtitle: "How different reward types work",
-    
+
     instantAttempts: {
       title: "Instant Attempts",
       description: "Added immediately to your current attempts counter",
@@ -139,7 +154,7 @@ export const tasks = {
       icon: "⚡",
       advantage: "Can be used immediately",
     },
-    
+
     restoreBonus: {
       title: "Restore Bonus",
       description: "Increases the number of attempts when they are automatically restored",
@@ -148,14 +163,14 @@ export const tasks = {
       advantage: "Permanent advantage with every restoration",
       formula: "Restoration = 10 base + your bonus",
     },
-    
+
     comparison: {
       title: "Comparison",
       instant: "Instant: one-time use",
       restore: "Restore: long-term advantage",
       strategy: "Combine both types for maximum efficiency",
     },
-    
+
     example: {
       title: "Example",
       scenario: "You have +5 restore bonus:",
@@ -163,7 +178,7 @@ export const tasks = {
       after: "With bonus: 15 attempts",
       benefit: "50% more attempts with every restoration!",
     },
-    
+
     close: "Got it",
   },
 
