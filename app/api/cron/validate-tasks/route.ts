@@ -425,30 +425,42 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
   
   // Get current statistics
-  const { data: pendingTasks } = await supabaseServer
+  const { data: pendingTasks, count: pendingCount } = await supabaseServer
     .from("user_tasks")
     .select("id", { count: "exact", head: true })
     .eq("status", "rewarded")
     .eq("penalty_applied", false)
     .in("tasks.task_type", ["telegram_channel", "telegram_chat"]);
   
-  const { data: appliedPenalties } = await supabaseServer
+  const { data: appliedPenalties, count: penaltiesCount } = await supabaseServer
     .from("user_tasks")
     .select("id", { count: "exact", head: true })
     .eq("penalty_applied", true);
+  
+  // Calculate estimated processing time
+  const estimatedApiCalls = Math.min(pendingCount || 0, CRON_CONFIG.MAX_TASKS_PER_RUN);
+  const estimatedBatches = Math.ceil(estimatedApiCalls / CRON_CONFIG.TELEGRAM_RATE_LIMIT);
+  const estimatedTimeSeconds = (estimatedBatches * CRON_CONFIG.BATCH_DELAY_MS) / 1000;
   
   return NextResponse.json({
     config: {
       telegram_rate_limit: CRON_CONFIG.TELEGRAM_RATE_LIMIT,
       batch_delay_ms: CRON_CONFIG.BATCH_DELAY_MS,
-      max_users_per_run: CRON_CONFIG.MAX_USERS_PER_RUN,
-      execution_timeout: CRON_CONFIG.EXECUTION_TIMEOUT
+      max_tasks_per_run: CRON_CONFIG.MAX_TASKS_PER_RUN,
+      max_api_calls: CRON_CONFIG.MAX_API_CALLS,
+      execution_timeout_ms: CRON_CONFIG.EXECUTION_TIMEOUT_MS
     },
     statistics: {
-      pending_verifications: pendingTasks || 0,
-      total_penalties_applied: appliedPenalties || 0
+      pending_verifications: pendingCount || 0,
+      total_penalties_applied: penaltiesCount || 0,
+      estimated_processing_time_seconds: estimatedTimeSeconds,
+      runs_needed_for_all: Math.ceil((pendingCount || 0) / CRON_CONFIG.MAX_TASKS_PER_RUN)
+    },
+    recommendations: {
+      cron_frequency: "Run every 10-15 minutes for optimal processing",
+      note: "Each run processes up to 500 tasks within 25 second safety limit"
     },
     status: "Telegram subscription verification CRON endpoint is active",
-    next_execution_url: `${request.nextUrl.origin}/api/cron/validate-tasks`
+    next_execution_url: `${request.nextUrl.origin}/api/cron/verify-telegram-tasks`
   });
 }
