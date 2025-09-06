@@ -1,115 +1,23 @@
-// src/app/api/cron/restore-attempts/route.ts - Updated with bonus_restore_attempts support
+// src/app/api/cron/restore-attempts/route.ts - Simplified with English-only notifications
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseServer } from "@/lib/supabase_server";
 
-// ============================================================================
-// СИСТЕМА ЛОКАЛИЗАЦИИ ДЛЯ УВЕДОМЛЕНИЙ
-// Упрощенная логика: ru = русский язык, все остальные = английский
-// ============================================================================
+// Static English notification messages
+const NOTIFICATION_MESSAGE = (firstName: string, attemptsRestored: number) =>
+  `🎮 <b>Attempts Restored!</b>\n\nYo ${firstName}! Your game attempts have been restored.\n\n⚡ <b>+${attemptsRestored} attempts</b> are now available!\n\nGo and play, buddy!`;
 
-// Интерфейс для переводов уведомлений
-interface NotificationTranslations {
-  [key: string]: {
-    notifications: {
-      restored: {
-        fullMessage: string;
-        playButton: string;
-      };
-    };
-  };
-}
+const PLAY_BUTTON_TEXT = "🎮 Play";
 
-// Переводы для уведомлений о восстановлении попыток
-const NOTIFICATION_TRANSLATIONS: NotificationTranslations = {
-  en: {
-    notifications: {
-      restored: {
-        fullMessage:
-          "🎮 <b>Attempts Restored!</b>\n\nYo {firstName}! Your game attempts have been restored.\n\n⚡ <b>+{attemptsRestored} attempts</b> are now available!\n\nGo and play, buddy!",
-        playButton: "🎮 Play",
-      },
-    },
-  },
-  ru: {
-    notifications: {
-      restored: {
-        fullMessage:
-          "🎮 <b>Попытки восстановлены!</b>\n\nЙоу, {firstName}! Твои игровые попытки были восстановлены.\n\n⚡ <b>+{attemptsRestored} попыток</b> теперь доступно!\n\nМож это, поиграем?",
-        playButton: "🎮 Играть",
-      },
-    },
-  },
-};
-
-// Функция для получения локализованного сообщения с расширенной отладкой
-function getLocalizedMessage(
-  languageCode: string | null,
-  firstName: string,
-  attemptsRestored: number,
-): string {
-  // Добавляем детальное логирование для отладки
-  console.log(`[CRON_LOCALIZATION] Processing message for user: ${firstName}`);
-  console.log(`[CRON_LOCALIZATION] Raw language_code: "${languageCode}"`);
-  console.log(`[CRON_LOCALIZATION] Language_code type: ${typeof languageCode}`);
-  console.log(
-    `[CRON_LOCALIZATION] Language_code length: ${languageCode?.length || "null"}`,
-  );
-
-  // Безопасная нормализация языкового кода
-  const normalizedLanguageCode = languageCode?.toString().toLowerCase().trim();
-
-  console.log(
-    `[CRON_LOCALIZATION] Normalized language_code: "${normalizedLanguageCode}"`,
-  );
-
-  // Упрощенная логика: если язык пользователя "ru" - русский, иначе - английский
-  const useRussian = normalizedLanguageCode === "ru";
-  const userLanguage = useRussian ? "ru" : "en";
-
-  console.log(
-    `[CRON_LOCALIZATION] Use Russian: ${useRussian}, Selected language: ${userLanguage}`,
-  );
-
-  // Получаем шаблон сообщения
-  const messageTemplate =
-    NOTIFICATION_TRANSLATIONS[userLanguage].notifications.restored.fullMessage;
-
-  // Заменяем параметры в шаблоне
-  const finalMessage = messageTemplate
-    .replace("{firstName}", firstName)
-    .replace("{attemptsRestored}", attemptsRestored.toString());
-
-  console.log(
-    `[CRON_LOCALIZATION] Final message preview: ${finalMessage.substring(0, 50)}...`,
-  );
-
-  return finalMessage;
-}
-
-// Функция для получения локализованного текста кнопки
-function getLocalizedButtonText(languageCode: string | null): string {
-  // Безопасная нормализация языкового кода
-  const normalizedLanguageCode = languageCode?.toString().toLowerCase().trim();
-
-  // Упрощенная логика: если язык пользователя "ru" - русский, иначе - английский
-  const useRussian = normalizedLanguageCode === "ru";
-  const userLanguage = useRussian ? "ru" : "en";
-
-  return NOTIFICATION_TRANSLATIONS[userLanguage].notifications.restored
-    .playButton;
-}
-
-// ============================================================================
 const CRON_CONFIG = {
-  // Базовое количество попыток для восстановления (будет дополнено бонусными)
+  // Base number of attempts for restoration (will be supplemented with bonus)
   BASE_RESET_ATTEMPTS: parseInt("10"),
 
-  // Частота проверки (в минутах) - настраивается через ENV
+  // Check frequency in minutes - configurable via ENV
   CHECK_FREQUENCY_MINUTES: parseInt("10"),
 
-  // Максимальное количество пользователей за один запуск
+  // Maximum number of users per run
   MAX_USERS_PER_RUN: parseInt("10000"),
 
   EXECUTION_TIMEOUT: parseInt("50"),
@@ -119,7 +27,7 @@ const CRON_CONFIG = {
   // Telegram Bot Token
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_API,
 
-  // URL для запуска игры
+  // URL for starting the game
   GAME_START_URL: "https://t.me/circusle_bot?startapp",
 } as const;
 
@@ -137,12 +45,11 @@ interface CronResponse {
   error?: string;
 }
 
-// User restoration result interface with localization support and bonus support
+// User restoration result interface
 interface RestorationResult {
   telegram_id: number;
   first_name: string;
-  language_code: string | null;
-  bonus_restore_attempts: number; // NEW: Track bonus attempts for each user
+  bonus_restore_attempts: number;
   attempts_restored: number;
   notification_sent: boolean;
   error?: string;
@@ -155,7 +62,7 @@ function calculateUserRestoreAmount(bonusRestoreAttempts: number): number {
 
 /**
  * POST /api/cron/restore-attempts
- * Автоматическое восстановление попыток для пользователей с истекшим временем
+ * Automatic attempt restoration for users with expired reset time
  */
 export async function POST(
   request: NextRequest,
@@ -163,7 +70,7 @@ export async function POST(
   const startTime = Date.now();
 
   try {
-    // Проверка авторизации cron job
+    // Verify cron job authorization
     const authHeader = request.headers.get("Authorization");
     const apiKey = authHeader?.replace("Bearer ", "");
 
@@ -191,12 +98,12 @@ export async function POST(
 
     console.log("[CRON] Starting attempts restoration process");
 
-    // Проверяем наличие Telegram Bot Token
+    // Verify Telegram Bot Token configuration
     if (!CRON_CONFIG.TELEGRAM_BOT_TOKEN) {
       throw new Error("Telegram Bot Token not configured");
     }
 
-    // Получаем пользователей с истекшим временем восстановления
+    // Get users with expired reset time
     const usersToRestore = await getUsersWithExpiredResetTime();
 
     console.log(
@@ -217,20 +124,20 @@ export async function POST(
       });
     }
 
-    // Ограничиваем количество пользователей для обработки
+    // Limit the number of users to process
     const usersToProcess = usersToRestore.slice(
       0,
       CRON_CONFIG.MAX_USERS_PER_RUN,
     );
 
-    // Восстанавливаем попытки пользователям с учетом их бонусов
+    // Restore attempts for users with bonus consideration
     const restorationResults = await restoreAttemptsForUsers(usersToProcess);
 
-    // Отправляем уведомления
+    // Send notifications
     const notificationResults =
       await sendRestorationNotifications(restorationResults);
 
-    // Подсчитываем расширенную статистику
+    // Calculate detailed statistics
     const totalRestored = restorationResults.reduce(
       (sum, result) => sum + result.attempts_restored,
       0,
@@ -297,7 +204,7 @@ export async function POST(
 }
 
 /**
- * Получение пользователей с истекшим временем восстановления (включая bonus_restore_attempts)
+ * Get users with expired reset time including bonus_restore_attempts
  */
 async function getUsersWithExpiredResetTime() {
   const currentTime = new Date().toISOString();
@@ -305,11 +212,11 @@ async function getUsersWithExpiredResetTime() {
   const { data, error } = await supabaseServer
     .from("users")
     .select(
-      "id, telegram_id, first_name, language_code, attempts_remaining, attempts_reset_at, bonus_restore_attempts",
+      "id, telegram_id, first_name, attempts_remaining, attempts_reset_at, bonus_restore_attempts",
     )
     .not("attempts_reset_at", "is", null)
     .lte("attempts_reset_at", currentTime)
-    .eq("attempts_remaining", 0) // Только пользователи без попыток
+    .eq("attempts_remaining", 0) // Only users without attempts
     .limit(CRON_CONFIG.MAX_USERS_PER_RUN);
 
   if (error) {
@@ -324,7 +231,7 @@ async function getUsersWithExpiredResetTime() {
 }
 
 /**
- * Восстановление попыток для списка пользователей с поддержкой бонусных попыток
+ * Restore attempts for list of users with bonus attempts support
  */
 async function restoreAttemptsForUsers(
   users: any[],
@@ -334,7 +241,7 @@ async function restoreAttemptsForUsers(
 
   for (const user of users) {
     try {
-      // Рассчитываем количество попыток для восстановления с учетом бонуса
+      // Calculate the number of attempts to restore including bonus
       const userRestoreAmount = calculateUserRestoreAmount(
         user.bonus_restore_attempts,
       );
@@ -343,12 +250,12 @@ async function restoreAttemptsForUsers(
         `[CRON] Restoring attempts for user ${user.telegram_id}: base=${CRON_CONFIG.BASE_RESET_ATTEMPTS}, bonus=${user.bonus_restore_attempts || 0}, total=${userRestoreAmount}`,
       );
 
-      // Обновляем попытки пользователя
+      // Update user attempts
       const { error } = await supabaseServer
         .from("users")
         .update({
           attempts_remaining: userRestoreAmount,
-          attempts_reset_at: null, // Сбрасываем время следующего восстановления
+          attempts_reset_at: null, // Reset next restoration time
           updated_at: currentTime,
         })
         .eq("telegram_id", user.telegram_id);
@@ -361,7 +268,6 @@ async function restoreAttemptsForUsers(
         results.push({
           telegram_id: user.telegram_id,
           first_name: user.first_name,
-          language_code: user.language_code,
           bonus_restore_attempts: user.bonus_restore_attempts || 0,
           attempts_restored: 0,
           notification_sent: false,
@@ -374,7 +280,6 @@ async function restoreAttemptsForUsers(
         results.push({
           telegram_id: user.telegram_id,
           first_name: user.first_name,
-          language_code: user.language_code,
           bonus_restore_attempts: user.bonus_restore_attempts || 0,
           attempts_restored: userRestoreAmount,
           notification_sent: false,
@@ -388,7 +293,6 @@ async function restoreAttemptsForUsers(
       results.push({
         telegram_id: user.telegram_id,
         first_name: user.first_name,
-        language_code: user.language_code,
         bonus_restore_attempts: user.bonus_restore_attempts || 0,
         attempts_restored: 0,
         notification_sent: false,
@@ -401,16 +305,16 @@ async function restoreAttemptsForUsers(
 }
 
 /**
- * Отправка уведомлений о восстановлении попыток с соблюдением лимитов Telegram API
+ * Send restoration notifications with Telegram API rate limit compliance
  */
 async function sendRestorationNotifications(
   restorationResults: RestorationResult[],
 ) {
   const notificationResults = [];
-  const TELEGRAM_RATE_LIMIT = 25; // Сообщений в секунду (с запасом от лимита 30)
-  const BATCH_DELAY_MS = 1100; // Задержка между группами (с запасом)
+  const TELEGRAM_RATE_LIMIT = 25; // Messages per second (with buffer from 30 limit)
+  const BATCH_DELAY_MS = 1100; // Delay between batches (with buffer)
 
-  // Фильтруем только пользователей с успешно восстановленными попытками
+  // Filter only users with successfully restored attempts
   const usersToNotify = restorationResults.filter(
     (result) => result.attempts_restored > 0,
   );
@@ -419,7 +323,7 @@ async function sendRestorationNotifications(
     `[CRON] Sending notifications to ${usersToNotify.length} users in batches of ${TELEGRAM_RATE_LIMIT}`,
   );
 
-  // Разбиваем на группы для соблюдения rate limit
+  // Split into batches for rate limit compliance
   for (let i = 0; i < usersToNotify.length; i += TELEGRAM_RATE_LIMIT) {
     const batch = usersToNotify.slice(i, i + TELEGRAM_RATE_LIMIT);
     const batchNumber = Math.floor(i / TELEGRAM_RATE_LIMIT) + 1;
@@ -429,17 +333,16 @@ async function sendRestorationNotifications(
       `[CRON] Processing notification batch ${batchNumber}/${totalBatches} (${batch.length} users)`,
     );
 
-    // Отправляем уведомления в текущей группе параллельно
+    // Send notifications in current batch in parallel
     const batchPromises = batch.map(async (result) => {
       try {
         const notificationResult = await sendTelegramNotificationWithRetry(
           result.telegram_id,
           result.first_name,
-          result.language_code,
-          result.attempts_restored, // Используем фактическое количество восстановленных попыток
+          result.attempts_restored, // Use actual number of restored attempts
         );
 
-        // Обновляем результат
+        // Update result
         result.notification_sent = notificationResult.success;
 
         return {
@@ -463,19 +366,19 @@ async function sendRestorationNotifications(
       }
     });
 
-    // Ожидаем завершения всех отправок в группе
+    // Wait for all sends in batch to complete
     const batchResults = await Promise.all(batchPromises);
 
     notificationResults.push(...batchResults);
 
-    // Задержка между группами для соблюдения rate limit (кроме последней группы)
+    // Delay between batches for rate limit compliance (except last batch)
     if (i + TELEGRAM_RATE_LIMIT < usersToNotify.length) {
       console.log(`[CRON] Waiting ${BATCH_DELAY_MS}ms before next batch...`);
       await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
     }
   }
 
-  // Добавляем результаты для пользователей без восстановленных попыток
+  // Add results for users without restored attempts
   const skippedUsers = restorationResults.filter(
     (result) => result.attempts_restored === 0,
   );
@@ -507,12 +410,11 @@ async function sendRestorationNotifications(
 }
 
 /**
- * Отправка уведомления в Telegram с повторными попытками и поддержкой локализации
+ * Send Telegram notification with retries
  */
 async function sendTelegramNotificationWithRetry(
   telegramId: number,
   firstName: string,
-  languageCode: string | null,
   attemptsRestored: number,
   maxRetries: number = 3,
 ): Promise<{ success: boolean; error?: string; blocked_by_user?: boolean }> {
@@ -521,7 +423,6 @@ async function sendTelegramNotificationWithRetry(
       const result = await sendTelegramNotification(
         telegramId,
         firstName,
-        languageCode,
         attemptsRestored,
       );
 
@@ -534,7 +435,7 @@ async function sendTelegramNotificationWithRetry(
 
         return { success: true };
       } else if (result.blocked_by_user) {
-        // Пользователь заблокировал бота - повторные попытки бесполезны
+        // User blocked bot - retries are useless
         console.log(
           `[CRON] User ${telegramId} has blocked the bot - skipping further attempts`,
         );
@@ -545,7 +446,7 @@ async function sendTelegramNotificationWithRetry(
           error: "User blocked bot",
         };
       } else if (result.rate_limited) {
-        // Rate limit - ждем перед повторной попыткой
+        // Rate limit - wait before retry
         const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
 
         console.log(
@@ -554,12 +455,12 @@ async function sendTelegramNotificationWithRetry(
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       } else {
-        // Другие ошибки - логируем и пробуем еще раз
+        // Other errors - log and try again
         console.warn(
           `[CRON] Notification attempt ${attempt}/${maxRetries} failed for user ${telegramId}: ${result.error}`,
         );
         if (attempt < maxRetries) {
-          const delayMs = 500 * attempt; // Линейная задержка для других ошибок
+          const delayMs = 500 * attempt; // Linear delay for other errors
 
           await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
@@ -570,7 +471,7 @@ async function sendTelegramNotificationWithRetry(
         error,
       );
       if (attempt < maxRetries) {
-        const delayMs = 1000 * attempt; // Увеличенная задержка для сетевых ошибок
+        const delayMs = 1000 * attempt; // Increased delay for network errors
 
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
@@ -584,12 +485,11 @@ async function sendTelegramNotificationWithRetry(
 }
 
 /**
- * Отправка локализованного уведомления в Telegram с inline кнопкой для игры
+ * Send English notification to Telegram with inline game button
  */
 async function sendTelegramNotification(
   telegramId: number,
   firstName: string,
-  languageCode: string | null,
   attemptsRestored: number,
 ): Promise<{
   success: boolean;
@@ -597,28 +497,19 @@ async function sendTelegramNotification(
   blocked_by_user?: boolean;
   rate_limited?: boolean;
 }> {
-  // Добавляем логирование входящих параметров
   console.log(
     `[CRON_NOTIFICATION] Sending to user ${telegramId} (${firstName}) - ${attemptsRestored} attempts restored`,
   );
-  console.log(`[CRON_NOTIFICATION] Language code received: "${languageCode}"`);
 
-  // Получаем локализованное сообщение и текст кнопки
-  const message = getLocalizedMessage(
-    languageCode,
-    firstName,
-    attemptsRestored,
-  );
-  const buttonText = getLocalizedButtonText(languageCode);
-
+  const message = NOTIFICATION_MESSAGE(firstName, attemptsRestored);
   const telegramApiUrl = `https://api.telegram.org/bot${CRON_CONFIG.TELEGRAM_BOT_TOKEN}/sendMessage`;
 
-  // Создаем inline клавиатуру с кнопкой для игры
+  // Create inline keyboard with game button
   const replyMarkup = {
     inline_keyboard: [
       [
         {
-          text: buttonText,
+          text: PLAY_BUTTON_TEXT,
           url: CRON_CONFIG.GAME_START_URL,
         },
       ],
@@ -643,7 +534,7 @@ async function sendTelegramNotification(
 
     if (result.ok) {
       console.log(
-        `[CRON_NOTIFICATION] Successfully sent localized message with game button to user ${telegramId}`,
+        `[CRON_NOTIFICATION] Successfully sent message with game button to user ${telegramId}`,
       );
 
       return { success: true };
@@ -651,7 +542,7 @@ async function sendTelegramNotification(
       const errorCode = result.error_code;
       const description = result.description || "Unknown Telegram API error";
 
-      // Обработка специфических ошибок Telegram API
+      // Handle specific Telegram API errors
       if (errorCode === 403) {
         if (
           description.includes("bot was blocked") ||
@@ -671,7 +562,7 @@ async function sendTelegramNotification(
           error: description,
         };
       } else if (errorCode === 400 && description.includes("chat not found")) {
-        // Аккаунт удален или недоступен
+        // Account deleted or unavailable
         return {
           success: false,
           blocked_by_user: true,
@@ -699,10 +590,10 @@ async function sendTelegramNotification(
 
 /**
  * GET /api/cron/restore-attempts
- * Информация о конфигурации cron job (для отладки)
+ * Information about cron job configuration for debugging
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  // Простая проверка авторизации для GET запроса
+  // Simple authorization check for GET request
   const authHeader = request.headers.get("Authorization");
   const apiKey = authHeader?.replace("Bearer ", "");
 
@@ -718,7 +609,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       execution_timeout: CRON_CONFIG.EXECUTION_TIMEOUT,
       game_start_url: CRON_CONFIG.GAME_START_URL,
     },
-    status: "Cron job endpoint is active with bonus restore attempts support",
+    status: "Cron job endpoint is active with bonus restore attempts support - English only",
     next_execution_url: `${request.nextUrl.origin}/api/cron/restore-attempts`,
   });
 }
