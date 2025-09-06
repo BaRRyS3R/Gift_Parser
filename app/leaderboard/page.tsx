@@ -431,28 +431,6 @@ function LeaderboardPageContent() {
 
   const initializationRef = useRef(false);
 
-  // Setup Telegram WebApp back button
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      if (tg.BackButton) {
-        tg.BackButton.show();
-
-        const handleBackClick = () => {
-          router.push("/main");
-        };
-
-        tg.BackButton.onClick(handleBackClick);
-
-        return () => {
-          tg.BackButton.offClick(handleBackClick);
-          tg.BackButton.hide();
-        };
-      }
-    }
-  }, [router]);
-
   useEffect(() => {
     if (initializationRef.current) return;
 
