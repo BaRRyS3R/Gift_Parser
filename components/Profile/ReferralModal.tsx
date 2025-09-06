@@ -1,10 +1,10 @@
-// src/components/Profile/ReferralModal.tsx - Enhanced with advanced Telegram sharing methods
+// src/components/Profile/ReferralModal.tsx - Enhanced with Telegram BackButton support
 
 "use client";
 
 import type { ReferralInfo } from "@/hooks/modules/useProfile";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Modal,
   ModalContent,
@@ -132,6 +132,9 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
   const [sharingMethod, setSharingMethod] = useState<"simple" | "story">(
     "simple",
   );
+  
+  // Track if BackButton handler is registered for this modal
+  const backButtonHandlerRef = useRef<(() => void) | null>(null);
 
   // Enhanced sharing configuration
   const SHARING_CONFIG = {
@@ -140,6 +143,32 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
     fallbackMessage:
       "Join me in Circusle - an awesome game where every tap counts! 🎯",
   };
+
+  // Set up BackButton handler when modal is open
+  useEffect(() => {
+    if (isOpen && typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const webApp = window.Telegram.WebApp;
+      
+      // Create handler for this modal
+      const handleBackButton = () => {
+        onClose();
+      };
+      
+      // Store handler reference
+      backButtonHandlerRef.current = handleBackButton;
+      
+      // Register BackButton handler
+      webApp.BackButton.onClick(handleBackButton);
+      
+      // Cleanup function
+      return () => {
+        if (backButtonHandlerRef.current) {
+          webApp.BackButton.offClick(backButtonHandlerRef.current);
+          backButtonHandlerRef.current = null;
+        }
+      };
+    }
+  }, [isOpen, onClose]);
 
   const handleCopyReferralLink = async () => {
     try {

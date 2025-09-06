@@ -1,4 +1,4 @@
-// src/components/Profile/AchievementsModal.tsx - Updated with Easter Egg achievement icons
+// src/components/Profile/AchievementsModal.tsx - Enhanced with Telegram BackButton support
 
 "use client";
 
@@ -9,7 +9,7 @@ import type {
   UserAchievementsData,
 } from "@/hooks/modules/useProfile";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@nextui-org/react";
 import {
   Trophy,
@@ -125,12 +125,41 @@ export default function AchievementsModal({
   const [hoveredAchievement, setHoveredAchievement] = useState<string | null>(
     null,
   );
+  
+  // Track if BackButton handler is registered for this modal
+  const backButtonHandlerRef = useRef<(() => void) | null>(null);
 
   // Use achievement data from props
   const achievementsList = achievements?.achievements || [];
   const unlockedCount = achievements?.unlockedCount || 0;
   const totalCount = achievements?.totalCount || 7; // Updated total to include Easter Eggs
   const totalAttemptsEarned = achievements?.totalAttemptsEarned || 0;
+
+  // Set up BackButton handler when modal is open
+  useEffect(() => {
+    if (isOpen && typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const webApp = window.Telegram.WebApp;
+      
+      // Create handler for this modal
+      const handleBackButton = () => {
+        onClose();
+      };
+      
+      // Store handler reference
+      backButtonHandlerRef.current = handleBackButton;
+      
+      // Register BackButton handler
+      webApp.BackButton.onClick(handleBackButton);
+      
+      // Cleanup function
+      return () => {
+        if (backButtonHandlerRef.current) {
+          webApp.BackButton.offClick(backButtonHandlerRef.current);
+          backButtonHandlerRef.current = null;
+        }
+      };
+    }
+  }, [isOpen, onClose]);
 
   // Helper function to convert snake_case to camelCase for localization keys
   const toCamelCase = (str: string) => {

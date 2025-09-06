@@ -1,8 +1,8 @@
-// src/app/profile/page.tsx - Updated with integrated skeleton UI
+// src/app/profile/page.tsx - Updated with Telegram BackButton management
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -29,6 +29,60 @@ export default function ProfilePage() {
 
   // Track if initial data load has been triggered
   const dataLoadedRef = useRef<boolean>(false);
+
+  // Track if BackButton handler is registered
+  const backButtonHandlerRef = useRef<(() => void) | null>(null);
+
+  // Handle BackButton click based on modal state
+  const handleBackButtonClick = useCallback(() => {
+    if (isReferralModalOpen) {
+      setIsReferralModalOpen(false);
+    } else if (isAchievementsModalOpen) {
+      setIsAchievementsModalOpen(false);
+    }
+  }, [isReferralModalOpen, isAchievementsModalOpen]);
+
+  // Manage BackButton visibility and behavior
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const webApp = window.Telegram.WebApp;
+      
+      // Check if any modal is open
+      const isAnyModalOpen = isReferralModalOpen || isAchievementsModalOpen;
+      
+      if (isAnyModalOpen) {
+        // Show BackButton when modal is open
+        webApp.BackButton.show();
+        
+        // Remove previous handler if exists
+        if (backButtonHandlerRef.current) {
+          webApp.BackButton.offClick(backButtonHandlerRef.current);
+        }
+        
+        // Set new handler
+        backButtonHandlerRef.current = handleBackButtonClick;
+        webApp.BackButton.onClick(backButtonHandlerRef.current);
+      } else {
+        // Hide BackButton when no modal is open
+        webApp.BackButton.hide();
+        
+        // Clean up handler
+        if (backButtonHandlerRef.current) {
+          webApp.BackButton.offClick(backButtonHandlerRef.current);
+          backButtonHandlerRef.current = null;
+        }
+      }
+      
+      // Cleanup function
+      return () => {
+        if (backButtonHandlerRef.current) {
+          webApp.BackButton.offClick(backButtonHandlerRef.current);
+          backButtonHandlerRef.current = null;
+        }
+        webApp.BackButton.hide();
+      };
+    }
+  }, [isReferralModalOpen, isAchievementsModalOpen, handleBackButtonClick]);
 
   // Load profile data when user is authenticated
   useEffect(() => {
@@ -70,6 +124,15 @@ export default function ProfilePage() {
   const handleOpenAchievements = () => {
     setIsAchievementsModalOpen(true);
   };
+
+  // Handle modal close with BackButton cleanup
+  const handleCloseReferrals = useCallback(() => {
+    setIsReferralModalOpen(false);
+  }, []);
+
+  const handleCloseAchievements = useCallback(() => {
+    setIsAchievementsModalOpen(false);
+  }, []);
 
   // Show basic error screen if user is not authenticated
   if (!authState.isAuthenticated || !authState.user || !telegramUser) {
@@ -255,12 +318,12 @@ export default function ProfilePage() {
         <div className="h-20" />
       </div>
 
-      {/* Modals */}
+      {/* Modals with updated close handlers */}
       {profileData?.referrals && (
         <ReferralModal
           isOpen={isReferralModalOpen}
           referralInfo={profileData.referrals}
-          onClose={() => setIsReferralModalOpen(false)}
+          onClose={handleCloseReferrals}
         />
       )}
 
@@ -270,7 +333,7 @@ export default function ProfilePage() {
         isOpen={isAchievementsModalOpen}
         rankings={rankings}
         user={profileUser}
-        onClose={() => setIsAchievementsModalOpen(false)}
+        onClose={handleCloseAchievements}
       />
     </div>
   );
