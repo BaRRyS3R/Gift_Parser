@@ -173,26 +173,23 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       backdrop="blur"
       classNames={{
         backdrop: "bg-black/80",
-        base: "bg-black border border-white/20",
+        base: "bg-black border border-white/20 h-full w-full max-w-none max-h-none m-0",
         header: "border-b border-white/10",
         body: "py-4",
       }}
       hideCloseButton={true}
       isOpen={isOpen}
-      size="lg"
+      size="full"
       onClose={onClose}
     >
       <ModalContent>
-        <ModalHeader className="flex items-center justify-between p-4">
-          <div className="flex-1 flex flex-col items-center space-y-2">
-            <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
-              <Share2 className="text-white" size={24} />
-            </div>
+        <ModalHeader className="flex items-center justify-center p-4 pt-16">
+          <div className="flex-1 flex flex-col items-center space-y-4">
             <div className="text-center">
-              <h2 className="text-xl font-bold text-white">
+              <h2 className="text-2xl font-bold text-white">
                 {t("profile.referrals.title")}
               </h2>
-              <p className="text-white/60 text-sm">🤞❤️</p>
+              <p className="text-white/60 text-sm mt-2">🤞❤️</p>
             </div>
           </div>
           <button
@@ -203,7 +200,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
           </button>
         </ModalHeader>
 
-        <ModalBody className="px-4 pb-4 space-y-4">
+        <ModalBody className="px-4 pb-4 space-y-4 max-w-md mx-auto">
           {/* Statistics Cards */}
           <div className="grid grid-cols-2 gap-3">
             <Card className="bg-white/5 border border-white/20">

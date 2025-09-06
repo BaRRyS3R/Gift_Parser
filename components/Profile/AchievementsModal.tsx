@@ -161,7 +161,7 @@ export default function AchievementsModal({
       backdrop="blur"
       classNames={{
         backdrop: "bg-black/90 backdrop-blur-md",
-        base: "bg-gradient-to-b from-gray-900 via-black to-gray-900 border border-white/10",
+        base: "bg-gradient-to-b from-gray-900 via-black to-gray-900 border border-white/10 h-full w-full max-w-none max-h-none m-0",
         header: "border-b border-white/10 bg-black/50",
         body: "px-0 bg-transparent",
         closeButton: "hidden",
@@ -192,13 +192,13 @@ export default function AchievementsModal({
         },
       }}
       scrollBehavior="inside"
-      size="2xl"
+      size="full"
       onClose={onClose}
     >
       <ModalContent>
         {(onClose) => (
           <>
-            <ModalHeader className="flex flex-col gap-1 relative px-6 py-4">
+            <ModalHeader className="flex flex-col gap-1 relative px-6 py-4 pt-16">
               {/* Futuristic close button */}
               <button
                 className="absolute top-4 right-4 p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 z-10 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]"
@@ -207,19 +207,13 @@ export default function AchievementsModal({
                 <X size={20} />
               </button>
 
-              {/* Header with glowing effect */}
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg blur-lg opacity-50" />
-                  <div className="relative bg-black/70 p-2 rounded-lg border border-white/20">
-                    <Trophy className="text-white" size={20} />
-                  </div>
-                </div>
-                <div>
-                  <span className="text-white font-bold tracking-wider bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+              {/* Header with glowing effect - centered */}
+              <div className="flex flex-col items-center space-y-3">
+                <div className="text-center">
+                  <span className="text-white font-bold tracking-wider bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent text-2xl">
                     {t("profile.achievements.title")}
                   </span>
-                  <p className="text-sm text-white/60 font-normal">
+                  <p className="text-sm text-white/60 font-normal mt-2">
                     {t("profile.achievementsUnlocked", {
                       count: unlockedCount,
                       total: totalCount,
@@ -230,7 +224,7 @@ export default function AchievementsModal({
 
               {/* Total Attempts Display with neon effect */}
               {totalAttemptsEarned > 0 && (
-                <div className="flex items-center gap-2 mt-3">
+                <div className="flex justify-center items-center gap-2 mt-3">
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-full">
                     <Gift className="text-green-400" size={14} />
                     <span className="text-sm text-green-400 font-mono">
@@ -241,7 +235,7 @@ export default function AchievementsModal({
               )}
             </ModalHeader>
 
-            <ModalBody className="px-6 pb-6">
+            <ModalBody className="px-6 pb-6 max-w-2xl mx-auto">
               {/* Info Banner with tech styling */}
               <div className="relative mb-4">
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-lg blur" />
