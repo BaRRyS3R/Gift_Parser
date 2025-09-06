@@ -1,4 +1,4 @@
-// src/hooks/modules/useTasks.ts - Updated with timer-based verification logic
+// src/hooks/modules/useTasks.ts - Updated with differentiated reward system
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
@@ -11,6 +11,8 @@ import {
   VerifyTaskResponse,
   ClaimRewardResponse,
   TaskStats,
+  getTaskRewardType,
+  RewardType,
 } from "@/types/tasks";
 
 // Hook state interface with timer support
@@ -28,7 +30,7 @@ interface TasksState {
 const timerIntervals: Record<string, NodeJS.Timeout> = {};
 
 /**
- * Updated tasks hook with timer-based verification system
+ * Updated tasks hook with differentiated reward system
  */
 export function useTasks(
   makeAuthenticatedRequest: (
@@ -339,7 +341,7 @@ export function useTasks(
   );
 
   /**
-   * Claim task reward
+   * UPDATED: Claim task reward with differentiated reward handling
    */
   const claimReward = useCallback(
     async (
@@ -347,7 +349,10 @@ export function useTasks(
     ): Promise<{
       success: boolean;
       attemptsAdded?: number;
-      newTotal?: number;
+      bonusRestoreAdded?: number;
+      rewardType?: 'attempts' | 'restore_bonus';
+      newAttemptsTotal?: number;
+      newBonusRestoreTotal?: number;
     }> => {
       setState((prev) => ({ ...prev, claimingTaskId: taskId, error: null }));
 
@@ -386,10 +391,15 @@ export function useTasks(
           };
         });
 
+        console.log(`[TASKS] Reward claimed: ${result.rewardType === 'restore_bonus' ? result.bonusRestoreAdded + ' restore bonus' : result.attemptsAdded + ' attempts'}`);
+
         return {
           success: true,
           attemptsAdded: result.attemptsAdded,
-          newTotal: result.newAttemptsTotal,
+          bonusRestoreAdded: result.bonusRestoreAdded,
+          rewardType: result.rewardType,
+          newAttemptsTotal: result.newAttemptsTotal,
+          newBonusRestoreTotal: result.newBonusRestoreTotal,
         };
       } catch (error) {
         console.error("Error claiming reward:", error);
@@ -436,6 +446,22 @@ export function useTasks(
     },
     [state.loadingTaskId, state.verifyingTaskId, state.claimingTaskId],
   );
+
+  /**
+   * NEW: Get reward type for a task
+   */
+  const getTaskRewardTypeHelper = useCallback((taskType: TaskType): RewardType => {
+    return getTaskRewardType(taskType);
+  }, []);
+
+  /**
+   * NEW: Get formatted reward text for a task
+   */
+  const getRewardText = useCallback((task: TaskWithStatus): string => {
+    const rewardType = getTaskRewardType(task.task_type as TaskType);
+    const icon = rewardType === RewardType.RESTORE_BONUS ? "🔄" : "⚡";
+    return `${icon} +${task.attempts_reward}`;
+  }, []);
 
   /**
    * Clear error state
@@ -518,6 +544,8 @@ export function useTasks(
     getTaskStats,
     getTaskTimer,
     isTaskLoading,
+    getTaskRewardType: getTaskRewardTypeHelper,
+    getRewardText,
 
     // Computed values for convenience
     totalTasks: state.tasks.length,

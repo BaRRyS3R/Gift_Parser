@@ -1,9 +1,9 @@
-// src/locales/en/tasks.ts - Updated Tasks localization for complete system
+// src/locales/en/tasks.ts - Updated with differentiated reward system
 
 export const tasks = {
   // Main elements
   title: "TASKS",
-  subtitle: "Complete tasks to earn extra attempts",
+  subtitle: "Complete tasks to earn rewards",
   loading: "Loading tasks...",
   refresh: "Refresh",
 
@@ -26,9 +26,16 @@ export const tasks = {
   inProgress: "In Progress",
   readyToClaim: "Ready to Claim",
 
-  // Rewards
-  reward: "attempts",
-  attemptsReward: "+{count} attempts",
+  // UPDATED: Rewards with differentiated types
+  reward: "rewards",
+  rewards: {
+    attempts: "attempts",
+    restoreBonus: "restore bonus",
+    attemptsReward: "+{count} attempts",
+    restoreBonusReward: "+{count} restore bonus",
+    instantAttempts: "Instant Attempts",
+    restoreBonusDescription: "Attempts Restore Bonus",
+  },
 
   // Sections and categories
   sections: {
@@ -38,16 +45,6 @@ export const tasks = {
     available: "Available",
     pending: "Pending",
     finished: "Finished",
-  },
-
-  // Task type badges and labels
-  badges: {
-    telegram: "Telegram",
-    twitter: "Twitter",
-    website: "Website",
-    social: "Social",
-    verification: "Auto-verify",
-    trust: "Trust-based",
   },
 
   // Task types with action descriptions
@@ -82,19 +79,19 @@ export const tasks = {
     networkError: "Network error, please check your connection",
     serverError: "Server error, please try again later",
     invalidTaskState: "Task is not in the correct state for this action",
-    telegramVerificationError:
-      "Telegram verification failed, please ensure you are subscribed",
+    telegramVerificationError: "Telegram verification failed, please ensure you are subscribed",
     unknownError: "An unexpected error occurred",
   },
 
-  // Success messages
+  // UPDATED: Success messages with differentiated reward types
   success: {
     taskStarted: "Task Started!",
     taskStartedMessage: "You have successfully started the task: {title}",
     taskCompleted: "Task Completed!",
     taskCompletedMessage: "Great job! You completed: {title}",
     rewardClaimed: "Reward Claimed!",
-    rewardClaimedMessage: "You earned +{count} attempts from {title}!",
+    attemptsRewardClaimedMessage: "You earned +{count} attempts from {title}!",
+    restoreBonusRewardClaimedMessage: "You gained +{count} restore bonus from {title}!",
     subscriptionVerified: "Subscription verified successfully",
     actionCompleted: "Action completed successfully",
   },
@@ -125,9 +122,49 @@ export const tasks = {
     noActiveTasks: "No active tasks available",
     noCompletedTasks: "No completed tasks yet",
     noPendingTasks: "No pending tasks",
-    startCompleting: "Start completing tasks to earn attempts!",
+    startCompleting: "Start completing tasks to earn rewards!",
     allTasksCompleted: "Congratulations! You've completed all available tasks",
     checkBackLater: "Check back later for new tasks",
+  },
+
+  // NEW: Bonus attempts information
+  bonusInfo: {
+    modalTitle: "Bonus Attempts System",
+    modalSubtitle: "How different reward types work",
+    
+    instantAttempts: {
+      title: "Instant Attempts",
+      description: "Added immediately to your current attempts counter",
+      sources: "Sources: website visits, Twitter activities",
+      icon: "⚡",
+      advantage: "Can be used immediately",
+    },
+    
+    restoreBonus: {
+      title: "Restore Bonus",
+      description: "Increases the number of attempts when they are automatically restored",
+      sources: "Sources: Telegram channel and chat subscriptions",
+      icon: "🔄",
+      advantage: "Permanent advantage with every restoration",
+      formula: "Restoration = 10 base + your bonus",
+    },
+    
+    comparison: {
+      title: "Comparison",
+      instant: "Instant: one-time use",
+      restore: "Restore: long-term advantage",
+      strategy: "Combine both types for maximum efficiency",
+    },
+    
+    example: {
+      title: "Example",
+      scenario: "You have +5 restore bonus:",
+      before: "Normal restoration: 10 attempts",
+      after: "With bonus: 15 attempts",
+      benefit: "50% more attempts with every restoration!",
+    },
+    
+    close: "Got it",
   },
 
   // Information and help messages
@@ -137,8 +174,9 @@ export const tasks = {
     completionDelay: "Please wait {seconds} seconds before verification",
     automaticCheck: "We'll automatically check your subscription status",
     manualConfirmation: "Please confirm that you completed the required action",
-    rewardInfo: "Complete tasks to earn extra game attempts",
+    rewardInfo: "Complete tasks to earn different types of rewards",
     taskProgress: "Track your progress in the Completed tab",
+    learnMoreBonuses: "Learn more about bonuses",
   },
 
   // Statistics and progress
@@ -150,6 +188,7 @@ export const tasks = {
     completionRate: "Completion Rate",
     progress: "Progress: {completed}/{total}",
     attemptsFromTasks: "Attempts from Tasks: {count}",
+    bonusFromTasks: "Restore Bonus: +{count}",
   },
 
   // Timing and cooldowns
@@ -172,5 +211,7 @@ export const tasks = {
     highReward: "High Reward",
     easyTask: "Quick Task",
     bonusReward: "Bonus Reward Available",
+    telegramReward: "Restore Bonus",
+    instantReward: "Instant Reward",
   },
 } as const;

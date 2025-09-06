@@ -1,4 +1,4 @@
-// src/app/api/tasks/claim/route.ts - Claim task reward API route
+// src/app/api/tasks/claim/route.ts - Updated with differentiated reward system
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -7,7 +7,7 @@ import { ClaimRewardRequest, ClaimRewardResponse } from "@/types/tasks";
 
 /**
  * POST /api/tasks/claim
- * Claim reward for completed task
+ * Claim reward for completed task with differentiated reward types
  */
 export async function POST(
   request: NextRequest,
@@ -22,7 +22,10 @@ export async function POST(
         {
           success: false,
           attemptsAdded: 0,
+          bonusRestoreAdded: 0,
+          rewardType: 'attempts',
           newAttemptsTotal: 0,
+          newBonusRestoreTotal: 0,
           error: "User authentication required",
         },
         { status: 401 },
@@ -38,20 +41,28 @@ export async function POST(
         {
           success: false,
           attemptsAdded: 0,
+          bonusRestoreAdded: 0,
+          rewardType: 'attempts',
           newAttemptsTotal: 0,
+          newBonusRestoreTotal: 0,
           error: "Task ID is required",
         },
         { status: 400 },
       );
     }
 
-    // Claim the reward
+    // Claim the reward with enhanced response
     const result = await serverTasksService.claimTaskReward(userId, taskId);
+
+    console.log(`[API] Task reward claimed: ${result.rewardType === 'restore_bonus' ? result.bonusRestoreAdded + ' restore bonus' : result.attemptsAdded + ' attempts'}`);
 
     return NextResponse.json({
       success: true,
       attemptsAdded: result.attemptsAdded,
+      bonusRestoreAdded: result.bonusRestoreAdded,
+      rewardType: result.rewardType,
       newAttemptsTotal: result.newAttemptsTotal,
+      newBonusRestoreTotal: result.newBonusRestoreTotal,
       task: result.taskWithStatus,
     });
   } catch (error) {
@@ -64,7 +75,10 @@ export async function POST(
           {
             success: false,
             attemptsAdded: 0,
+            bonusRestoreAdded: 0,
+            rewardType: 'attempts',
             newAttemptsTotal: 0,
+            newBonusRestoreTotal: 0,
             error: "Task not found",
           },
           { status: 404 },
@@ -76,7 +90,10 @@ export async function POST(
           {
             success: false,
             attemptsAdded: 0,
+            bonusRestoreAdded: 0,
+            rewardType: 'attempts',
             newAttemptsTotal: 0,
+            newBonusRestoreTotal: 0,
             error: "Task must be completed before claiming reward",
           },
           { status: 400 },
@@ -91,7 +108,10 @@ export async function POST(
           {
             success: false,
             attemptsAdded: 0,
+            bonusRestoreAdded: 0,
+            rewardType: 'attempts',
             newAttemptsTotal: 0,
+            newBonusRestoreTotal: 0,
             error: "Reward already claimed for this task",
           },
           { status: 400 },
@@ -103,7 +123,10 @@ export async function POST(
           {
             success: false,
             attemptsAdded: 0,
+            bonusRestoreAdded: 0,
+            rewardType: 'attempts',
             newAttemptsTotal: 0,
+            newBonusRestoreTotal: 0,
             error: "User not found",
           },
           { status: 404 },
@@ -115,7 +138,10 @@ export async function POST(
       {
         success: false,
         attemptsAdded: 0,
+        bonusRestoreAdded: 0,
+        rewardType: 'attempts',
         newAttemptsTotal: 0,
+        newBonusRestoreTotal: 0,
         error: "Failed to claim task reward",
       },
       { status: 500 },

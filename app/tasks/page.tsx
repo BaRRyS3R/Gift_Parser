@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Updated with Matreshka Accordion
+// src/app/tasks/page.tsx - Updated with differentiated reward system
 
 "use client";
 
@@ -15,6 +15,8 @@ import {
   Gift,
   Globe,
   Zap,
+  Info,
+  RotateCcw as RestoreIcon,
 } from "lucide-react";
 import { SiTelegram, SiX } from "react-icons/si";
 
@@ -27,10 +29,14 @@ import {
   canStartTask,
   canClaimReward,
   isTaskRewarded,
+  getTaskRewardType,
+  RewardType,
+  TASK_TYPE_CONFIG,
 } from "@/types/tasks";
 import { useT } from "@/contexts/LocalizationContext";
 import CatEasterEgg from "@/components/EasterEggs/CatEasterEgg";
 import MatreshkaAccordion from "@/components/MatreshkaAccordion";
+import BonusAttemptsInfoModal from "@/components/Tasks/BonusAttemptsInfoModal";
 
 export default function TasksPage() {
   const router = useRouter();
@@ -41,6 +47,12 @@ export default function TasksPage() {
   const tasksModule = useTasks(makeAuthenticatedRequest);
 
   const [isExploding, setIsExploding] = useState(false);
+  const [showBonusInfoModal, setShowBonusInfoModal] = useState(false);
+  const [lastClaimedReward, setLastClaimedReward] = useState<{
+    type: 'attempts' | 'restore_bonus';
+    amount: number;
+    taskTitle: string;
+  } | null>(null);
 
   // Easter egg state - ONLY Cat Easter Egg on Tasks page
   const [titleClickCount, setTitleClickCount] = useState(0);
@@ -133,13 +145,24 @@ export default function TasksPage() {
           const claimResult = await tasksModule.claimReward(task.task_id);
 
           if (claimResult.success) {
-            // Refresh user data to get updated attempts
+            // Store reward info for success message
+            setLastClaimedReward({
+              type: claimResult.rewardType || 'attempts',
+              amount: claimResult.rewardType === 'restore_bonus' 
+                ? claimResult.bonusRestoreAdded || 0 
+                : claimResult.attemptsAdded || 0,
+              taskTitle: task.title,
+            });
+
+            // Refresh user data to get updated attempts/bonus
             await refreshUser();
+            
             // Trigger confetti explosion
             setIsExploding(true);
             setTimeout(() => {
               setIsExploding(false);
-            }, 2000);
+              setLastClaimedReward(null);
+            }, 3000);
           }
           break;
       }
@@ -285,8 +308,49 @@ export default function TasksPage() {
     return null;
   };
 
+  // NEW: Get reward display info for a task
+  const getRewardInfo = (task: TaskWithStatus) => {
+    const rewardType = getTaskRewardType(task.task_type as TaskType);
+    const isRestoreBonus = rewardType === RewardType.RESTORE_BONUS;
+    
+    return {
+      icon: isRestoreBonus ? <RestoreIcon size={16} /> : <Zap size={16} />,
+      text: isRestoreBonus 
+        ? t("tasks.rewards.restoreBonusReward", { count: task.attempts_reward })
+        : t("tasks.rewards.attemptsReward", { count: task.attempts_reward }),
+      color: isRestoreBonus ? "text-blue-400" : "text-yellow-400",
+      bgColor: isRestoreBonus ? "text-blue-400" : "text-yellow-400",
+    };
+  };
+
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
+      {/* Success message overlay for rewards */}
+      {isExploding && lastClaimedReward && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] pointer-events-none">
+          <div className="text-center space-y-2">
+            <div className="text-2xl">
+              {lastClaimedReward.type === 'restore_bonus' ? '🔄' : '⚡'}
+            </div>
+            <div className="bg-black/90 backdrop-blur-xl border border-white/30 px-4 py-2 rounded">
+              <p className="text-white font-bold text-sm">
+                {lastClaimedReward.type === 'restore_bonus' 
+                  ? t("tasks.success.restoreBonusRewardClaimedMessage", { 
+                      count: lastClaimedReward.amount, 
+                      title: lastClaimedReward.taskTitle 
+                    })
+                  : t("tasks.success.attemptsRewardClaimedMessage", { 
+                      count: lastClaimedReward.amount, 
+                      title: lastClaimedReward.taskTitle 
+                    })
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confetti explosion */}
       {isExploding && (
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
           <ConfettiExplosion
@@ -323,9 +387,19 @@ export default function TasksPage() {
         >
           <h1 className="m-0 p-0">{t("tasks.title")}</h1>
         </div>
-        <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-          {t("tasks.subtitle")}
-        </p>
+        <div className="space-y-2">
+          <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+            {t("tasks.subtitle")}
+          </p>
+          {/* NEW: Info button for bonus attempts system */}
+          <button
+            className="inline-flex items-center space-x-2 text-white/50 hover:text-white/80 transition-colors text-xs"
+            onClick={() => setShowBonusInfoModal(true)}
+          >
+            <Info size={14} />
+            <span>{t("tasks.info.learnMoreBonuses")}</span>
+          </button>
+        </div>
       </div>
 
       {/* Cat Easter Egg - positioned between header and content */}
@@ -333,6 +407,12 @@ export default function TasksPage() {
         isVisible={showCatEasterEgg}
         makeAuthenticatedRequest={makeAuthenticatedRequest}
         onComplete={handleCloseCatEasterEgg}
+      />
+
+      {/* Bonus Attempts Info Modal */}
+      <BonusAttemptsInfoModal
+        isOpen={showBonusInfoModal}
+        onClose={() => setShowBonusInfoModal(false)}
       />
 
       {/* Error message */}
@@ -366,6 +446,7 @@ export default function TasksPage() {
               getTaskBadge={getTaskBadge}
               getTaskButton={getTaskButton}
               getTaskIcon={getTaskIcon}
+              getRewardInfo={getRewardInfo}
               t={t}
               task={task}
               onAction={handleTaskAction}
@@ -412,6 +493,7 @@ interface TaskCardProps {
   getBackgroundIcon: (taskType: TaskType) => React.ReactNode;
   getTaskButton: (task: TaskWithStatus) => any;
   getTaskBadge: (task: TaskWithStatus) => any;
+  getRewardInfo: (task: TaskWithStatus) => any;
   t: any;
 }
 
@@ -422,21 +504,28 @@ function TaskCard({
   getBackgroundIcon,
   getTaskButton,
   getTaskBadge,
+  getRewardInfo,
   t,
 }: TaskCardProps) {
   const button = getTaskButton(task);
   const badge = getTaskBadge(task);
+  const rewardInfo = getRewardInfo(task);
   const taskIcon = getTaskIcon(task.task_type as TaskType);
   const backgroundIcon = getBackgroundIcon(task.task_type as TaskType);
+
+  // NEW: Determine if this is a special reward type task
+  const rewardType = getTaskRewardType(task.task_type as TaskType);
+  const isRestoreBonus = rewardType === RewardType.RESTORE_BONUS;
 
   return (
     <Card
       className={`
-                relative overflow-hidden
-                hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
-                transition-all duration-200
-                ${task.image_url ? "" : "bg-gradient-to-r from-white/5 to-white/10"}
-            `}
+        relative overflow-hidden
+        hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
+        transition-all duration-200
+        ${task.image_url ? "" : "bg-gradient-to-r from-white/5 to-white/10"}
+        ${isRestoreBonus ? "border-l-4 border-l-blue-400/50" : "border-l-4 border-l-yellow-400/50"}
+      `}
       style={
         task.image_url
           ? {
@@ -470,14 +559,24 @@ function TaskCard({
                   {badge && (
                     <Chip
                       className={`
-                                                ${badge.color === "success" ? "bg-green-500/20 text-green-400 border border-green-500/30" : ""}
-                                                ${badge.color === "warning" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" : ""}
-                                                ${badge.color === "primary" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : ""}
-                                            `}
+                        ${badge.color === "success" ? "bg-green-500/20 text-green-400 border border-green-500/30" : ""}
+                        ${badge.color === "warning" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" : ""}
+                        ${badge.color === "primary" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : ""}
+                      `}
                       size="sm"
                       variant="flat"
                     >
                       {badge.text}
+                    </Chip>
+                  )}
+                  {/* NEW: Special reward type indicator */}
+                  {isRestoreBonus && (
+                    <Chip
+                      className="bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                      size="sm"
+                      variant="flat"
+                    >
+                      {t("tasks.special.telegramReward")}
                     </Chip>
                   )}
                 </div>
@@ -486,25 +585,31 @@ function TaskCard({
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Zap className="text-yellow-400" size={16} />
-                <span className="text-yellow-400 font-bold">
-                  +{task.attempts_reward} {t("tasks.reward")}
+              {/* UPDATED: Reward display with differentiated types */}
+              <div className={`flex items-center space-x-2 ${rewardInfo.color}`}>
+                {rewardInfo.icon}
+                <span className="font-bold">
+                  {rewardInfo.text}
                 </span>
+                {isRestoreBonus && (
+                  <span className="text-xs text-white/60">
+                    ({t("tasks.rewards.restoreBonusDescription")})
+                  </span>
+                )}
               </div>
 
               <Button
                 className={`
-                                    relative z-20 
-                                    ${
-                                      button.variant === "success"
-                                        ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
-                                        : button.variant === "secondary"
-                                          ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
-                                          : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
-                                    }
-                                    disabled:opacity-50 disabled:cursor-not-allowed
-                                `}
+                  relative z-20 
+                  ${
+                    button.variant === "success"
+                      ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
+                      : button.variant === "secondary"
+                        ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
+                        : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
                 isDisabled={button.disabled}
                 isLoading={button.loading}
                 size="sm"

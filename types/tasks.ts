@@ -1,7 +1,6 @@
-// src/types/tasks.ts - TypeScript types for tasks system
+// src/types/tasks.ts - Updated with differentiated reward system
 
 // Task types enum
-
 export enum TaskType {
   TELEGRAM_CHANNEL = "telegram_channel",
   TELEGRAM_CHAT = "telegram_chat",
@@ -16,6 +15,12 @@ export enum TaskStatus {
   STARTED = "started",
   COMPLETED = "completed",
   REWARDED = "rewarded",
+}
+
+// Reward type enum
+export enum RewardType {
+  ATTEMPTS = "attempts",
+  RESTORE_BONUS = "restore_bonus",
 }
 
 // Base task interface
@@ -90,10 +95,14 @@ export interface ClaimRewardRequest {
   taskId: string;
 }
 
+// UPDATED: Enhanced claim reward response with differentiated rewards
 export interface ClaimRewardResponse {
   success: boolean;
   attemptsAdded: number;
+  bonusRestoreAdded: number;
+  rewardType: 'attempts' | 'restore_bonus';
   newAttemptsTotal: number;
+  newBonusRestoreTotal: number;
   task?: TaskWithStatus;
   error?: string;
 }
@@ -225,7 +234,27 @@ export const canClaimReward = (task: TaskWithStatus): boolean => {
   return task.user_status === TaskStatus.COMPLETED;
 };
 
-// Task type display configuration
+// NEW: Helper function to get reward type based on task type
+export const getTaskRewardType = (taskType: TaskType): RewardType => {
+  if (taskType === TaskType.TELEGRAM_CHANNEL || taskType === TaskType.TELEGRAM_CHAT) {
+    return RewardType.RESTORE_BONUS;
+  }
+  return RewardType.ATTEMPTS;
+};
+
+// NEW: Helper function to get reward icon based on reward type
+export const getRewardIcon = (rewardType: RewardType): string => {
+  switch (rewardType) {
+    case RewardType.RESTORE_BONUS:
+      return "🔄"; // Cycle icon for restore bonus
+    case RewardType.ATTEMPTS:
+      return "⚡"; // Lightning for instant attempts
+    default:
+      return "⚡";
+  }
+};
+
+// Task type display configuration - UPDATED with reward types
 export const TASK_TYPE_CONFIG = {
   [TaskType.TELEGRAM_CHANNEL]: {
     name: "Telegram Channel",
@@ -233,6 +262,7 @@ export const TASK_TYPE_CONFIG = {
     color: "blue",
     requiresVerification: true,
     actionText: "Subscribe",
+    rewardType: RewardType.RESTORE_BONUS,
   },
   [TaskType.TELEGRAM_CHAT]: {
     name: "Telegram Chat",
@@ -240,6 +270,7 @@ export const TASK_TYPE_CONFIG = {
     color: "blue",
     requiresVerification: true,
     actionText: "Join",
+    rewardType: RewardType.RESTORE_BONUS,
   },
   [TaskType.WEBSITE_VISIT]: {
     name: "Website Visit",
@@ -247,6 +278,7 @@ export const TASK_TYPE_CONFIG = {
     color: "green",
     requiresVerification: false,
     actionText: "Visit",
+    rewardType: RewardType.ATTEMPTS,
   },
   [TaskType.TWITTER_FOLLOW]: {
     name: "Twitter Follow",
@@ -254,6 +286,7 @@ export const TASK_TYPE_CONFIG = {
     color: "sky",
     requiresVerification: false,
     actionText: "Follow",
+    rewardType: RewardType.ATTEMPTS,
   },
   [TaskType.TWITTER_REPOST]: {
     name: "Twitter Repost",
@@ -261,5 +294,6 @@ export const TASK_TYPE_CONFIG = {
     color: "sky",
     requiresVerification: false,
     actionText: "Repost",
+    rewardType: RewardType.ATTEMPTS,
   },
 } as const;

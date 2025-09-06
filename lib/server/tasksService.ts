@@ -1,4 +1,4 @@
-// src/lib/server/tasksService.ts - Server-side tasks management service
+// src/lib/server/tasksService.ts - Updated with differentiated reward system
 
 import { supabaseServer } from "@/lib/supabase_server";
 import {
@@ -8,6 +8,14 @@ import {
   TelegramMembershipResponse,
   TaskStats,
 } from "@/types/tasks";
+
+// Helper function to determine reward type based on task type
+function getRewardType(taskType: TaskType): 'restore_bonus' | 'attempts' {
+  if (taskType === TaskType.TELEGRAM_CHANNEL || taskType === TaskType.TELEGRAM_CHAT) {
+    return 'restore_bonus';
+  }
+  return 'attempts';
+}
 
 // Server-side tasks service
 export const serverTasksService = {
@@ -344,7 +352,7 @@ export const serverTasksService = {
   },
 
   /**
-   * Claim task reward
+   * UPDATED: Claim task reward with differentiated reward system
    */
   async claimTaskReward(
     userId: string,
@@ -352,7 +360,10 @@ export const serverTasksService = {
   ): Promise<{
     taskWithStatus: TaskWithStatus;
     attemptsAdded: number;
+    bonusRestoreAdded: number;
+    rewardType: 'attempts' | 'restore_bonus';
     newAttemptsTotal: number;
+    newBonusRestoreTotal: number;
   }> {
     try {
       // Get task and user task details
@@ -385,7 +396,7 @@ export const serverTasksService = {
       // Get current user data
       const { data: user, error: userError } = await supabaseServer
         .from("users")
-        .select("attempts_remaining")
+        .select("attempts_remaining, bonus_restore_attempts")
         .eq("id", userId)
         .single();
 
@@ -394,39 +405,69 @@ export const serverTasksService = {
       }
 
       const now = new Date().toISOString();
-      const attemptsToAdd = task.attempts_reward;
-      const newAttemptsTotal = user.attempts_remaining + attemptsToAdd;
+      const rewardAmount = task.attempts_reward;
+      const rewardType = getRewardType(task.task_type as TaskType);
 
-      // Start transaction
-      const { error: transactionError } = await supabaseServer.rpc(
-        "claim_task_reward_transaction",
-        {
-          p_user_id: userId,
-          p_task_id: taskId,
-          p_attempts_to_add: attemptsToAdd,
-          p_completed_at: now,
-        },
-      );
+      let attemptsAdded = 0;
+      let bonusRestoreAdded = 0;
+      let newAttemptsTotal = user.attempts_remaining;
+      let newBonusRestoreTotal = user.bonus_restore_attempts;
 
-      if (transactionError) {
-        console.error("Error in reward claim transaction:", transactionError);
-        throw transactionError;
-      }
+      console.log(`[TASKS] Claiming reward for task ${taskId}: ${rewardAmount} (type: ${rewardType})`);
 
-      // Alternative approach using individual updates if RPC doesn't exist
+      // Use updated transaction function that handles different reward types
       try {
-        // Update user attempts
-        const { error: userUpdateError } = await supabaseServer
-          .from("users")
-          .update({
-            attempts_remaining: newAttemptsTotal,
-            updated_at: now,
-          })
-          .eq("id", userId);
+        const { error: transactionError } = await supabaseServer.rpc(
+          "claim_task_reward_transaction",
+          {
+            p_user_id: userId,
+            p_task_id: taskId,
+            p_task_type: task.task_type,
+            p_reward_amount: rewardAmount,
+            p_completed_at: now,
+          },
+        );
 
-        if (userUpdateError) throw userUpdateError;
+        if (transactionError) {
+          console.error("Error in reward claim transaction:", transactionError);
+          throw transactionError;
+        }
+      } catch (rpcError) {
+        // Fallback to manual updates if RPC doesn't exist yet
+        console.log("[TASKS] Using fallback transaction method");
+        
+        if (rewardType === 'restore_bonus') {
+          // Update bonus restore attempts for Telegram tasks
+          const { error: userUpdateError } = await supabaseServer
+            .from("users")
+            .update({
+              bonus_restore_attempts: user.bonus_restore_attempts + rewardAmount,
+              updated_at: now,
+            })
+            .eq("id", userId);
 
-        // Update user task
+          if (userUpdateError) throw userUpdateError;
+          
+          bonusRestoreAdded = rewardAmount;
+          newBonusRestoreTotal = user.bonus_restore_attempts + rewardAmount;
+        } else {
+          // Update attempts for other tasks
+          const { error: userUpdateError } = await supabaseServer
+            .from("users")
+            .update({
+              attempts_remaining: user.attempts_remaining + rewardAmount,
+              attempts_reset_at: null,
+              updated_at: now,
+            })
+            .eq("id", userId);
+
+          if (userUpdateError) throw userUpdateError;
+          
+          attemptsAdded = rewardAmount;
+          newAttemptsTotal = user.attempts_remaining + rewardAmount;
+        }
+
+        // Update user task status
         const { error: taskUpdateError } = await supabaseServer
           .from("user_tasks")
           .update({
@@ -437,9 +478,15 @@ export const serverTasksService = {
           .eq("id", userTask.id);
 
         if (taskUpdateError) throw taskUpdateError;
-      } catch (updateError) {
-        console.error("Error updating reward claim:", updateError);
-        throw updateError;
+      }
+
+      // Calculate actual values based on reward type
+      if (rewardType === 'restore_bonus') {
+        bonusRestoreAdded = rewardAmount;
+        newBonusRestoreTotal = user.bonus_restore_attempts + rewardAmount;
+      } else {
+        attemptsAdded = rewardAmount;
+        newAttemptsTotal = user.attempts_remaining + rewardAmount;
       }
 
       const taskWithStatus: TaskWithStatus = {
@@ -459,8 +506,11 @@ export const serverTasksService = {
 
       return {
         taskWithStatus,
-        attemptsAdded: attemptsToAdd,
+        attemptsAdded,
+        bonusRestoreAdded,
+        rewardType,
         newAttemptsTotal,
+        newBonusRestoreTotal,
       };
     } catch (error) {
       console.error("Error claiming task reward:", error);
@@ -525,5 +575,12 @@ export const serverTasksService = {
 
       return new Date();
     }
+  },
+
+  /**
+   * NEW: Helper function to get reward type for task
+   */
+  getRewardType(taskType: TaskType): 'restore_bonus' | 'attempts' {
+    return getRewardType(taskType);
   },
 };
