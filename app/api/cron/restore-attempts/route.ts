@@ -1,4 +1,4 @@
-// src/app/api/cron/restore-attempts/route.ts - Cron job для восстановления попыток с кнопкой игры
+// src/app/api/cron/restore-attempts/route.ts - Updated with bonus_restore_attempts support
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -103,8 +103,8 @@ function getLocalizedButtonText(languageCode: string | null): string {
 
 // ============================================================================
 const CRON_CONFIG = {
-  // Количество попыток для восстановления
-  RESET_ATTEMPTS: parseInt("10"),
+  // Базовое количество попыток для восстановления (будет дополнено бонусными)
+  BASE_RESET_ATTEMPTS: parseInt("10"),
 
   // Частота проверки (в минутах) - настраивается через ENV
   CHECK_FREQUENCY_MINUTES: parseInt("10"),
@@ -137,14 +137,20 @@ interface CronResponse {
   error?: string;
 }
 
-// User restoration result interface with localization support
+// User restoration result interface with localization support and bonus support
 interface RestorationResult {
   telegram_id: number;
   first_name: string;
   language_code: string | null;
+  bonus_restore_attempts: number; // NEW: Track bonus attempts for each user
   attempts_restored: number;
   notification_sent: boolean;
   error?: string;
+}
+
+// Helper function to calculate restore amount for a user
+function calculateUserRestoreAmount(bonusRestoreAttempts: number): number {
+  return CRON_CONFIG.BASE_RESET_ATTEMPTS + (bonusRestoreAttempts || 0);
 }
 
 /**
@@ -217,7 +223,7 @@ export async function POST(
       CRON_CONFIG.MAX_USERS_PER_RUN,
     );
 
-    // Восстанавливаем попытки пользователям
+    // Восстанавливаем попытки пользователям с учетом их бонусов
     const restorationResults = await restoreAttemptsForUsers(usersToProcess);
 
     // Отправляем уведомления
@@ -291,7 +297,7 @@ export async function POST(
 }
 
 /**
- * Получение пользователей с истекшим временем восстановления (включая язык)
+ * Получение пользователей с истекшим временем восстановления (включая bonus_restore_attempts)
  */
 async function getUsersWithExpiredResetTime() {
   const currentTime = new Date().toISOString();
@@ -299,7 +305,7 @@ async function getUsersWithExpiredResetTime() {
   const { data, error } = await supabaseServer
     .from("users")
     .select(
-      "id, telegram_id, first_name, language_code, attempts_remaining, attempts_reset_at",
+      "id, telegram_id, first_name, language_code, attempts_remaining, attempts_reset_at, bonus_restore_attempts",
     )
     .not("attempts_reset_at", "is", null)
     .lte("attempts_reset_at", currentTime)
@@ -318,7 +324,7 @@ async function getUsersWithExpiredResetTime() {
 }
 
 /**
- * Восстановление попыток для списка пользователей с поддержкой локализации
+ * Восстановление попыток для списка пользователей с поддержкой бонусных попыток
  */
 async function restoreAttemptsForUsers(
   users: any[],
@@ -328,11 +334,20 @@ async function restoreAttemptsForUsers(
 
   for (const user of users) {
     try {
+      // Рассчитываем количество попыток для восстановления с учетом бонуса
+      const userRestoreAmount = calculateUserRestoreAmount(
+        user.bonus_restore_attempts,
+      );
+
+      console.log(
+        `[CRON] Restoring attempts for user ${user.telegram_id}: base=${CRON_CONFIG.BASE_RESET_ATTEMPTS}, bonus=${user.bonus_restore_attempts || 0}, total=${userRestoreAmount}`,
+      );
+
       // Обновляем попытки пользователя
       const { error } = await supabaseServer
         .from("users")
         .update({
-          attempts_remaining: CRON_CONFIG.RESET_ATTEMPTS,
+          attempts_remaining: userRestoreAmount,
           attempts_reset_at: null, // Сбрасываем время следующего восстановления
           updated_at: currentTime,
         })
@@ -347,19 +362,21 @@ async function restoreAttemptsForUsers(
           telegram_id: user.telegram_id,
           first_name: user.first_name,
           language_code: user.language_code,
+          bonus_restore_attempts: user.bonus_restore_attempts || 0,
           attempts_restored: 0,
           notification_sent: false,
           error: error.message,
         });
       } else {
         console.log(
-          `[CRON] Attempts restored for user ${user.telegram_id}: ${CRON_CONFIG.RESET_ATTEMPTS} attempts`,
+          `[CRON] Attempts restored for user ${user.telegram_id}: ${userRestoreAmount} attempts`,
         );
         results.push({
           telegram_id: user.telegram_id,
           first_name: user.first_name,
           language_code: user.language_code,
-          attempts_restored: CRON_CONFIG.RESET_ATTEMPTS,
+          bonus_restore_attempts: user.bonus_restore_attempts || 0,
+          attempts_restored: userRestoreAmount,
           notification_sent: false,
         });
       }
@@ -372,6 +389,7 @@ async function restoreAttemptsForUsers(
         telegram_id: user.telegram_id,
         first_name: user.first_name,
         language_code: user.language_code,
+        bonus_restore_attempts: user.bonus_restore_attempts || 0,
         attempts_restored: 0,
         notification_sent: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -417,8 +435,8 @@ async function sendRestorationNotifications(
         const notificationResult = await sendTelegramNotificationWithRetry(
           result.telegram_id,
           result.first_name,
-          result.language_code, // Добавлен параметр language_code
-          result.attempts_restored,
+          result.language_code,
+          result.attempts_restored, // Используем фактическое количество восстановленных попыток
         );
 
         // Обновляем результат
@@ -581,7 +599,7 @@ async function sendTelegramNotification(
 }> {
   // Добавляем логирование входящих параметров
   console.log(
-    `[CRON_NOTIFICATION] Sending to user ${telegramId} (${firstName})`,
+    `[CRON_NOTIFICATION] Sending to user ${telegramId} (${firstName}) - ${attemptsRestored} attempts restored`,
   );
   console.log(`[CRON_NOTIFICATION] Language code received: "${languageCode}"`);
 
@@ -695,12 +713,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   return NextResponse.json({
     config: {
       check_frequency_minutes: CRON_CONFIG.CHECK_FREQUENCY_MINUTES,
-      reset_attempts: CRON_CONFIG.RESET_ATTEMPTS,
+      base_reset_attempts: CRON_CONFIG.BASE_RESET_ATTEMPTS,
       max_users_per_run: CRON_CONFIG.MAX_USERS_PER_RUN,
       execution_timeout: CRON_CONFIG.EXECUTION_TIMEOUT,
       game_start_url: CRON_CONFIG.GAME_START_URL,
     },
-    status: "Cron job endpoint is active",
+    status: "Cron job endpoint is active with bonus restore attempts support",
     next_execution_url: `${request.nextUrl.origin}/api/cron/restore-attempts`,
   });
 }
