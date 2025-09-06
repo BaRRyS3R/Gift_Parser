@@ -48,6 +48,7 @@ export interface UserTask {
   completed_at?: string;
   rewarded_at?: string;
   verification_data?: Record<string, any>;
+  penalty_applied: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +67,7 @@ export interface TaskWithStatus {
   started_at?: string;
   completed_at?: string;
   rewarded_at?: string;
+  penalty_applied?: boolean; // NEW: Tracks if penalty was applied for this task
 }
 
 // API Request/Response interfaces
@@ -130,12 +132,12 @@ export interface TelegramMembershipResponse {
   success: boolean;
   isMember: boolean;
   memberStatus?:
-    | "creator"
-    | "administrator"
-    | "member"
-    | "restricted"
-    | "left"
-    | "kicked";
+  | "creator"
+  | "administrator"
+  | "member"
+  | "restricted"
+  | "left"
+  | "kicked";
   error?: string;
 }
 
