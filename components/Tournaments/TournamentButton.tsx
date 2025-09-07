@@ -1,4 +1,4 @@
-// src/components/Tournaments/TournamentButton.tsx - Обновлено с Badge вместо Chip
+// src/components/Tournaments/TournamentButton.tsx - Badge расположен в правом верхнем углу
 
 "use client";
 
@@ -29,6 +29,7 @@ function getTournamentModeColors(mode?: string) {
         bgHover: "group-hover:bg-red-500/5",
         badgeBg: "bg-red-500",
         badgeText: "text-white",
+        badgeBorder: "border-red-600",
       };
     case "physics":
       return {
@@ -41,6 +42,7 @@ function getTournamentModeColors(mode?: string) {
         bgHover: "group-hover:bg-purple-500/5",
         badgeBg: "bg-purple-500",
         badgeText: "text-white",
+        badgeBorder: "border-purple-600",
       };
     case "rotation":
       return {
@@ -53,6 +55,7 @@ function getTournamentModeColors(mode?: string) {
         bgHover: "group-hover:bg-orange-500/5",
         badgeBg: "bg-orange-500",
         badgeText: "text-white",
+        badgeBorder: "border-orange-600",
       };
     default:
       return {
@@ -63,8 +66,9 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-slate-500/60",
         hoverBorder: "hover:border-slate-500",
         bgHover: "group-hover:bg-slate-500/5",
-        badgeBg: "bg-slate-600",
+        badgeBg: "bg-slate-700",
         badgeText: "text-slate-300",
+        badgeBorder: "border-slate-800",
       };
   }
 }
@@ -164,6 +168,31 @@ export default function TournamentButton({
         />
       )}
 
+      {/* Badge индикатор в правом верхнем углу */}
+      {(!isLoading || activeTournament) && (
+        <div 
+          className={`
+            absolute -top-2 -right-2 z-10
+            px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider
+            border transition-all duration-300
+            ${hasTournament ? 
+              `${colors.badgeBg} ${colors.badgeText} ${colors.badgeBorder}` : 
+              'bg-slate-700 text-slate-300 border-slate-800'
+            }
+            ${hasTournament && !isDisabled ? 'group-hover:scale-110 group-hover:-translate-y-0.5 group-hover:translate-x-0.5' : ''}
+          `}
+        >
+          {badgeText}
+        </div>
+      )}
+      
+      {/* Badge загрузки */}
+      {isLoading && !activeTournament && (
+        <div className="absolute -top-2 -right-2 z-10 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-300 border border-slate-800">
+          ...
+        </div>
+      )}
+
       <button
         className={`
           relative w-full max-w-sm mx-auto flex items-center justify-center px-12 py-6 
@@ -178,36 +207,10 @@ export default function TournamentButton({
         disabled={isDisabled}
         onClick={hasTournament ? onClick : undefined}
       >
-        {/* Основной текст кнопки с Badge */}
-        <div className="flex items-center justify-center gap-3">
-          <span className="tracking-wider">
-            {buttonText}
-          </span>
-          
-          {/* Badge индикатор состояния */}
-          {(!isLoading || activeTournament) && (
-            <span 
-              className={`
-                inline-flex items-center justify-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider
-                transition-all duration-300
-                ${hasTournament ? 
-                  `${colors.badgeBg} ${colors.badgeText}` : 
-                  'bg-slate-700 text-slate-400'
-                }
-                ${hasTournament && !isDisabled ? 'group-hover:scale-105' : ''}
-              `}
-            >
-              {badgeText}
-            </span>
-          )}
-          
-          {/* Загрузка */}
-          {isLoading && !activeTournament && (
-            <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-400">
-              ...
-            </span>
-          )}
-        </div>
+        {/* Основной текст кнопки */}
+        <span className="tracking-wider">
+          {buttonText}
+        </span>
       </button>
 
       {/* Дополнительный эффект свечения при наведении для активной кнопки */}
