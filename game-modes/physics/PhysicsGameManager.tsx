@@ -1079,7 +1079,7 @@ export default function PhysicsGameManager() {
             <div className="flex items-center space-x-2">
               <Zap className="text-purple-400" size={18} />
               <span className="text-lg font-bold text-purple-400">
-                {t("common.level")} {levelInfo.level}/8
+                {t("common.level")} {levelInfo.level}
               </span>
             </div>
 

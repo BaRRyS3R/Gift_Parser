@@ -1159,7 +1159,7 @@ export default function RotationGameManager() {
             <div className="flex items-center space-x-2">
               <RotateCw className="text-orange-400" size={18} />
               <span className="text-lg font-bold text-orange-400">
-                {t("common.level")} {gameState.currentLevel}/10
+                {t("common.level")} {gameState.currentLevel}
               </span>
             </div>
 
