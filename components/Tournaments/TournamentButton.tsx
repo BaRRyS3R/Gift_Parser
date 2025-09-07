@@ -1,4 +1,4 @@
-// src/components/Tournaments/TournamentButton.tsx - Обновлено с Chip индикатором состояния
+// src/components/Tournaments/TournamentButton.tsx - Обновлено с Badge вместо Chip
 
 "use client";
 
@@ -27,9 +27,8 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-red-500/60",
         hoverBorder: "hover:border-red-500",
         bgHover: "group-hover:bg-red-500/5",
-        chipBg: "bg-red-500/20",
-        chipBorder: "border-red-500/40",
-        chipText: "text-red-400",
+        badgeBg: "bg-red-500",
+        badgeText: "text-white",
       };
     case "physics":
       return {
@@ -40,9 +39,8 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-purple-500/60",
         hoverBorder: "hover:border-purple-500",
         bgHover: "group-hover:bg-purple-500/5",
-        chipBg: "bg-purple-500/20",
-        chipBorder: "border-purple-500/40",
-        chipText: "text-purple-400",
+        badgeBg: "bg-purple-500",
+        badgeText: "text-white",
       };
     case "rotation":
       return {
@@ -53,9 +51,8 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-orange-500/60",
         hoverBorder: "hover:border-orange-500",
         bgHover: "group-hover:bg-orange-500/5",
-        chipBg: "bg-orange-500/20",
-        chipBorder: "border-orange-500/40",
-        chipText: "text-orange-400",
+        badgeBg: "bg-orange-500",
+        badgeText: "text-white",
       };
     default:
       return {
@@ -66,26 +63,25 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-slate-500/60",
         hoverBorder: "hover:border-slate-500",
         bgHover: "group-hover:bg-slate-500/5",
-        chipBg: "bg-slate-500/20",
-        chipBorder: "border-slate-500/40",
-        chipText: "text-slate-400",
+        badgeBg: "bg-slate-600",
+        badgeText: "text-slate-300",
       };
   }
 }
 
-// Получение названия режима для отображения в Chip
+// Получение названия режима для отображения в Badge
 function getModeName(mode?: string): string {
   const normalizedMode = mode?.toLowerCase();
   
   switch (normalizedMode) {
     case "survival":
-      return "Survival";
+      return "SURVIVAL";
     case "physics":
-      return "Physics";
+      return "PHYSICS";
     case "rotation":
-      return "Rotation";
+      return "ROTATION";
     default:
-      return "Soon";
+      return "SOON";
   }
 }
 
@@ -146,20 +142,11 @@ export default function TournamentButton({
     fetchTournamentData();
   }, [fetchTournamentData]);
 
-  // Автообновление каждые 2 минуты
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      fetchTournamentData();
-    }, 2 * 60 * 1000);
-
-    return () => clearInterval(refreshInterval);
-  }, [fetchTournamentData]);
-
   // Определение состояния кнопки
   const isActive = activeTournament?.status === "active";
   const hasTournament = !!activeTournament && isActive;
   const tournamentMode = activeTournament?.mode;
-  const chipText = hasTournament ? getModeName(tournamentMode) : "Soon";
+  const badgeText = hasTournament ? getModeName(tournamentMode) : "SOON";
   const isDisabled = isTransitioning || isLoading || !hasTournament || hasError;
 
   // Получение цветовой схемы
@@ -179,7 +166,7 @@ export default function TournamentButton({
 
       <button
         className={`
-          relative w-full max-w-sm mx-auto block px-12 py-6 
+          relative w-full max-w-sm mx-auto flex items-center justify-center px-12 py-6 
           bg-transparent border-2 rounded-xl text-xl font-bold 
           transition-all duration-500 
           ${hasTournament ? 
@@ -191,37 +178,36 @@ export default function TournamentButton({
         disabled={isDisabled}
         onClick={hasTournament ? onClick : undefined}
       >
-        <div className="flex items-center justify-center relative">
-          {/* Chip индикатор состояния */}
-          <div 
-            className={`
-              absolute -top-3 -right-2 px-3 py-1 rounded-full text-xs font-semibold
-              border backdrop-blur-sm transition-all duration-300
-              ${hasTournament ? 
-                `${colors.chipBg} ${colors.chipBorder} ${colors.chipText}` : 
-                'bg-white/10 border-white/20 text-white/50'
-              }
-              ${hasTournament && !isDisabled ? 'group-hover:scale-110' : ''}
-            `}
-          >
-            <span className="uppercase tracking-wider">
-              {isLoading && !activeTournament ? "..." : chipText}
-            </span>
-          </div>
-
-          {/* Основной текст кнопки */}
+        {/* Основной текст кнопки с Badge */}
+        <div className="flex items-center justify-center gap-3">
           <span className="tracking-wider">
             {buttonText}
           </span>
+          
+          {/* Badge индикатор состояния */}
+          {(!isLoading || activeTournament) && (
+            <span 
+              className={`
+                inline-flex items-center justify-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider
+                transition-all duration-300
+                ${hasTournament ? 
+                  `${colors.badgeBg} ${colors.badgeText}` : 
+                  'bg-slate-700 text-slate-400'
+                }
+                ${hasTournament && !isDisabled ? 'group-hover:scale-105' : ''}
+              `}
+            >
+              {badgeText}
+            </span>
+          )}
+          
+          {/* Загрузка */}
+          {isLoading && !activeTournament && (
+            <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-400">
+              ...
+            </span>
+          )}
         </div>
-
-        {/* Индикатор активности для активного турнира */}
-        {hasTournament && !isDisabled && (
-          <div 
-            className="absolute top-3 left-3 w-2 h-2 rounded-full animate-pulse"
-            style={{ backgroundColor: colors.primary }}
-          />
-        )}
       </button>
 
       {/* Дополнительный эффект свечения при наведении для активной кнопки */}
