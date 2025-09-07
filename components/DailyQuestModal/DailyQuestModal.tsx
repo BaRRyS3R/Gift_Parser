@@ -75,21 +75,6 @@ export default function DailyQuestModal({
 
   const questContent = quest ? getQuestContent(safeT) : null;
 
-  const getQuestIcon = () => {
-    if (!quest) return <Target className="text-white/60" size={20} />;
-
-    switch (quest.quest.quest_type) {
-      case "play_games":
-        return <Target className="text-blue-400" size={20} />;
-      case "score_points":
-        return <Star className="text-yellow-400" size={20} />;
-      case "hit_circles":
-        return <Clock className="text-green-400" size={20} />;
-      default:
-        return <Target className="text-white/60" size={20} />;
-    }
-  };
-
   const getGameModeColor = () => {
     if (!quest) return "text-white/60";
 
@@ -166,7 +151,6 @@ export default function DailyQuestModal({
           <div className="relative z-10 p-6 pb-4 border-b border-white/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
                 <h2 className="text-xl font-mono tracking-[0.15em] uppercase">
                   {safeT("quests.modal.title")}
                 </h2>
@@ -255,7 +239,6 @@ export default function DailyQuestModal({
                   {/* Quest Header */}
                   <div className="text-center">
                     <div className="flex items-center justify-center space-x-2 mb-2">
-                      {getQuestIcon()}
                       <h3 className="text-lg font-mono tracking-wider text-white">
                         {questContent.title}
                       </h3>
