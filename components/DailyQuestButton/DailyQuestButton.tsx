@@ -116,18 +116,6 @@ export default function DailyQuestButton({
 
         {/* Main content container */}
         <div className="relative z-10 flex items-center space-x-4">
-          {/* Icon cluster */}
-          <div className="relative flex items-center justify-center">
-            {/* Primary icon */}
-            <div className="relative">
-              {buttonContent.icon}
-            </div>
-            
-            {/* Secondary icon for decoration */}
-            <div className="absolute -top-1 -right-1 opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-              {buttonContent.secondaryIcon}
-            </div>
-          </div>
 
           {/* Content section */}
           <div className="flex flex-col items-start min-w-0">
@@ -136,10 +124,6 @@ export default function DailyQuestButton({
               <span className={`text-sm font-mono font-bold tracking-wider ${buttonContent.textColor} whitespace-nowrap group-hover:text-white transition-colors duration-300`}>
                 {buttonContent.text}
               </span>
-              
-              {/* Status indicator */}
-              <div className={`w-2 h-2 rounded-full bg-${buttonContent.glowColor} opacity-60 group-hover:opacity-100 transition-opacity duration-300`} 
-                   style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
             </div>
 
             {/* Progress section for active quests */}
