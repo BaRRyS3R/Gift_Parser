@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated main page with repositioned Daily Quest Button
+// src/app/main/page.tsx - Обновлено с турнирной кнопкой под основной кнопкой
 
 "use client";
 
@@ -10,7 +10,7 @@ import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
-import { usePCDetection } from "@/hooks/usePCDetection"; // NEW: PC Detection
+import { usePCDetection } from "@/hooks/usePCDetection";
 import AuthGuard from "@/components/Auth/AuthGuard";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
@@ -20,32 +20,6 @@ import SeasonInfoModal from "@/components/SeasonInfoModal/SeasonInfoModal";
 import TournamentButton from "@/components/Tournaments/TournamentButton";
 import DailyQuestButton from "@/components/DailyQuestButton/DailyQuestButton";
 import DailyQuestModal from "@/components/DailyQuestModal/DailyQuestModal";
-
-// Utility function to format time remaining
-const formatTimeRemaining = (milliseconds: number): string => {
-  if (milliseconds <= 0) return "Ended";
-
-  const totalSeconds = Math.floor(milliseconds / 1000);
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const totalHours = Math.floor(totalMinutes / 60);
-  const days = Math.floor(totalHours / 24);
-
-  if (days > 0) {
-    const hours = totalHours % 24;
-
-    return `${days}d ${hours}h`;
-  } else if (totalHours > 0) {
-    const minutes = totalMinutes % 60;
-
-    return `${totalHours}h ${minutes}m`;
-  } else if (totalMinutes > 0) {
-    const seconds = totalSeconds % 60;
-
-    return `${totalMinutes}m ${seconds}s`;
-  } else {
-    return `${totalSeconds}s`;
-  }
-};
 
 function MainPageContent() {
   const router = useRouter();
@@ -69,28 +43,20 @@ function MainPageContent() {
   const { settings } = useSettings();
   const t = useT();
 
-  // NEW: PC Detection with production configuration
   const pcDetection = usePCDetection(makeAuthenticatedRequest, {
     enabled: true,
-    sensitivityThreshold: 2, // Lower threshold for main page (more sensitive)
-    detectionTimeWindow: 3000, // 3 seconds window
-    excludePointerEvents: true, // Exclude pointer events to avoid false positives
+    sensitivityThreshold: 2,
+    detectionTimeWindow: 3000,
+    excludePointerEvents: true,
   });
 
-  /* -------------------------------------------------
-   * Animation control - First visit detection
-   * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
-
     return !sessionStorage.getItem("mainPageVisited");
   };
 
   const isFirstVisit = checkFirstVisit();
 
-  /* -------------------------------------------------
-   * UI state
-   * -------------------------------------------------*/
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
   const [showButton, setShowButton] = useState(!isFirstVisit);
@@ -100,9 +66,6 @@ function MainPageContent() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isDailyQuestModalOpen, setIsDailyQuestModalOpen] = useState(false);
 
-  /* -------------------------------------------------
-   * Dynamic offset for Telegram system UI
-   * -------------------------------------------------*/
   const DEFAULT_TG_HEADER = 60;
   const EXTRA_OFFSET = 40;
   const [headerOffset, setHeaderOffset] = useState<number>(
@@ -111,20 +74,17 @@ function MainPageContent() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
-
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
   }, []);
 
-  // Mark page as visited
   useEffect(() => {
     if (isFirstVisit && typeof window !== "undefined") {
       sessionStorage.setItem("mainPageVisited", "true");
     }
   }, [isFirstVisit]);
 
-  // Initialize telegramUser if not set
   useEffect(() => {
     if (
       !telegramUser &&
@@ -149,9 +109,6 @@ function MainPageContent() {
     }
   }, [telegramUser, setTelegramUser]);
 
-  /* -------------------------------------------------
-   * Attempts initialization
-   * -------------------------------------------------*/
   useEffect(() => {
     if (user && !attemptsLoading && !attemptsStatus) {
       fetchAttemptsStatus();
@@ -164,14 +121,10 @@ function MainPageContent() {
     fetchAttemptsStatus,
   ]);
 
-  /* -------------------------------------------------
-   * Background video logic
-   * -------------------------------------------------*/
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const video = videoRef.current;
-
     if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
@@ -192,9 +145,6 @@ function MainPageContent() {
     };
   }, [settings.showBackgroundVideo]);
 
-  /* -------------------------------------------------
-   * Mount / animation logic
-   * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
@@ -207,9 +157,6 @@ function MainPageContent() {
     return () => clearTimeout(pageLoadTimer);
   }, [isFirstVisit]);
 
-  /* -------------------------------------------------
-   * Handlers
-   * -------------------------------------------------*/
   const handleStartGame = () => {
     setIsTransitioning(true);
     setTimeout(() => {
@@ -261,9 +208,6 @@ function MainPageContent() {
     fetchAttemptsStatus(true);
   };
 
-  /* -------------------------------------------------
-   * Render
-   * -------------------------------------------------*/
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
@@ -298,7 +242,7 @@ function MainPageContent() {
         </div>
       )}
 
-      {/* Simplified Top Navigation Icons */}
+      {/* Top Navigation Icons - Left */}
       <div
         className={`fixed left-0 z-30 px-6 ${
           isFirstVisit
@@ -312,7 +256,6 @@ function MainPageContent() {
         style={{ top: headerOffset }}
       >
         <div className="flex items-center gap-4">
-          {/* About Icon */}
           <button
             aria-label="About"
             className="w-10 h-10 text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -322,7 +265,6 @@ function MainPageContent() {
             <Info size={24} />
           </button>
 
-          {/* Settings Icon */}
           <button
             aria-label={t("common.settings")}
             className="w-10 h-10 text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -332,25 +274,6 @@ function MainPageContent() {
             <SettingsIcon size={24} />
           </button>
         </div>
-      </div>
-
-      {/* Tournament Button - Top Right */}
-      <div
-        className={`fixed right-0 z-30 px-6 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
-            : "opacity-100 translate-y-0"
-        }`}
-        style={{ top: headerOffset }}
-      >
-        <TournamentButton
-          isTransitioning={isTransitioning}
-          onClick={handleOpenTournaments}
-        />
       </div>
 
       {/* Season Button - Central position */}
@@ -413,6 +336,12 @@ function MainPageContent() {
               </div>
             </button>
           </div>
+
+          {/* Tournament Button - Under Main Play Button */}
+          <TournamentButton
+            isTransitioning={isTransitioning}
+            onClick={handleOpenTournaments}
+          />
         </div>
       </div>
 
@@ -436,7 +365,7 @@ function MainPageContent() {
         onClose={handleCloseDailyQuestModal}
       />
 
-      {/* Enhanced Attempts Display with Level Integration */}
+      {/* Attempts Display */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${
           isFirstVisit
@@ -462,7 +391,7 @@ function MainPageContent() {
         />
       </div>
 
-      {/* Daily Quest Button - Between Attempts and Bottom Menu */}
+      {/* Daily Quest Button */}
       <div
         className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
           isFirstVisit
