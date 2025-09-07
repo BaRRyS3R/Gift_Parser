@@ -1,9 +1,8 @@
-// src/components/Tournaments/TournamentButton.tsx - Рефакторинг: полноразмерная кнопка в стиле главной
+// src/components/Tournaments/TournamentButton.tsx - Обновлено с Chip индикатором состояния
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Trophy } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -28,7 +27,9 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-red-500/60",
         hoverBorder: "hover:border-red-500",
         bgHover: "group-hover:bg-red-500/5",
-        textColor: "text-red-400",
+        chipBg: "bg-red-500/20",
+        chipBorder: "border-red-500/40",
+        chipText: "text-red-400",
       };
     case "physics":
       return {
@@ -39,7 +40,9 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-purple-500/60",
         hoverBorder: "hover:border-purple-500",
         bgHover: "group-hover:bg-purple-500/5",
-        textColor: "text-purple-400",
+        chipBg: "bg-purple-500/20",
+        chipBorder: "border-purple-500/40",
+        chipText: "text-purple-400",
       };
     case "rotation":
       return {
@@ -50,7 +53,9 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-orange-500/60",
         hoverBorder: "hover:border-orange-500",
         bgHover: "group-hover:bg-orange-500/5",
-        textColor: "text-orange-400",
+        chipBg: "bg-orange-500/20",
+        chipBorder: "border-orange-500/40",
+        chipText: "text-orange-400",
       };
     default:
       return {
@@ -61,12 +66,14 @@ function getTournamentModeColors(mode?: string) {
         borderColor: "border-slate-500/60",
         hoverBorder: "hover:border-slate-500",
         bgHover: "group-hover:bg-slate-500/5",
-        textColor: "text-slate-400",
+        chipBg: "bg-slate-500/20",
+        chipBorder: "border-slate-500/40",
+        chipText: "text-slate-400",
       };
   }
 }
 
-// Получение названия режима для отображения
+// Получение названия режима для отображения в Chip
 function getModeName(mode?: string): string {
   const normalizedMode = mode?.toLowerCase();
   
@@ -78,7 +85,7 @@ function getModeName(mode?: string): string {
     case "rotation":
       return "Rotation";
     default:
-      return "";
+      return "Soon";
   }
 }
 
@@ -152,21 +159,14 @@ export default function TournamentButton({
   const isActive = activeTournament?.status === "active";
   const hasTournament = !!activeTournament && isActive;
   const tournamentMode = activeTournament?.mode;
-  const modeName = getModeName(tournamentMode);
+  const chipText = hasTournament ? getModeName(tournamentMode) : "Soon";
   const isDisabled = isTransitioning || isLoading || !hasTournament || hasError;
 
   // Получение цветовой схемы
   const colors = hasTournament ? getTournamentModeColors(tournamentMode) : getTournamentModeColors();
 
   // Определение текста кнопки
-  let buttonText = "Tournament Soon";
-  if (hasTournament && modeName) {
-    buttonText = `${modeName} Tournament`;
-  } else if (hasError) {
-    buttonText = "Tournament Soon";
-  } else if (isLoading && !activeTournament) {
-    buttonText = "Loading...";
-  }
+  const buttonText = isTransitioning ? t("main.loading") : "Tournament";
 
   return (
     <div className="relative group">
@@ -191,26 +191,34 @@ export default function TournamentButton({
         disabled={isDisabled}
         onClick={hasTournament ? onClick : undefined}
       >
-        <div className="flex items-center justify-center space-x-4">
-          <Trophy
+        <div className="flex items-center justify-center relative">
+          {/* Chip индикатор состояния */}
+          <div 
             className={`
+              absolute -top-3 -right-2 px-3 py-1 rounded-full text-xs font-semibold
+              border backdrop-blur-sm transition-all duration-300
               ${hasTournament ? 
-                `${colors.textColor} group-hover:text-white transition-colors duration-300` : 
-                'text-white/40'
+                `${colors.chipBg} ${colors.chipBorder} ${colors.chipText}` : 
+                'bg-white/10 border-white/20 text-white/50'
               }
-              ${hasTournament && !isDisabled ? 'group-hover:translate-x-1 transition-transform duration-300' : ''}
+              ${hasTournament && !isDisabled ? 'group-hover:scale-110' : ''}
             `}
-            size={24}
-          />
+          >
+            <span className="uppercase tracking-wider">
+              {isLoading && !activeTournament ? "..." : chipText}
+            </span>
+          </div>
+
+          {/* Основной текст кнопки */}
           <span className="tracking-wider">
-            {isTransitioning ? t("main.loading") : buttonText}
+            {buttonText}
           </span>
         </div>
 
         {/* Индикатор активности для активного турнира */}
         {hasTournament && !isDisabled && (
           <div 
-            className="absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse"
+            className="absolute top-3 left-3 w-2 h-2 rounded-full animate-pulse"
             style={{ backgroundColor: colors.primary }}
           />
         )}

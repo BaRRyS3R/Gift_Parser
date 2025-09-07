@@ -5,12 +5,12 @@
 import { usePathname, useRouter } from "next/navigation";
 import {
   Gamepad2,
+  Trophy,
   User,
   ShoppingCart,
   CheckSquare,
 } from "lucide-react";
 
-import { MdLeaderboard } from "react-icons/md";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -28,7 +28,7 @@ export default function BottomNav() {
     {
       name: t("nav.leaderboard"),
       path: "/leaderboard",
-      icon: MdLeaderboard,
+      icon: Trophy,
     },
     {
       name: t("nav.home"),
