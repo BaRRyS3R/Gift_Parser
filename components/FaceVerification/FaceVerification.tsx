@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Camera, CameraOff, SwitchCamera, FlipHorizontal } from "lucide-react";
+import { Camera, CameraOff, SwitchCamera } from "lucide-react";
 import * as faceLandmarksDetection from "@tensorflow-models/face-landmarks-detection";
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-webgl";
@@ -28,7 +28,6 @@ export default function FaceVerification() {
   const animationFrameRef = useRef<number | null>(null);
 
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [isMirrored, setIsMirrored] = useState(true);
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [state, setState] = useState<FaceDetectionState>({
     isLoading: true,
@@ -110,13 +109,6 @@ export default function FaceVerification() {
     // This is a simplified emotion detection based on facial landmarks
     // In production, you'd use a proper emotion recognition model
     
-    // Key landmark indices for emotion detection
-    const leftEyebrow = [70, 63, 105, 66, 107];
-    const rightEyebrow = [300, 293, 334, 296, 336];
-    const leftEye = [33, 133, 157, 158, 159, 160, 161, 246];
-    const rightEye = [362, 398, 384, 385, 386, 387, 388, 466];
-    const mouth = [61, 291, 39, 269, 0, 17, 18, 200];
-    
     // Calculate features
     const calculateDistance = (p1: number, p2: number) => {
       const point1 = keypoints[p1];
@@ -127,39 +119,99 @@ export default function FaceVerification() {
       );
     };
 
-    // Mouth width/height ratio (smile detection)
+    // Key points for emotion detection
+    // Mouth corners: 61 (left), 291 (right)
+    // Mouth top: 13, bottom: 14
+    // Upper lip: 12, Lower lip: 15
+    // Left eyebrow inner: 107, outer: 55
+    // Right eyebrow inner: 336, outer: 285
+    // Nose tip: 1
+    
+    // Calculate mouth features
+    const mouthLeft = keypoints[61];
+    const mouthRight = keypoints[291];
+    const mouthTop = keypoints[13];
+    const mouthBottom = keypoints[14];
+    const upperLip = keypoints[12];
+    const lowerLip = keypoints[15];
+    
+    // Mouth openness (vertical distance)
+    const mouthOpenness = calculateDistance(13, 14);
     const mouthWidth = calculateDistance(61, 291);
-    const mouthHeight = calculateDistance(13, 14);
-    const mouthRatio = mouthWidth / (mouthHeight + 0.001);
-
-    // Eye openness
-    const leftEyeHeight = calculateDistance(159, 145);
-    const rightEyeHeight = calculateDistance(386, 374);
-    const eyeOpenness = (leftEyeHeight + rightEyeHeight) / 2;
-
-    // Eyebrow position (for anger/sadness)
-    const leftBrowY = keypoints[70].y;
-    const rightBrowY = keypoints[300].y;
-    const browPosition = (leftBrowY + rightBrowY) / 2;
-
-    // Simple emotion classification based on features
+    
+    // Mouth corners position relative to center
+    const mouthCenter = keypoints[13];
+    const leftCornerHeight = mouthLeft.y - mouthCenter.y;
+    const rightCornerHeight = mouthRight.y - mouthCenter.y;
+    const averageCornerHeight = (leftCornerHeight + rightCornerHeight) / 2;
+    
+    // Eyebrow features
+    const leftBrowInner = keypoints[107];
+    const leftBrowOuter = keypoints[55];
+    const rightBrowInner = keypoints[336];
+    const rightBrowOuter = keypoints[285];
+    const noseTip = keypoints[1];
+    
+    // Calculate eyebrow angles and positions
+    const leftBrowAngle = Math.atan2(leftBrowOuter.y - leftBrowInner.y, leftBrowOuter.x - leftBrowInner.x);
+    const rightBrowAngle = Math.atan2(rightBrowOuter.y - rightBrowInner.y, rightBrowInner.x - rightBrowOuter.x);
+    const avgBrowAngle = (leftBrowAngle + rightBrowAngle) / 2;
+    
+    // Distance between eyebrows (furrowing)
+    const browDistance = calculateDistance(107, 336);
+    const faceWidth = calculateDistance(234, 454); // Face width reference points
+    const browDistanceRatio = browDistance / faceWidth;
+    
+    // Eye features
+    const leftEyeTop = keypoints[159];
+    const leftEyeBottom = keypoints[145];
+    const rightEyeTop = keypoints[386];
+    const rightEyeBottom = keypoints[374];
+    const leftEyeOpenness = calculateDistance(159, 145);
+    const rightEyeOpenness = calculateDistance(386, 374);
+    const avgEyeOpenness = (leftEyeOpenness + rightEyeOpenness) / 2;
+    
+    // Normalize features based on face size
+    const faceHeight = calculateDistance(10, 152); // Top to bottom of face
+    const normalizedMouthOpenness = mouthOpenness / faceHeight;
+    const normalizedCornerHeight = averageCornerHeight / faceHeight;
+    const normalizedEyeOpenness = avgEyeOpenness / faceHeight;
+    
+    // Emotion classification with corrected thresholds
     let emotion: EmotionPrediction["emotion"] = "neutral";
-    let confidence = 0.5;
-
-    if (mouthRatio > 4.5 && eyeOpenness > 10) {
+    let confidence = 0.7;
+    
+    // Happy: mouth corners up, moderate mouth opening, eyes slightly squinted
+    const smileScore = -normalizedCornerHeight; // Negative because up is negative in y-axis
+    const isSmiling = smileScore > 0.01 && normalizedMouthOpenness < 0.15;
+    
+    // Sad: mouth corners down, eyebrows angled down on outer edges
+    const isSad = normalizedCornerHeight > 0.02 && avgBrowAngle > 0.1;
+    
+    // Angry: eyebrows furrowed (close together), angled down, mouth tight
+    const isAngry = browDistanceRatio < 0.18 && avgBrowAngle < -0.1 && normalizedMouthOpenness < 0.05;
+    
+    // Apply classification
+    if (isSmiling && normalizedEyeOpenness < 0.045) {
       emotion = "happy";
-      confidence = Math.min(0.95, 0.5 + (mouthRatio - 4.5) * 0.1);
-    } else if (browPosition < 0.45 && mouthRatio < 3.5) {
-      emotion = "angry";
-      confidence = Math.min(0.9, 0.5 + (0.45 - browPosition) * 2);
-    } else if (browPosition > 0.5 && mouthRatio < 3.8) {
+      confidence = Math.min(0.95, 0.6 + smileScore * 10);
+    } else if (isSad) {
       emotion = "sad";
-      confidence = Math.min(0.85, 0.5 + (browPosition - 0.5) * 2);
+      confidence = Math.min(0.9, 0.6 + normalizedCornerHeight * 5);
+    } else if (isAngry) {
+      emotion = "angry";
+      confidence = Math.min(0.9, 0.6 + (0.2 - browDistanceRatio) * 3);
     } else {
+      // Neutral - default state
       emotion = "neutral";
-      confidence = 0.7 + Math.random() * 0.2; // Add some variation
+      // Check if mouth is just open (not an emotion indicator)
+      if (normalizedMouthOpenness > 0.1) {
+        confidence = 0.5; // Lower confidence when mouth is open without other indicators
+      } else {
+        confidence = 0.75;
+      }
     }
-
+    
     return { emotion, confidence };
   }, []);
 
@@ -255,8 +307,8 @@ export default function FaceVerification() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Apply mirror transformation if needed
-    if (isMirrored && facingMode === "user") {
+    // Apply mirror transformation if needed (always mirror for front camera)
+    if (facingMode === "user") {
       ctx.save();
       ctx.scale(-1, 1);
       ctx.translate(-canvas.width, 0);
@@ -296,21 +348,16 @@ export default function FaceVerification() {
     }
 
     // Restore canvas transformation
-    if (isMirrored && facingMode === "user") {
+    if (facingMode === "user") {
       ctx.restore();
     }
 
     animationFrameRef.current = requestAnimationFrame(detectFace);
-  }, [facingMode, isMirrored, drawFaceMesh, analyzeEmotion]);
+  }, [facingMode, drawFaceMesh, analyzeEmotion]);
 
   // Toggle camera facing mode
   const toggleCamera = useCallback(() => {
     setFacingMode(prev => prev === "user" ? "environment" : "user");
-  }, []);
-
-  // Toggle mirror mode
-  const toggleMirror = useCallback(() => {
-    setIsMirrored(prev => !prev);
   }, []);
 
   // Initialize everything
@@ -357,7 +404,7 @@ export default function FaceVerification() {
       <video
         ref={videoRef}
         className={`absolute inset-0 w-full h-full object-cover bg-black ${
-          isMirrored && facingMode === "user" ? "scale-x-[-1]" : ""
+          facingMode === "user" ? "scale-x-[-1]" : ""
         }`}
         playsInline
         muted
@@ -407,17 +454,6 @@ export default function FaceVerification() {
             <SwitchCamera size={24} />
           </button>
         )}
-
-        {/* Mirror toggle button */}
-        <button
-          onClick={toggleMirror}
-          className={`p-3 backdrop-blur-sm rounded-full text-white transition-colors ${
-            isMirrored ? "bg-white/30" : "bg-white/20"
-          } hover:bg-white/30`}
-          aria-label="Toggle mirror"
-        >
-          <FlipHorizontal size={24} />
-        </button>
       </div>
 
       {/* Loading overlay */}
