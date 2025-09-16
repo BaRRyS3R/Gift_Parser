@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed attempts status handling with cache updates
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed play again logic with pre-validation
 
 "use client";
 
@@ -157,7 +157,12 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
-  const { consumeAttemptWithSession, updateAttemptsFromGameSave } = useAttempts(makeAuthenticatedRequest);
+  const { 
+    consumeAttemptWithSession, 
+    updateAttemptsFromGameSave, 
+    canPlayFast,
+    fetchAttemptsStatus 
+  } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -173,7 +178,7 @@ export default function SurvivalGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
   
-  // NEW: Track if user can play again after save
+  // UPDATED: Track if user can play again with more reliable state
   const [canPlayAfterSave, setCanPlayAfterSave] = useState<boolean | null>(null);
 
   const [sessionStatus, setSessionStatus] =
@@ -427,7 +432,7 @@ export default function SurvivalGameManager() {
     }
   }, []);
 
-  // Enhanced save game result with proper attempts status handling
+  // Enhanced save game result with improved attempts status handling
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
       const sessionId = currentSessionRef.current;
@@ -442,7 +447,7 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      console.log("Saving game with session ID:", sessionId);
+      console.log("[SAVE_GAME] Starting save process with session ID:", sessionId);
 
       setSaveStatus((prev) => ({
         ...prev,
@@ -538,22 +543,25 @@ export default function SurvivalGameManager() {
           const saveResult = responseData.data as GameSaveResult;
           if (saveResult.bestScoreInfo) {
             setBestScoreInfo(saveResult.bestScoreInfo);
-            console.log("Best score info received:", saveResult.bestScoreInfo);
+            console.log("[SAVE_GAME] Best score info received:", saveResult.bestScoreInfo);
           }
 
-          // NEW: Process attempts status from API response
+          // UPDATED: More reliable attempts status processing
           if (saveResult.attemptsStatus) {
-            console.log("Attempts status received:", saveResult.attemptsStatus);
+            console.log("[SAVE_GAME] Attempts status received:", saveResult.attemptsStatus);
             
             // Update attempts cache with fresh data from game save
             updateAttemptsFromGameSave(saveResult.attemptsStatus);
             
-            // Set flag for play again button
-            setCanPlayAfterSave(saveResult.attemptsStatus.canPlay);
+            // Set flag for play again button with explicit logging
+            const canPlay = saveResult.attemptsStatus.canPlay;
+            setCanPlayAfterSave(canPlay);
+            
+            console.log(`[SAVE_GAME] Setting canPlayAfterSave to: ${canPlay}, attempts remaining: ${saveResult.attemptsStatus.attemptsRemaining}`);
             
             // If user cannot play anymore, set up redirect
-            if (!saveResult.attemptsStatus.canPlay) {
-              console.log("User cannot play again - setting up redirect");
+            if (!canPlay) {
+              console.log("[SAVE_GAME] User cannot play again - setting up redirect");
               setPlayAgainError({
                 show: true,
                 message: t("game.modes.survival.playAgain.noAttempts"),
@@ -562,14 +570,9 @@ export default function SurvivalGameManager() {
               });
             }
           } else {
-            console.warn("No attempts status received from game save response");
-            // If no attempts status received, show error and redirect
-            setPlayAgainError({
-              show: true,
-              message: t("game.modes.survival.playAgain.error"),
-              redirecting: false,
-              isSessionError: false,
-            });
+            console.warn("[SAVE_GAME] No attempts status received from game save response");
+            // Reset the flag to trigger fresh validation
+            setCanPlayAfterSave(null);
           }
 
           setSaveStatus((prev) => ({
@@ -621,6 +624,9 @@ export default function SurvivalGameManager() {
             ? errorMessage.replace("SESSION_ERROR: ", "")
             : null,
         }));
+
+        // If save failed, reset the can play flag
+        setCanPlayAfterSave(null);
 
         // If save failed, show error and redirect
         setPlayAgainError({
@@ -881,6 +887,8 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(async () => {
+    console.log("[START_GAME] Starting game initialization");
+    
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
@@ -888,6 +896,7 @@ export default function SurvivalGameManager() {
       const attemptsResult = await consumeAttemptWithSession(GameMode.SURVIVAL);
 
       if (!attemptsResult) {
+        console.log("[START_GAME] Failed to consume attempt - no result");
         setPlayAgainError({
           show: true,
           message: t("game.modes.survival.playAgain.noAttempts"),
@@ -897,8 +906,10 @@ export default function SurvivalGameManager() {
         return;
       }
 
+      console.log("[START_GAME] Attempt consumed successfully:", attemptsResult);
+
       if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
-        console.log("Session created:", attemptsResult.sessionId);
+        console.log("[START_GAME] Session created:", attemptsResult.sessionId);
 
         currentSessionRef.current = attemptsResult.sessionId;
 
@@ -909,7 +920,7 @@ export default function SurvivalGameManager() {
           timeRemaining: attemptsResult.sessionExpiresAt.getTime() - Date.now(),
         });
       } else {
-        console.error("No session data received from consume attempt");
+        console.error("[START_GAME] No session data received from consume attempt");
         setPlayAgainError({
           show: true,
           message: "Failed to create game session",
@@ -982,7 +993,7 @@ export default function SurvivalGameManager() {
         }));
       }, 800);
     } catch (error) {
-      console.error("Failed to start game:", error);
+      console.error("[START_GAME] Failed to start game:", error);
       
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
@@ -998,29 +1009,91 @@ export default function SurvivalGameManager() {
     }
   }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
+  // UPDATED: Enhanced play again logic with pre-validation
   const handlePlayAgain = useCallback(async () => {
-    if (isPlayingAgain) return;
-
-    // NEW: Check if user can play based on save result
-    if (canPlayAfterSave === false) {
-      console.log("Cannot play again - no attempts remaining");
+    if (isPlayingAgain) {
+      console.log("[PLAY_AGAIN] Already in progress, ignoring");
       return;
     }
+
+    console.log("[PLAY_AGAIN] Starting play again process");
+    console.log("[PLAY_AGAIN] canPlayAfterSave:", canPlayAfterSave);
 
     setIsPlayingAgain(true);
 
     try {
+      // STEP 1: If we have reliable data from game save, use it
+      if (canPlayAfterSave === false) {
+        console.log("[PLAY_AGAIN] Cannot play - canPlayAfterSave is false");
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // STEP 2: If we don't have reliable save data, do a fast pre-check
+      if (canPlayAfterSave === null) {
+        console.log("[PLAY_AGAIN] No save data available, doing fast pre-check");
+        
+        const canPlayCheck = await canPlayFast();
+        console.log("[PLAY_AGAIN] Fast pre-check result:", canPlayCheck);
+        
+        if (!canPlayCheck) {
+          console.log("[PLAY_AGAIN] Fast pre-check failed - user cannot play");
+          setPlayAgainError({
+            show: true,
+            message: t("game.modes.survival.playAgain.noAttempts"),
+            redirecting: false,
+            isSessionError: false,
+          });
+          setIsPlayingAgain(false);
+          return;
+        }
+      }
+
+      // STEP 3: Additional validation - fetch fresh attempts status
+      console.log("[PLAY_AGAIN] Fetching fresh attempts status for validation");
+      
+      try {
+        const freshStatus = await fetchAttemptsStatus(true); // Force fresh fetch
+        console.log("[PLAY_AGAIN] Fresh attempts status:", freshStatus);
+        
+        if (!freshStatus?.canPlay) {
+          console.log("[PLAY_AGAIN] Fresh status check failed - user cannot play");
+          setPlayAgainError({
+            show: true,
+            message: t("game.modes.survival.playAgain.noAttempts"),
+            redirecting: false,
+            isSessionError: false,
+          });
+          setIsPlayingAgain(false);
+          return;
+        }
+      } catch (statusError) {
+        console.warn("[PLAY_AGAIN] Failed to fetch fresh status, proceeding anyway:", statusError);
+      }
+
+      // STEP 4: All checks passed, start the game
+      console.log("[PLAY_AGAIN] All validation checks passed, starting game");
       await startGame();
+      
     } catch (error) {
+      console.error("[PLAY_AGAIN] Error during play again:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const isAttemptsError = errorMessage.includes("attempts") || 
+                            errorMessage.includes("No attempts") ||
+                            errorMessage.includes("Locked");
+      
       setPlayAgainError({
         show: true,
-        message: t("game.modes.survival.playAgain.error"),
+        message: isAttemptsError 
+          ? t("game.modes.survival.playAgain.noAttempts")
+          : t("game.modes.survival.playAgain.error"),
         redirecting: false,
         isSessionError: false,
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, startGame, t, canPlayAfterSave]);
+  }, [isPlayingAgain, startGame, t, canPlayAfterSave, canPlayFast, fetchAttemptsStatus]);
 
   useEffect(() => {
     return () => {
@@ -1271,7 +1344,7 @@ export default function SurvivalGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                // NEW: Enhanced button state logic
+                // UPDATED: Enhanced button state logic with better logging
                 isPlayingAgain || 
                 playAgainError.show || 
                 saveStatus.isLoading ||

@@ -1,4 +1,4 @@
-// src/app/api/user/attempts/consume/route.ts - Updated with game session creation
+// src/app/api/user/attempts/consume/route.ts - Enhanced with detailed logging for debugging
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -14,7 +14,7 @@ interface ConsumeAttemptResponse {
   attemptsRemaining: number;
   resetTime?: string;
   timeUntilReset?: number;
-  // NEW: Session data
+  // Session data
   sessionId?: string;
   sessionExpiresAt?: string;
   error?: string;
@@ -27,17 +27,23 @@ interface ConsumeAttemptRequest {
 
 /**
  * POST /api/user/attempts/consume
- * Enhanced version with game session creation
+ * Enhanced with detailed logging for debugging attempts issues
  */
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<ConsumeAttemptResponse>> {
+  const requestId = crypto.randomUUID().slice(0, 8); // For request tracking
+  console.log(`[CONSUME_${requestId}] Starting attempt consumption`);
+  
   try {
     // Extract user info from middleware headers
     const telegramId = request.headers.get("X-Telegram-ID");
     const userId = request.headers.get("X-User-ID");
 
+    console.log(`[CONSUME_${requestId}] Headers - TelegramID: ${telegramId}, UserID: ${userId}`);
+
     if (!telegramId || !userId) {
+      console.log(`[CONSUME_${requestId}] FAILED - Missing authentication headers`);
       return NextResponse.json(
         {
           success: false,
@@ -52,6 +58,7 @@ export async function POST(
     const telegramIdNumber = parseInt(telegramId);
 
     if (isNaN(telegramIdNumber)) {
+      console.log(`[CONSUME_${requestId}] FAILED - Invalid telegram ID: ${telegramId}`);
       return NextResponse.json(
         {
           success: false,
@@ -68,7 +75,9 @@ export async function POST(
 
     try {
       body = await request.json();
+      console.log(`[CONSUME_${requestId}] Request body:`, body);
     } catch (error) {
+      console.log(`[CONSUME_${requestId}] FAILED - Invalid request body:`, error);
       return NextResponse.json(
         {
           success: false,
@@ -82,6 +91,7 @@ export async function POST(
 
     // Validate game mode
     if (!body.gameMode || !Object.values(GameMode).includes(body.gameMode)) {
+      console.log(`[CONSUME_${requestId}] FAILED - Invalid game mode: ${body.gameMode}`);
       return NextResponse.json(
         {
           success: false,
@@ -94,9 +104,11 @@ export async function POST(
     }
 
     // Verify user exists and get user data
+    console.log(`[CONSUME_${requestId}] Fetching user data for telegram ID: ${telegramIdNumber}`);
     const user = await serverUserService.findByTelegramId(telegramIdNumber);
 
     if (!user) {
+      console.log(`[CONSUME_${requestId}] FAILED - User not found: ${telegramIdNumber}`);
       return NextResponse.json(
         {
           success: false,
@@ -108,12 +120,51 @@ export async function POST(
       );
     }
 
+    console.log(`[CONSUME_${requestId}] User found - Current attempts: ${user.attempts_remaining}`);
+
+    // ENHANCED: Pre-validate attempts before attempting to consume
+    if (user.attempts_remaining <= 0) {
+      console.log(`[CONSUME_${requestId}] PRE-VALIDATION FAILED - No attempts remaining: ${user.attempts_remaining}`);
+      
+      // Check if user needs automatic reset
+      try {
+        const preCheckStatus = await serverAttemptsService.checkAndUpdateAttempts(telegramIdNumber);
+        console.log(`[CONSUME_${requestId}] Pre-check status after update:`, preCheckStatus);
+        
+        if (!preCheckStatus.canPlay) {
+          console.log(`[CONSUME_${requestId}] FAILED - Still cannot play after pre-check`);
+          return NextResponse.json(
+            {
+              success: false,
+              canPlay: false,
+              attemptsRemaining: preCheckStatus.attemptsRemaining,
+              resetTime: preCheckStatus.resetTime?.toISOString(),
+              timeUntilReset: preCheckStatus.timeUntilReset,
+              error: "No attempts remaining",
+            },
+            { status: 423 }, // 423 = Locked
+          );
+        }
+      } catch (preCheckError) {
+        console.error(`[CONSUME_${requestId}] Pre-check failed:`, preCheckError);
+        // Continue with original logic if pre-check fails
+      }
+    }
+
     // ATOMIC OPERATION: Consume attempt with session creation
+    console.log(`[CONSUME_${requestId}] Starting atomic consume operation`);
+    
     // First, consume the attempt
-    const attemptsStatus =
-      await serverAttemptsService.consumeAttempt(telegramIdNumber);
+    const attemptsStatus = await serverAttemptsService.consumeAttempt(telegramIdNumber);
+    
+    console.log(`[CONSUME_${requestId}] Consume attempt result:`, {
+      canPlay: attemptsStatus.canPlay,
+      attemptsRemaining: attemptsStatus.attemptsRemaining,
+      resetTime: attemptsStatus.resetTime?.toISOString(),
+    });
 
     if (!attemptsStatus.canPlay) {
+      console.log(`[CONSUME_${requestId}] FAILED - Consume attempt returned canPlay=false`);
       return NextResponse.json(
         {
           success: false,
@@ -128,16 +179,23 @@ export async function POST(
     }
 
     // If attempt consumption successful, create game session
+    console.log(`[CONSUME_${requestId}] Creating game session for game mode: ${body.gameMode}`);
+    
     const sessionResult = await serverGameSessionService.createSession(
       user.id,
       telegramIdNumber,
       body.gameMode,
     );
 
+    console.log(`[CONSUME_${requestId}] Session creation result:`, {
+      success: sessionResult.success,
+      sessionId: sessionResult.session_id,
+      error: sessionResult.error,
+    });
+
     if (!sessionResult.success) {
       // If session creation fails, we should ideally rollback the attempt consumption
-      // For now, log the error and return the session creation failure
-      console.error("Failed to create game session after consuming attempt:", {
+      console.error(`[CONSUME_${requestId}] FAILED - Session creation failed after consuming attempt:`, {
         userId: user.id,
         telegramId: telegramIdNumber,
         gameMode: body.gameMode,
@@ -156,7 +214,7 @@ export async function POST(
     }
 
     // Success: return both attempts status and session data
-    return NextResponse.json({
+    const response = {
       success: true,
       canPlay: attemptsStatus.canPlay,
       attemptsRemaining: attemptsStatus.attemptsRemaining,
@@ -164,9 +222,13 @@ export async function POST(
       timeUntilReset: attemptsStatus.timeUntilReset,
       sessionId: sessionResult.session_id,
       sessionExpiresAt: sessionResult.expires_at?.toISOString(),
-    });
+    };
+
+    console.log(`[CONSUME_${requestId}] SUCCESS - Response:`, response);
+    return NextResponse.json(response);
+    
   } catch (error) {
-    console.error("Error consuming attempt and creating session:", error);
+    console.error(`[CONSUME_${requestId}] UNEXPECTED ERROR:`, error);
 
     // Enhanced error handling with specific error types
     if (error instanceof Error) {
@@ -183,6 +245,7 @@ export async function POST(
       }
 
       if (error.message.includes("No attempts remaining")) {
+        console.log(`[CONSUME_${requestId}] Error indicates no attempts: ${error.message}`);
         return NextResponse.json(
           {
             success: false,
@@ -217,19 +280,4 @@ export async function POST(
       { status: 500 },
     );
   }
-}
-
-/**
- * OPTIONS for CORS preflight
- */
-export async function OPTIONS(): Promise<NextResponse> {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers":
-        "Content-Type, Authorization, X-Telegram-ID, X-User-ID",
-    },
-  });
 }

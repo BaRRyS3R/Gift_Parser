@@ -1,4 +1,4 @@
-// src/hooks/modules/useAttempts.ts - Enhanced with cache update from game save results
+// src/hooks/modules/useAttempts.ts - Enhanced with better validation and cache synchronization
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
@@ -39,11 +39,12 @@ interface AttemptsState {
 // Level calculation constants
 const GAMES_PER_LEVEL = 20;
 
-// Caching configuration
+// UPDATED: Enhanced caching configuration with more aggressive validation
 const CACHE_CONFIG = {
-  STATUS_CACHE_MS: 30000, // 30 seconds cache for status
-  FAST_CHECK_CACHE_MS: 10000, // 10 seconds for fast check
-  DEBOUNCE_MS: 500, // Debounce for repeated requests
+  STATUS_CACHE_MS: 15000, // Reduced from 30s to 15s for better sync
+  FAST_CHECK_CACHE_MS: 5000, // Reduced from 10s to 5s
+  DEBOUNCE_MS: 300, // Reduced debounce time
+  PRE_VALIDATE_CACHE_MS: 2000, // NEW: Very short cache for pre-validation
 } as const;
 
 /**
@@ -65,7 +66,7 @@ function calculateLevelProgress(
 }
 
 /**
- * Enhanced attempts hook with session management and cache updates from game saves
+ * Enhanced attempts hook with improved validation and cache management
  */
 export function useAttempts(
   makeAuthenticatedRequest: (
@@ -89,9 +90,16 @@ export function useAttempts(
     canPlay: boolean;
     timestamp: number;
   } | null>(null);
+  
+  // NEW: Pre-validation cache for play again scenarios
+  const preValidateCacheRef = useRef<{
+    canPlay: boolean;
+    attemptsRemaining: number;
+    timestamp: number;
+  } | null>(null);
 
   /**
-   * NEW: Update attempts status from game save result (cache invalidation + update)
+   * UPDATED: Enhanced cache update from game save with validation
    */
   const updateAttemptsFromGameSave = useCallback((attemptsFromGameSave: {
     canPlay: boolean;
@@ -119,29 +127,40 @@ export function useAttempts(
       error: null, // Clear any previous errors
     }));
 
-    // Update fast check cache
+    // Update all caches with fresh data
     fastCheckCacheRef.current = {
       canPlay: updatedStatus.canPlay,
       timestamp: now,
     };
 
-    console.log("[ATTEMPTS] Cache updated with fresh data from game save");
+    preValidateCacheRef.current = {
+      canPlay: updatedStatus.canPlay,
+      attemptsRemaining: updatedStatus.attemptsRemaining,
+      timestamp: now,
+    };
+
+    console.log("[ATTEMPTS] All caches updated with fresh data from game save:", {
+      canPlay: updatedStatus.canPlay,
+      attemptsRemaining: updatedStatus.attemptsRemaining,
+    });
   }, []);
 
   /**
-   * Fast check if user can play (cached)
+   * UPDATED: Enhanced fast check with better logging
    */
   const canPlayFast = useCallback(async (): Promise<boolean> => {
     const now = Date.now();
 
-    // Check fast cache
+    // Check fast cache first
     if (
       fastCheckCacheRef.current &&
-      now - fastCheckCacheRef.current.timestamp <
-        CACHE_CONFIG.FAST_CHECK_CACHE_MS
+      now - fastCheckCacheRef.current.timestamp < CACHE_CONFIG.FAST_CHECK_CACHE_MS
     ) {
+      console.log("[ATTEMPTS] Fast check - using cache:", fastCheckCacheRef.current.canPlay);
       return fastCheckCacheRef.current.canPlay;
     }
+
+    console.log("[ATTEMPTS] Fast check - cache expired, making API call");
 
     try {
       const response = await makeAuthenticatedRequest(
@@ -152,6 +171,7 @@ export function useAttempts(
       );
 
       const canPlay = response.status === 200;
+      console.log("[ATTEMPTS] Fast check - API result:", canPlay);
 
       // Update cache
       fastCheckCacheRef.current = {
@@ -161,14 +181,77 @@ export function useAttempts(
 
       return canPlay;
     } catch (error) {
-      console.warn("Fast can play check failed:", error);
-
+      console.warn("[ATTEMPTS] Fast can play check failed:", error);
       return false;
     }
   }, [makeAuthenticatedRequest]);
 
   /**
-   * Fetch attempts status (cached)
+   * NEW: Pre-validation for play again scenarios
+   */
+  const preValidateCanPlay = useCallback(async (): Promise<{
+    canPlay: boolean;
+    attemptsRemaining: number;
+    cached: boolean;
+  }> => {
+    const now = Date.now();
+
+    // Check pre-validation cache (very short lived)
+    if (
+      preValidateCacheRef.current &&
+      now - preValidateCacheRef.current.timestamp < CACHE_CONFIG.PRE_VALIDATE_CACHE_MS
+    ) {
+      console.log("[ATTEMPTS] Pre-validation - using cache:", preValidateCacheRef.current);
+      return {
+        canPlay: preValidateCacheRef.current.canPlay,
+        attemptsRemaining: preValidateCacheRef.current.attemptsRemaining,
+        cached: true,
+      };
+    }
+
+    console.log("[ATTEMPTS] Pre-validation - fetching fresh data");
+
+    try {
+      const response = await makeAuthenticatedRequest("/api/user/attempts/status");
+
+      if (!response.ok) {
+        throw new Error(`Status check failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      const canPlay = result.success && result.canPlay;
+      const attemptsRemaining = result.attemptsRemaining || 0;
+
+      // Update pre-validation cache
+      preValidateCacheRef.current = {
+        canPlay,
+        attemptsRemaining,
+        timestamp: now,
+      };
+
+      console.log("[ATTEMPTS] Pre-validation - fresh result:", {
+        canPlay,
+        attemptsRemaining,
+      });
+
+      return {
+        canPlay,
+        attemptsRemaining,
+        cached: false,
+      };
+    } catch (error) {
+      console.error("[ATTEMPTS] Pre-validation failed:", error);
+      return {
+        canPlay: false,
+        attemptsRemaining: 0,
+        cached: false,
+      };
+    }
+  }, [makeAuthenticatedRequest]);
+
+  /**
+   * Fetch attempts status with enhanced caching
    */
   const fetchAttemptsStatus = useCallback(
     async (force: boolean = false): Promise<AttemptsStatus | null> => {
@@ -181,13 +264,17 @@ export function useAttempts(
         state.lastFetch > 0 &&
         now - state.lastFetch < CACHE_CONFIG.STATUS_CACHE_MS
       ) {
+        console.log("[ATTEMPTS] Fetch status - using cache");
         return state.status;
       }
 
       // Prevent multiple simultaneous requests
       if (fetchingRef.current && !force) {
+        console.log("[ATTEMPTS] Fetch status - already fetching");
         return state.status;
       }
+
+      console.log("[ATTEMPTS] Fetch status - making API call (force:", force, ")");
 
       fetchingRef.current = true;
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -199,7 +286,6 @@ export function useAttempts(
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-
           throw new Error(
             errorData.error || `Server error: ${response.status}`,
           );
@@ -221,7 +307,6 @@ export function useAttempts(
 
         // Parse level information
         let userLevel: UserLevelInfo | null = null;
-
         if (result.userLevel) {
           userLevel = calculateLevelProgress(
             result.userLevel.currentLevel,
@@ -239,15 +324,23 @@ export function useAttempts(
           currentGameMode: state.currentGameMode,
         });
 
-        // Update fast check cache
+        // Update all caches
         fastCheckCacheRef.current = {
           canPlay: attemptsStatus.canPlay,
           timestamp: now,
         };
 
+        preValidateCacheRef.current = {
+          canPlay: attemptsStatus.canPlay,
+          attemptsRemaining: attemptsStatus.attemptsRemaining,
+          timestamp: now,
+        };
+
+        console.log("[ATTEMPTS] Fetch status - success:", attemptsStatus);
+
         return attemptsStatus;
       } catch (error) {
-        console.error("Error fetching attempts status:", error);
+        console.error("[ATTEMPTS] Error fetching attempts status:", error);
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
 
@@ -272,7 +365,7 @@ export function useAttempts(
   );
 
   /**
-   * Consume attempt with game mode and session creation
+   * UPDATED: Enhanced consume attempt with better error handling
    */
   const consumeAttemptWithSession = useCallback(
     async (gameMode: GameMode): Promise<AttemptsStatus | null> => {
@@ -283,6 +376,8 @@ export function useAttempts(
 
       return new Promise((resolve) => {
         debounceTimeoutRef.current = setTimeout(async () => {
+          console.log("[ATTEMPTS] Consuming attempt for game mode:", gameMode);
+          
           setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
           try {
@@ -297,8 +392,20 @@ export function useAttempts(
               },
             );
 
+            console.log("[ATTEMPTS] Consume response status:", response.status);
+
             if (!response.ok) {
               const errorData = await response.json().catch(() => ({}));
+              console.error("[ATTEMPTS] Consume failed - response data:", errorData);
+
+              // Specific handling for 423 Locked status
+              if (response.status === 423) {
+                // Clear all caches on 423 error to force fresh fetch
+                fastCheckCacheRef.current = null;
+                preValidateCacheRef.current = null;
+                
+                console.log("[ATTEMPTS] 423 Locked - cleared all caches");
+              }
 
               throw new Error(
                 errorData.error || `Server error: ${response.status}`,
@@ -306,6 +413,7 @@ export function useAttempts(
             }
 
             const result = await response.json();
+            console.log("[ATTEMPTS] Consume success - result:", result);
 
             if (!result.success) {
               throw new Error(result.error || "Failed to consume attempt");
@@ -334,15 +442,24 @@ export function useAttempts(
               currentGameMode: gameMode,
             }));
 
-            // Invalidate fast check cache
+            // Update caches with new data
+            const now = Date.now();
             fastCheckCacheRef.current = {
               canPlay: attemptsStatus.canPlay,
-              timestamp: Date.now(),
+              timestamp: now,
             };
+
+            preValidateCacheRef.current = {
+              canPlay: attemptsStatus.canPlay,
+              attemptsRemaining: attemptsStatus.attemptsRemaining,
+              timestamp: now,
+            };
+
+            console.log("[ATTEMPTS] Consume complete - updated caches");
 
             resolve(attemptsStatus);
           } catch (error) {
-            console.error("Error consuming attempt:", error);
+            console.error("[ATTEMPTS] Error consuming attempt:", error);
             const errorMessage =
               error instanceof Error ? error.message : "Unknown error";
 
@@ -406,9 +523,11 @@ export function useAttempts(
   }, []);
 
   /**
-   * Reset attempts state and session
+   * UPDATED: Enhanced reset with cache clearing
    */
   const resetAttemptsState = useCallback(() => {
+    console.log("[ATTEMPTS] Resetting all attempts state and caches");
+    
     setState({
       status: null,
       userLevel: null,
@@ -419,8 +538,9 @@ export function useAttempts(
       currentGameMode: null,
     });
 
-    // Clear caches
+    // Clear all caches
     fastCheckCacheRef.current = null;
+    preValidateCacheRef.current = null;
 
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -455,11 +575,12 @@ export function useAttempts(
     debouncedFetch,
     consumeAttemptWithSession, // Primary method for consuming attempts
     canPlayFast,
+    preValidateCanPlay, // NEW: Enhanced pre-validation
     clearError,
     resetAttemptsState,
 
-    // NEW: Update cache with data from game save
-    updateAttemptsFromGameSave,
+    // Cache management
+    updateAttemptsFromGameSave, // Update cache with data from game save
 
     // Session management
     getCurrentSession,
