@@ -1,4 +1,4 @@
-// src/locales/en/game.ts - Game Modes, Gameplay, GAME PAGE (Easter Eggs)
+// src/locales/en/game.ts - Game Modes, Gameplay, GAME PAGE (Easter Eggs) - Enhanced with best score
 export const game = {
   easterEgg: {
     title: "SURPRISE!",
@@ -35,6 +35,7 @@ export const game = {
         ready: "Get ready",
         waiting: "Waiting...",
         clickNow: "Go go!",
+        missed: "Bruh..",
         targetWillAppear: "Target appears in 3-5 seconds",
         lightningFast: "Lightning-fast reflexes n-needed?",
         preparing: "Preparing",
@@ -47,6 +48,12 @@ export const game = {
         testAgain: "AGAIN?",
         backToMenu: "BACK TO MENU",
         noAttemptsLeft: "NO ATTEMPTS LEFT",
+        // NEW: Best score keys for reaction mode
+        yourBestScore: "YOUR BEST SCORE",
+        missedBy: "Missed by {{points}} points",
+        exceededBy: "Exceeded by {{points}} points",
+        percentageOfBest: "{{percentage}}% of your record",
+        firstRecord: "This is your first record!",
       },
       playAgain: {
         button: "AGAIN?",
@@ -92,11 +99,11 @@ export const game = {
         "There are levels",
         "Many targets",
         "Red circles are traps. Stay away from them",
-        "One mistake and it’s over",
+        "One mistake and it's over",
       ],
       rules: [
         "Click only on white circles",
-        "Red circles are traps. Don’t touch them.",
+        "Red circles are traps. Don't touch them.",
         "Too slow? You lose.",
       ],
       instructions: {
@@ -114,6 +121,13 @@ export const game = {
         surviveAgain: "AGAIN?",
         escapeToMenu: "BACK TO MENU",
         starting: "STARTING...",
+        // NEW: Best score keys
+        yourBestScore: "YOUR BEST SCORE",
+        missedBy: "Missed by {{points}} points",
+        exceededBy: "Exceeded by {{points}} points",
+        percentageOfBest: "{{percentage}}% of your record",
+        firstRecord: "This is your first record!",
+        sessionExpired: "Session expired",
       },
       playAgain: {
         button: "AGAIN?",
@@ -130,9 +144,10 @@ export const game = {
       deathCauses: {
         miss: "Circle faded. And you.. )) No negativity.",
         wrongClick:
-          "Too early. The circle wasn’t active.",
+          "Too early. The circle wasn't active.",
         decoyHit: "Two colors: red and white. Why did you go for the red?",
         default: "Survival ended",
+        sessionExpired: "Session expired",
       },
       levels: {
         warmingUp: "WARM-UP",
@@ -180,6 +195,12 @@ export const game = {
         playAgain: "AGAIN?",
         backToMenu: "BACK TO MENU",
         levelsCompleted: "LEVELS COMPLETED",
+        // NEW: Best score keys for physics mode
+        yourBestScore: "YOUR BEST SCORE",
+        missedBy: "Missed by {{points}} points",
+        exceededBy: "Exceeded by {{points}} points",
+        percentageOfBest: "{{percentage}}% of your record",
+        firstRecord: "This is your first record!",
       },
       playAgain: {
         button: "AGAIN?",
@@ -205,13 +226,13 @@ export const game = {
       name: "ROTATION",
       description: "Circles spin. So do you.",
       difficulty: "Dizzying",
-      duration: "Naaaah",
+      duration: "~1 minute",
       objective:
         "Circles rotate in a circle. Click white, don't click red. Logical? Not guaranteed.",
       features: [
         "Spinning Circles",
         "Levels",
-        "Speed ​​grows like your nausea",
+        "Speed grows like your nausea",
         "You spin me right now baby right now",
       ],
       rules: [
@@ -235,6 +256,12 @@ export const game = {
         spinAgain: "AGAIN?",
         escapeToMenu: "BACK TO MENU",
         starting: "SPINNING UP...",
+        // NEW: Best score keys for rotation mode
+        yourBestScore: "YOUR BEST SCORE",
+        missedBy: "Missed by {{points}} points",
+        exceededBy: "Exceeded by {{points}} points",
+        percentageOfBest: "{{percentage}}% of your record",
+        firstRecord: "This is your first record!",
       },
       playAgain: {
         button: "AGAIN?",
@@ -272,7 +299,7 @@ export const game = {
   general: {
     readyToPlay: "Yo! Go!",
     buyMoreAttempts: "Buy more attempts",
-    testYourSkills: "Test yout skills",
+    testYourSkills: "Test your skills",
     initializingGame: "INITIALIZING GAME...",
     noAttempts: "NO ATTEMPTS",
     noAttemptsLeft: "NO ATTEMPTS LEFT",
