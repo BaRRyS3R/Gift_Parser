@@ -14,6 +14,12 @@ export const game = {
     buttonBack: "Назад",
     newBestScore: "НОВЫЙ РЕКОРД!", // Пока не актуально
     recordUpdated: "Рекорд обновлён!", // Пока не актуально
+    // NEW: Общие ключи для best score
+    bestScore: {
+      newRecord: "НОВЫЙ РЕКОРД!",
+      yourBest: "Лучший результат",
+      pointsNeeded: "Не хватило до рекорда: {points}",
+    },
     reaction: {
       name: "РЕАКЦИЯ",
       description: "Надеюсь, хоть тут попадёшь.", // Не актуально
@@ -60,6 +66,12 @@ export const game = {
         error: "Произошла ошибка при запуске игры. Попробуйте позже.",
         autoRedirect: "Автоматический переход в меню через 3 секунды...",
         redirecting: "Перенаправление...",
+      },
+      // NEW: Best Score для режима реакции (по времени)
+      bestScore: {
+        newRecord: "НОВЫЙ РЕКОРД!",
+        yourBest: "Лучшее время",
+        timeNeeded: "Нужно быстрее на: {time} мс",
       },
       ratings: {
         lightning: "Скорострел",
@@ -129,18 +141,17 @@ export const game = {
         redirecting: "Перенаправление...",
       },
       deathCauses: {
-        miss: "Круг потух. А ты.. )) Без негатива.",
+        miss: "Круг потух. Мда...",
         wrongClick:
           "Слишком рано. Круг еще не активен.",
         decoyHit: "Два цвета: красный и белый. Зачем ты нажал на красный?",
         default: "Выживание закончено",
         sessionExpired: "Сессия истекла. Время на игру закончилось.",
       },
-      // NEW: Best Score localization keys
       bestScore: {
         newRecord: "НОВЫЙ РЕКОРД!",
         yourBest: "Лучший счёт",
-        pointsNeeded: "Не хватило до рекорда: {{points}}",
+        pointsNeeded: "Не хватило до рекорда: {points}",
       },
       levels: { // Не актуально
         warmingUp: "РАЗМИНКА",
@@ -261,6 +272,7 @@ export const game = {
         wrongClick: "Ткнул мимо активного круга. Похоже, закружился.",
         decoyHit: "Красный круг! Красный значит стоп! Базовые понятия.",
         default: "Вращение остановлено. Надеюсь, не стошнило.",
+        sessionExpired: "Сессия истекла. Время на игру закончилось.",
       },
       levels: { // Не актуально
         gentleSpin: "ЛЁГКОЕ КРУЧЕНИЕ",

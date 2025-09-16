@@ -14,6 +14,12 @@ export const game = {
     buttonBack: "Back",
     newBestScore: "NEW BEST SCORE!",
     recordUpdated: "The record has been updated!",
+    // NEW: Общие ключи для best score
+    bestScore: {
+      newRecord: "NEW RECORD!",
+      yourBest: "Best Result",
+      pointsNeeded: "{points} points needed to beat record",
+    },
     reaction: {
       name: "REACTION",
       description: "Hopefully you'll hit at least here.",
@@ -59,6 +65,12 @@ export const game = {
           "Error occurred while starting the game. Please try again later.",
         autoRedirect: "Automatic redirect to menu in 3 seconds...",
         redirecting: "Redirecting...",
+      },
+      // NEW: Best Score для режима реакции (по времени)
+      bestScore: {
+        newRecord: "NEW RECORD!",
+        yourBest: "Best Time",
+        timeNeeded: "Need to be {time} ms faster",
       },
       ratings: {
         lightning: "Lightning Fast",
@@ -135,11 +147,10 @@ export const game = {
         default: "Survival ended",
         sessionExpired: "Session expired. Your game time has run out.",
       },
-      // NEW: Best Score localization keys
       bestScore: {
         newRecord: "NEW RECORD!",
         yourBest: "Best Score",
-        pointsNeeded: "{{points}} points needed to beat record",
+        pointsNeeded: "{points} points needed to beat record",
       },
       levels: {
         warmingUp: "WARM-UP",
@@ -261,6 +272,7 @@ export const game = {
           "Clicked past the active circle. Guess you got dizzy.",
         decoyHit: "Red circle! Red means stop! Basic concept.",
         default: "Rotation stopped. Hope you didn't get sick.",
+        sessionExpired: "Session expired. Your game time has run out.",
       },
       levels: {
         gentleSpin: "GENTLE SPIN",

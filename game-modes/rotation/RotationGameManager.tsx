@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Fixed session management
+// src/game-modes/rotation/RotationGameManager.tsx - Fixed session management with Best Score display
 
 "use client";
 
@@ -13,6 +13,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import ConfettiExplosion from "react-confetti-explosion";
 
 import {
   initializeRotationGameState,
@@ -62,6 +63,15 @@ interface SessionStatus {
   timeRemaining: number | null;
 }
 
+// NEW: Best Score information from API response
+interface BestScoreInfo {
+  previousBestScore: number;
+  currentScore: number;
+  newBestScore: number;
+  isBestScore: boolean;
+  pointsNeeded?: number;
+}
+
 const initialSaveStatus: SaveStatus = {
   isLoading: false,
   attempt: 0,
@@ -88,6 +98,64 @@ const initialSessionStatus: SessionStatus = {
 
 const LEVEL_UPDATE_INTERVAL = 100;
 
+// NEW: Best Score Display Component для режима ротации
+interface BestScoreDisplayProps {
+  bestScoreInfo: BestScoreInfo;
+}
+
+const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) => {
+  const t = useT();
+  const { isBestScore, previousBestScore, pointsNeeded } = bestScoreInfo;
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    if (isBestScore) {
+      setShowConfetti(true);
+      const timer = setTimeout(() => setShowConfetti(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isBestScore]);
+
+  if (isBestScore) {
+    return (
+      <div className="text-center relative">
+        {showConfetti && (
+          <ConfettiExplosion
+            force={0.6}
+            duration={2500}
+            particleCount={100}
+            width={800}
+            colors={['#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5']}
+          />
+        )}
+        <div className="text-green-400 text-lg font-bold animate-pulse">
+          🏆 {t("game.modes.bestScore.newRecord")}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-500/10 border border-gray-400/30 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-400">
+          {t("game.modes.bestScore.yourBest")}
+        </span>
+        <span className="text-sm text-white font-bold">
+          {previousBestScore}
+        </span>
+      </div>
+      {pointsNeeded && pointsNeeded > 0 && (
+        <div className="text-center">
+          <span className="text-xs text-gray-500">
+            {t("game.modes.bestScore.pointsNeeded", { points: pointsNeeded })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function RotationGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
@@ -103,6 +171,7 @@ export default function RotationGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<RotationGameResult | null>(null);
+  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null); // NEW: Best score info
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
     initialPlayAgainError,
   );
@@ -345,7 +414,7 @@ export default function RotationGameManager() {
     }
   }, []);
 
-  // FIXED: Enhanced save game result with proper session management
+  // FIXED: Enhanced save game result with proper session management and Best Score handling
   const handleSaveGameResult = useCallback(
     async (result: RotationGameResult) => {
       // CRITICAL FIX: Use ref instead of state to avoid race condition
@@ -425,7 +494,13 @@ export default function RotationGameManager() {
           }
 
           // FIXED: Use sessionId from ref, not state
-          await saveGameResult(result, sessionId);
+          const response = await saveGameResult(result, sessionId);
+
+          // NEW: Process Best Score information from API response
+          if (response.bestScoreInfo) {
+            setBestScoreInfo(response.bestScoreInfo);
+            console.log("Best score info received:", response.bestScoreInfo);
+          }
 
           setSaveStatus((prev) => ({
             ...prev,
@@ -782,6 +857,7 @@ export default function RotationGameManager() {
 
       setGameState(newGameState);
       setGameResult(null);
+      setBestScoreInfo(null); // NEW: Reset best score info
       setSaveStatus(initialSaveStatus);
       setPlayAgainError(initialPlayAgainError);
       setActivatedCircles([]);
@@ -946,6 +1022,11 @@ export default function RotationGameManager() {
               </div>
             </div>
 
+            {/* NEW: Best Score Display */}
+            {bestScoreInfo && (
+              <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center space-y-1">
                 <div className="text-xs text-orange-400/60">
@@ -1082,8 +1163,8 @@ export default function RotationGameManager() {
                   )}
                   <span
                     className={`text-sm font-bold ${playAgainError.isSessionError
-                      ? "text-orange-400"
-                      : "text-red-400"
+                        ? "text-orange-400"
+                        : "text-red-400"
                       }`}
                   >
                     {t("game.modes.rotation.playAgain.cannotPlay")}
@@ -1111,8 +1192,8 @@ export default function RotationGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
-                ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
+                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                  : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
                 }`}
               disabled={
                 isPlayingAgain || playAgainError.show || saveStatus.isLoading
