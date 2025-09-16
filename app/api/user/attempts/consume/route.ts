@@ -1,4 +1,4 @@
-// src/app/api/user/attempts/consume/route.ts - Enhanced with detailed logging for debugging
+// src/app/api/user/attempts/consume/route.ts - ИСПРАВЛЕНА критическая ошибка в логике
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -27,7 +27,7 @@ interface ConsumeAttemptRequest {
 
 /**
  * POST /api/user/attempts/consume
- * Enhanced with detailed logging for debugging attempts issues
+ * ИСПРАВЛЕНА критическая ошибка в логике потребления попыток
  */
 export async function POST(
   request: NextRequest,
@@ -122,49 +122,25 @@ export async function POST(
 
     console.log(`[CONSUME_${requestId}] User found - Current attempts: ${user.attempts_remaining}`);
 
-    // ENHANCED: Pre-validate attempts before attempting to consume
-    if (user.attempts_remaining <= 0) {
-      console.log(`[CONSUME_${requestId}] PRE-VALIDATION FAILED - No attempts remaining: ${user.attempts_remaining}`);
-      
-      // Check if user needs automatic reset
-      try {
-        const preCheckStatus = await serverAttemptsService.checkAndUpdateAttempts(telegramIdNumber);
-        console.log(`[CONSUME_${requestId}] Pre-check status after update:`, preCheckStatus);
-        
-        if (!preCheckStatus.canPlay) {
-          console.log(`[CONSUME_${requestId}] FAILED - Still cannot play after pre-check`);
-          return NextResponse.json(
-            {
-              success: false,
-              canPlay: false,
-              attemptsRemaining: preCheckStatus.attemptsRemaining,
-              resetTime: preCheckStatus.resetTime?.toISOString(),
-              timeUntilReset: preCheckStatus.timeUntilReset,
-              error: "No attempts remaining",
-            },
-            { status: 423 }, // 423 = Locked
-          );
-        }
-      } catch (preCheckError) {
-        console.error(`[CONSUME_${requestId}] Pre-check failed:`, preCheckError);
-        // Continue with original logic if pre-check fails
-      }
-    }
-
-    // ATOMIC OPERATION: Consume attempt with session creation
+    // ATOMIC OPERATION: Потребление попытки
     console.log(`[CONSUME_${requestId}] Starting atomic consume operation`);
     
-    // First, consume the attempt
     const attemptsStatus = await serverAttemptsService.consumeAttempt(telegramIdNumber);
     
     console.log(`[CONSUME_${requestId}] Consume attempt result:`, {
+      success: "success" in attemptsStatus ? attemptsStatus.success : "field not present",
       canPlay: attemptsStatus.canPlay,
       attemptsRemaining: attemptsStatus.attemptsRemaining,
       resetTime: attemptsStatus.resetTime?.toISOString(),
     });
 
-    if (!attemptsStatus.canPlay) {
-      console.log(`[CONSUME_${requestId}] FAILED - Consume attempt returned canPlay=false`);
+    // ИСПРАВЛЕНО: Правильная проверка результата потребления попытки
+    // Функция consume_attempt возвращает объект с полем success, но мы его не проверяем
+    // Проверяем успешность операции через RPC результат
+    
+    // Если у функции есть поле success и оно false - попытку потребить не удалось
+    if ('success' in attemptsStatus && !attemptsStatus.success) {
+      console.log(`[CONSUME_${requestId}] FAILED - Could not consume attempt (no attempts available)`);
       return NextResponse.json(
         {
           success: false,
@@ -178,8 +154,9 @@ export async function POST(
       );
     }
 
-    // If attempt consumption successful, create game session
-    console.log(`[CONSUME_${requestId}] Creating game session for game mode: ${body.gameMode}`);
+    // ИСПРАВЛЕНО: Если мы дошли до этого места, значит попытка была успешно потреблена
+    // Теперь создаем игровую сессию независимо от того, остались ли еще попытки
+    console.log(`[CONSUME_${requestId}] Attempt successfully consumed, creating game session for: ${body.gameMode}`);
     
     const sessionResult = await serverGameSessionService.createSession(
       user.id,
@@ -194,13 +171,17 @@ export async function POST(
     });
 
     if (!sessionResult.success) {
-      // If session creation fails, we should ideally rollback the attempt consumption
-      console.error(`[CONSUME_${requestId}] FAILED - Session creation failed after consuming attempt:`, {
+      // КРИТИЧНО: Если создание сессии не удалось, нужно восстановить попытку
+      console.error(`[CONSUME_${requestId}] CRITICAL - Session creation failed after consuming attempt:`, {
         userId: user.id,
         telegramId: telegramIdNumber,
         gameMode: body.gameMode,
         error: sessionResult.error,
+        note: "Attempt was consumed but session creation failed - this should trigger attempt restoration"
       });
+
+      // TODO: Реализовать механизм восстановления попытки при сбое создания сессии
+      // На данный момент логируем критическую ошибку для мониторинга
 
       return NextResponse.json(
         {
@@ -213,10 +194,10 @@ export async function POST(
       );
     }
 
-    // Success: return both attempts status and session data
+    // SUCCESS: Попытка потреблена, сессия создана - возвращаем результат
     const response = {
       success: true,
-      canPlay: attemptsStatus.canPlay,
+      canPlay: true, // ИСПРАВЛЕНО: Пользователь может играть, так как сессия создана
       attemptsRemaining: attemptsStatus.attemptsRemaining,
       resetTime: attemptsStatus.resetTime?.toISOString(),
       timeUntilReset: attemptsStatus.timeUntilReset,
@@ -224,13 +205,18 @@ export async function POST(
       sessionExpiresAt: sessionResult.expires_at?.toISOString(),
     };
 
-    console.log(`[CONSUME_${requestId}] SUCCESS - Response:`, response);
+    console.log(`[CONSUME_${requestId}] SUCCESS - Attempt consumed and session created:`, {
+      sessionId: response.sessionId,
+      remainingAttempts: response.attemptsRemaining,
+      canPlayMore: response.attemptsRemaining > 0
+    });
+    
     return NextResponse.json(response);
     
   } catch (error) {
     console.error(`[CONSUME_${requestId}] UNEXPECTED ERROR:`, error);
 
-    // Enhanced error handling with specific error types
+    // Enhanced error handling
     if (error instanceof Error) {
       if (error.message.includes("not found")) {
         return NextResponse.json(
@@ -253,7 +239,7 @@ export async function POST(
             attemptsRemaining: 0,
             error: "No attempts remaining",
           },
-          { status: 423 }, // 423 = Locked
+          { status: 423 },
         );
       }
 
