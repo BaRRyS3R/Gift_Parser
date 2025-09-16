@@ -1,4 +1,4 @@
-// src/app/api/game/save/route.ts - Updated with session validation
+// src/app/api/game/save/route.ts - Updated with session validation and attempts status response
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -24,20 +24,20 @@ type GameResult =
 // Enhanced request interface with session ID
 interface SaveGameRequest {
   gameResult: GameResult;
-  sessionId: string; // NEW: Required session ID
+  sessionId: string; // Required session ID
 }
 
-// Enhanced response interface
+// Enhanced response interface with attempts status
 interface SaveGameResponse {
   success: boolean;
   data?: GameSaveResult;
   error?: string;
-  sessionError?: string; // NEW: Specific session validation errors
+  sessionError?: string; // Specific session validation errors
 }
 
 /**
  * POST /api/game/save
- * Enhanced version with session validation
+ * Enhanced version with session validation and attempts status response
  */
 export async function POST(
   request: NextRequest,
@@ -189,7 +189,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      data: saveResult,
+      data: saveResult, // This now includes attemptsStatus from gameService
     });
   } catch (error) {
     console.error("Error saving game result:", error);
@@ -236,19 +236,4 @@ export async function POST(
       { status: 500 },
     );
   }
-}
-
-/**
- * OPTIONS for CORS preflight
- */
-export async function OPTIONS(): Promise<NextResponse> {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers":
-        "Content-Type, Authorization, X-Telegram-ID, X-User-ID",
-    },
-  });
 }

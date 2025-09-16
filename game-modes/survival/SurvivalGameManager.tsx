@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed session management with Best Score display and attempt consumption bug fix
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed attempts status handling with cache updates
 
 "use client";
 
@@ -157,7 +157,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
-  const { consumeAttemptWithSession } = useAttempts(makeAuthenticatedRequest);
+  const { consumeAttemptWithSession, updateAttemptsFromGameSave } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -172,12 +172,15 @@ export default function SurvivalGameManager() {
     initialPlayAgainError,
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
+  
+  // NEW: Track if user can play again after save
+  const [canPlayAfterSave, setCanPlayAfterSave] = useState<boolean | null>(null);
 
   const [sessionStatus, setSessionStatus] =
     useState<SessionStatus>(initialSessionStatus);
   const [sessionWarningShown, setSessionWarningShown] = useState(false);
 
-  // CRITICAL FIX: Store session ID in a ref to avoid race conditions
+  // Store session ID in a ref to avoid race conditions
   const currentSessionRef = useRef<string | null>(null);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -197,7 +200,7 @@ export default function SurvivalGameManager() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Local session timer (no server calls)
+  // Local session timer
   useEffect(() => {
     if (
       sessionStatus.sessionId &&
@@ -400,7 +403,7 @@ export default function SurvivalGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
-  // FIXED: Changed timer from 3 seconds to 5 seconds
+  // Handle auto-redirect when cannot play again
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -408,7 +411,7 @@ export default function SurvivalGameManager() {
         setTimeout(() => {
           router.push("/game");
         }, 500);
-      }, 5000); // Changed from 3000 to 5000
+      }, 5000);
 
       return () => clearTimeout(timer);
     }
@@ -424,7 +427,7 @@ export default function SurvivalGameManager() {
     }
   }, []);
 
-  // Enhanced save game result with Best Score handling
+  // Enhanced save game result with proper attempts status handling
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
       const sessionId = currentSessionRef.current;
@@ -538,6 +541,37 @@ export default function SurvivalGameManager() {
             console.log("Best score info received:", saveResult.bestScoreInfo);
           }
 
+          // NEW: Process attempts status from API response
+          if (saveResult.attemptsStatus) {
+            console.log("Attempts status received:", saveResult.attemptsStatus);
+            
+            // Update attempts cache with fresh data from game save
+            updateAttemptsFromGameSave(saveResult.attemptsStatus);
+            
+            // Set flag for play again button
+            setCanPlayAfterSave(saveResult.attemptsStatus.canPlay);
+            
+            // If user cannot play anymore, set up redirect
+            if (!saveResult.attemptsStatus.canPlay) {
+              console.log("User cannot play again - setting up redirect");
+              setPlayAgainError({
+                show: true,
+                message: t("game.modes.survival.playAgain.noAttempts"),
+                redirecting: false,
+                isSessionError: false,
+              });
+            }
+          } else {
+            console.warn("No attempts status received from game save response");
+            // If no attempts status received, show error and redirect
+            setPlayAgainError({
+              show: true,
+              message: t("game.modes.survival.playAgain.error"),
+              redirecting: false,
+              isSessionError: false,
+            });
+          }
+
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -587,9 +621,17 @@ export default function SurvivalGameManager() {
             ? errorMessage.replace("SESSION_ERROR: ", "")
             : null,
         }));
+
+        // If save failed, show error and redirect
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.survival.playAgain.error"),
+          redirecting: false,
+          isSessionError: false,
+        });
       }
     },
-    [makeAuthenticatedRequest, t, user],
+    [makeAuthenticatedRequest, t, user, updateAttemptsFromGameSave],
   );
 
   const endGame = useCallback(
@@ -838,7 +880,6 @@ export default function SurvivalGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
-  // FIXED: Corrected startGame logic to prevent false "no attempts" errors
   const startGame = useCallback(async () => {
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
@@ -846,7 +887,6 @@ export default function SurvivalGameManager() {
     try {
       const attemptsResult = await consumeAttemptWithSession(GameMode.SURVIVAL);
 
-      // FIXED: Only check if result exists, not canPlay status
       if (!attemptsResult) {
         setPlayAgainError({
           show: true,
@@ -904,6 +944,7 @@ export default function SurvivalGameManager() {
       setInstantlyDeactivatedCircles([]);
       setIsPlayingAgain(false);
       setSessionWarningShown(false);
+      setCanPlayAfterSave(null); // Reset play again flag
 
       setTimeout(() => {
         setShowCircles(true);
@@ -943,7 +984,6 @@ export default function SurvivalGameManager() {
     } catch (error) {
       console.error("Failed to start game:", error);
       
-      // FIXED: Improved error handling to distinguish attempts errors
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
       
@@ -958,9 +998,14 @@ export default function SurvivalGameManager() {
     }
   }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
-  // FIXED: Simplified handlePlayAgain - removed redundant fetchAttemptsStatus check
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
+
+    // NEW: Check if user can play based on save result
+    if (canPlayAfterSave === false) {
+      console.log("Cannot play again - no attempts remaining");
+      return;
+    }
 
     setIsPlayingAgain(true);
 
@@ -975,7 +1020,7 @@ export default function SurvivalGameManager() {
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, startGame, t]);
+  }, [isPlayingAgain, startGame, t, canPlayAfterSave]);
 
   useEffect(() => {
     return () => {
@@ -1225,12 +1270,20 @@ export default function SurvivalGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                // NEW: Enhanced button state logic
+                isPlayingAgain || 
+                playAgainError.show || 
+                saveStatus.isLoading ||
+                canPlayAfterSave === false
                 ? "border-gray-600 text-gray-500 cursor-not-allowed"
                 : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
                 }`}
               disabled={
-                isPlayingAgain || playAgainError.show || saveStatus.isLoading
+                isPlayingAgain || 
+                playAgainError.show || 
+                saveStatus.isLoading ||
+                canPlayAfterSave === false
               }
               onClick={handlePlayAgain}
             >

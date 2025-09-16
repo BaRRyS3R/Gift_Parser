@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Fixed session management with Best Score display and attempt consumption bug fix
+// src/game-modes/reaction/ReactionGameManager.tsx - Fixed attempts status handling with cache updates
 
 "use client";
 
@@ -157,7 +157,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 export default function ReactionGameManager() {
   const { makeAuthenticatedRequest } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
-  const { consumeAttemptWithSession } = useAttempts(makeAuthenticatedRequest);
+  const { consumeAttemptWithSession, updateAttemptsFromGameSave } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -173,10 +173,13 @@ export default function ReactionGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
+  // NEW: Track if user can play again after save
+  const [canPlayAfterSave, setCanPlayAfterSave] = useState<boolean | null>(null);
+
   const [sessionStatus, setSessionStatus] =
     useState<SessionStatus>(initialSessionStatus);
 
-  // CRITICAL FIX: Store session ID in a ref to avoid race conditions
+  // Store session ID in a ref to avoid race conditions
   const currentSessionRef = useRef<string | null>(null);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -268,7 +271,7 @@ export default function ReactionGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
-  // FIXED: Changed timer from 3 seconds to 5 seconds
+  // Handle auto-redirect when cannot play again
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -276,7 +279,7 @@ export default function ReactionGameManager() {
         setTimeout(() => {
           router.push("/game");
         }, 500);
-      }, 5000); // Changed from 3000 to 5000
+      }, 5000);
 
       return () => clearTimeout(timer);
     }
@@ -292,7 +295,7 @@ export default function ReactionGameManager() {
     }
   }, []);
 
-  // Enhanced save game result with proper session management and Best Score handling
+  // Enhanced save game result with proper attempts status handling
   const handleSaveGameResult = useCallback(
     async (result: ReactionGameResult) => {
       if (result.missed || result.reactionTime <= 0) {
@@ -304,6 +307,10 @@ export default function ReactionGameManager() {
           error: null,
           sessionError: null,
         }));
+        
+        // Even for missed games, check if user can play again
+        // For missed games, we don't save but we still should check attempts
+        setCanPlayAfterSave(true); // Assume user can play again for missed attempts
         return;
       }
 
@@ -351,6 +358,37 @@ export default function ReactionGameManager() {
             console.log("Best score info received:", response.bestScoreInfo);
           }
 
+          // NEW: Process attempts status from API response
+          if (response.attemptsStatus) {
+            console.log("Attempts status received:", response.attemptsStatus);
+            
+            // Update attempts cache with fresh data from game save
+            updateAttemptsFromGameSave(response.attemptsStatus);
+            
+            // Set flag for play again button
+            setCanPlayAfterSave(response.attemptsStatus.canPlay);
+            
+            // If user cannot play anymore, set up redirect
+            if (!response.attemptsStatus.canPlay) {
+              console.log("User cannot play again - setting up redirect");
+              setPlayAgainError({
+                show: true,
+                message: t("game.modes.reaction.playAgain.noAttempts"),
+                redirecting: false,
+                isSessionError: false,
+              });
+            }
+          } else {
+            console.warn("No attempts status received from game save response");
+            // If no attempts status received, show error and redirect
+            setPlayAgainError({
+              show: true,
+              message: t("game.modes.reaction.playAgain.error"),
+              redirecting: false,
+              isSessionError: false,
+            });
+          }
+
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -393,9 +431,17 @@ export default function ReactionGameManager() {
           error: errorMessage.includes("session") ? null : errorMessage,
           sessionError: errorMessage.includes("session") ? errorMessage : null,
         }));
+
+        // If save failed, show error and redirect
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.reaction.playAgain.error"),
+          redirecting: false,
+          isSessionError: false,
+        });
       }
     },
-    [saveGameResult, t],
+    [saveGameResult, t, updateAttemptsFromGameSave],
   );
 
   const handleGameTimeout = useCallback(() => {
@@ -486,12 +532,10 @@ export default function ReactionGameManager() {
     [triggerHapticFeedback, handleSaveGameResult],
   );
 
-  // FIXED: Corrected startGame logic to prevent false "no attempts" errors
   const startGame = useCallback(async () => {
     try {
       const attemptsResult = await consumeAttemptWithSession(GameMode.REACTION);
 
-      // FIXED: Only check if result exists, not canPlay status
       if (!attemptsResult) {
         setPlayAgainError({
           show: true,
@@ -532,6 +576,7 @@ export default function ReactionGameManager() {
       setActivatedCircles([]);
       setLastActivationTimestamp(0);
       setIsPlayingAgain(false);
+      setCanPlayAfterSave(null); // Reset play again flag
 
       setTimeout(() => {
         setShowCircles(true);
@@ -562,7 +607,6 @@ export default function ReactionGameManager() {
     } catch (error) {
       console.error("Failed to start game:", error);
       
-      // FIXED: Improved error handling to distinguish attempts errors
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
       
@@ -577,9 +621,14 @@ export default function ReactionGameManager() {
     }
   }, [handleCircleActivated, handleGameTimeout, consumeAttemptWithSession, t]);
 
-  // FIXED: Simplified handlePlayAgain - removed redundant fetchAttemptsStatus check
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
+
+    // NEW: Check if user can play based on save result
+    if (canPlayAfterSave === false) {
+      console.log("Cannot play again - no attempts remaining");
+      return;
+    }
 
     setIsPlayingAgain(true);
 
@@ -595,7 +644,7 @@ export default function ReactionGameManager() {
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, startGame, t]);
+  }, [isPlayingAgain, startGame, t, canPlayAfterSave]);
 
   useEffect(() => {
     return () => {
@@ -861,12 +910,20 @@ export default function ReactionGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show || saveStatus.isLoading
-                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                  : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                // NEW: Enhanced button state logic
+                isPlayingAgain || 
+                playAgainError.show || 
+                saveStatus.isLoading ||
+                canPlayAfterSave === false
+                ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
                 }`}
               disabled={
-                isPlayingAgain || playAgainError.show || saveStatus.isLoading
+                isPlayingAgain || 
+                playAgainError.show || 
+                saveStatus.isLoading ||
+                canPlayAfterSave === false
               }
               onClick={handlePlayAgain}
             >

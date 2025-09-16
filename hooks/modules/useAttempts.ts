@@ -1,4 +1,4 @@
-// src/hooks/modules/useAttempts.ts - Cleaned version without legacy methods
+// src/hooks/modules/useAttempts.ts - Enhanced with cache update from game save results
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
@@ -65,7 +65,7 @@ function calculateLevelProgress(
 }
 
 /**
- * Enhanced attempts hook with session management
+ * Enhanced attempts hook with session management and cache updates from game saves
  */
 export function useAttempts(
   makeAuthenticatedRequest: (
@@ -89,6 +89,44 @@ export function useAttempts(
     canPlay: boolean;
     timestamp: number;
   } | null>(null);
+
+  /**
+   * NEW: Update attempts status from game save result (cache invalidation + update)
+   */
+  const updateAttemptsFromGameSave = useCallback((attemptsFromGameSave: {
+    canPlay: boolean;
+    attemptsRemaining: number;
+    resetTime?: string;
+    timeUntilReset?: number;
+  }) => {
+    console.log("[ATTEMPTS] Updating attempts from game save result:", attemptsFromGameSave);
+
+    const now = Date.now();
+    
+    // Parse attempts status from game save
+    const updatedStatus: AttemptsStatus = {
+      canPlay: attemptsFromGameSave.canPlay,
+      attemptsRemaining: attemptsFromGameSave.attemptsRemaining,
+      resetTime: attemptsFromGameSave.resetTime ? new Date(attemptsFromGameSave.resetTime) : undefined,
+      timeUntilReset: attemptsFromGameSave.timeUntilReset,
+    };
+
+    // Update state with fresh data from game save
+    setState((prev) => ({
+      ...prev,
+      status: updatedStatus,
+      lastFetch: now, // Mark as freshly fetched
+      error: null, // Clear any previous errors
+    }));
+
+    // Update fast check cache
+    fastCheckCacheRef.current = {
+      canPlay: updatedStatus.canPlay,
+      timestamp: now,
+    };
+
+    console.log("[ATTEMPTS] Cache updated with fresh data from game save");
+  }, []);
 
   /**
    * Fast check if user can play (cached)
@@ -419,6 +457,9 @@ export function useAttempts(
     canPlayFast,
     clearError,
     resetAttemptsState,
+
+    // NEW: Update cache with data from game save
+    updateAttemptsFromGameSave,
 
     // Session management
     getCurrentSession,

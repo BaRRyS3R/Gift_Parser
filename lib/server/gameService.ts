@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with Best Score tracking for Survival mode
+// src/lib/server/gameService.ts - Updated with Best Score tracking and Attempts Status in response
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -10,6 +10,7 @@ import { supabaseServer } from "../supabase_server";
 import { serverAchievementsService } from "./achievementsService";
 import { serverTournamentService } from "./tournamentService";
 import { serverDailyQuestsService } from "./dailyQuestsService";
+import { serverAttemptsService } from "./attemptsService";
 
 import { GameMode } from "@/types/game-modes/common";
 
@@ -20,7 +21,7 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Enhanced game save result with Best Score information
+// Enhanced game save result with Best Score information and Attempts Status
 export interface GameSaveResult {
   success: boolean;
   levelChanged?: boolean;
@@ -47,13 +48,20 @@ export interface GameSaveResult {
     attemptsAwarded: number;
   }>;
   questAttemptsAwarded?: number;
-  // NEW: Best score information for game modes
+  // Best score information for game modes
   bestScoreInfo?: {
     previousBestScore: number;
     currentScore: number;
     newBestScore: number;
     isBestScore: boolean;
     pointsNeeded?: number; // How many points needed to beat the record
+  };
+  // NEW: Current attempts status after game processing
+  attemptsStatus?: {
+    canPlay: boolean;
+    attemptsRemaining: number;
+    resetTime?: string; // ISO string
+    timeUntilReset?: number;
   };
   error?: string;
 }
@@ -146,7 +154,7 @@ function calculateModeSpecificScore(gameResult: GameResult): number {
 }
 
 /**
- * NEW: Calculate best score information for a specific game mode
+ * Calculate best score information for a specific game mode
  */
 function calculateBestScoreInfo(
   gameResult: GameResult,
@@ -273,7 +281,7 @@ export const serverGameService = {
       updates.attempts_remaining = user.attempts_remaining + levelAttemptsAwarded;
     }
 
-    // NEW: Calculate best score information before updating stats
+    // Calculate best score information before updating stats
     let bestScoreInfo: GameSaveResult["bestScoreInfo"];
 
     // Mode-specific statistics updates
@@ -488,16 +496,36 @@ export const serverGameService = {
       console.warn("Tournament update failed but game saved:", tournamentError);
     }
 
+    // NEW: Get current attempts status after all processing
+    let attemptsStatus: GameSaveResult["attemptsStatus"];
+
+    try {
+      const currentAttemptsStatus = await serverAttemptsService.checkAndUpdateAttempts(telegramId);
+      
+      attemptsStatus = {
+        canPlay: currentAttemptsStatus.canPlay,
+        attemptsRemaining: currentAttemptsStatus.attemptsRemaining,
+        resetTime: currentAttemptsStatus.resetTime?.toISOString(),
+        timeUntilReset: currentAttemptsStatus.timeUntilReset,
+      };
+
+      console.log(`[GAME_SERVICE] Current attempts status:`, attemptsStatus);
+    } catch (attemptsError) {
+      console.error("Failed to get current attempts status:", attemptsError);
+      // Don't throw error, just log warning - game save was successful
+    }
+
     const totalAttemptsAwarded = levelAttemptsAwarded + achievementAttemptsAwarded + questAttemptsAwarded;
 
-    // Prepare response with best score information
+    // Prepare response with best score information and attempts status
     const response: GameSaveResult = {
       success: true,
       levelChanged,
       newLevel: levelChanged ? newLevel : undefined,
       attemptsAwarded: levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
       tournamentInfo,
-      bestScoreInfo, // NEW: Include best score information
+      bestScoreInfo, // Best score information
+      attemptsStatus, // NEW: Current attempts status
     };
 
     // Add achievement information if any were unlocked

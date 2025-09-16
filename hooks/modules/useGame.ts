@@ -1,4 +1,4 @@
-// src/hooks/modules/useGame.ts - Enhanced with session validation and Best Score tracking
+// src/hooks/modules/useGame.ts - Enhanced with session validation, Best Score tracking and Attempts Status
 
 import { useState, useCallback } from "react";
 
@@ -15,7 +15,7 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Enhanced game save result interface with Best Score information
+// Enhanced game save result interface with Best Score information and Attempts Status
 export interface GameSaveResult {
   success: boolean;
   leagueChanged?: boolean;
@@ -43,13 +43,20 @@ export interface GameSaveResult {
     attemptsAwarded: number;
   }>;
   questAttemptsAwarded?: number;
-  // NEW: Best score information for game modes
+  // Best score information for game modes
   bestScoreInfo?: {
     previousBestScore: number;
     currentScore: number;
     newBestScore: number;
     isBestScore: boolean;
     pointsNeeded?: number; // How many points needed to beat the record
+  };
+  // NEW: Current attempts status after game save
+  attemptsStatus?: {
+    canPlay: boolean;
+    attemptsRemaining: number;
+    resetTime?: string; // ISO string
+    timeUntilReset?: number;
   };
   error?: string;
   sessionError?: string; // Session-specific errors
@@ -63,7 +70,7 @@ interface GameState {
 }
 
 /**
- * Enhanced game logic module with session validation and Best Score tracking
+ * Enhanced game logic module with session validation, Best Score tracking and Attempts Status
  */
 export function useGame(
   makeAuthenticatedRequest: (
@@ -78,7 +85,7 @@ export function useGame(
   });
 
   /**
-   * Save game result with session validation
+   * Save game result with session validation and get updated attempts status
    */
   const saveGameResult = useCallback(
     async (
@@ -270,7 +277,7 @@ export function useGame(
     sessionError: state.sessionError,
 
     // Enhanced actions
-    saveGameResult, // With session validation and Best Score tracking
+    saveGameResult, // With session validation, Best Score tracking and Attempts Status
     saveGameResultLegacy, // Deprecated method
 
     // Error management
