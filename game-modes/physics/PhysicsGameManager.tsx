@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Fixed session management with Best Score display
+// src/game-modes/physics/PhysicsGameManager.tsx - Fixed session management with Best Score display and attempt consumption bug fix
 
 "use client";
 
@@ -67,7 +67,7 @@ interface SessionStatus {
   timeRemaining: number | null;
 }
 
-// NEW: Best Score information from API response
+// Best Score information from API response
 interface BestScoreInfo {
   previousBestScore: number;
   currentScore: number;
@@ -100,7 +100,7 @@ const initialSessionStatus: SessionStatus = {
   timeRemaining: null,
 };
 
-// NEW: Best Score Display Component для режима физики
+// Best Score Display Component for physics mode
 interface BestScoreDisplayProps {
   bestScoreInfo: BestScoreInfo;
 }
@@ -161,9 +161,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 export default function PhysicsGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
-  const { consumeAttemptWithSession, fetchAttemptsStatus } = useAttempts(
-    makeAuthenticatedRequest,
-  );
+  const { consumeAttemptWithSession } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -173,7 +171,7 @@ export default function PhysicsGameManager() {
   const [showCanvas, setShowCanvas] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<PhysicsGameResult | null>(null);
-  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null); // NEW: Best score info
+  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null);
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
     initialPlayAgainError,
   );
@@ -314,7 +312,6 @@ export default function PhysicsGameManager() {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
-      // Store the handler function reference
       const handleBackButton = () => {
         router.push("/game");
       };
@@ -323,7 +320,6 @@ export default function PhysicsGameManager() {
       tg.BackButton.onClick(handleBackButton);
 
       return () => {
-        // Use the same handler reference for cleanup
         tg.BackButton.offClick(handleBackButton);
         tg.BackButton.hide();
       };
@@ -338,6 +334,7 @@ export default function PhysicsGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
+  // FIXED: Changed timer from 3 seconds to 5 seconds
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -345,7 +342,7 @@ export default function PhysicsGameManager() {
         setTimeout(() => {
           router.push("/game");
         }, 500);
-      }, 3000);
+      }, 5000); // Changed from 3000 to 5000
 
       return () => clearTimeout(timer);
     }
@@ -357,15 +354,13 @@ export default function PhysicsGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
 
-  // FIXED: Enhanced save game result with proper session management and Best Score handling
+  // Enhanced save game result with proper session management and Best Score handling
   const handleSaveGameResult = useCallback(
     async (result: PhysicsGameResult) => {
-      // CRITICAL FIX: Use ref instead of state to avoid race condition
       const sessionId = currentSessionRef.current;
 
       if (!sessionId) {
@@ -375,7 +370,6 @@ export default function PhysicsGameManager() {
           sessionError: "No valid session found",
           isLoading: false,
         }));
-
         return;
       }
 
@@ -441,10 +435,9 @@ export default function PhysicsGameManager() {
             await processSuspiciousActivity();
           }
 
-          // FIXED: Use the sessionId from ref, not state
           const response = await saveGameResult(result, sessionId);
 
-          // NEW: Process Best Score information from API response
+          // Process Best Score information from API response
           if (response.bestScoreInfo) {
             setBestScoreInfo(response.bestScoreInfo);
             console.log("Best score info received:", response.bestScoreInfo);
@@ -466,7 +459,6 @@ export default function PhysicsGameManager() {
               sessionError: error.message,
               error: null,
             }));
-
             return; // Don't retry session errors
           }
 
@@ -474,7 +466,6 @@ export default function PhysicsGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -497,7 +488,7 @@ export default function PhysicsGameManager() {
         }));
       }
     },
-    [saveGameResult, t, makeAuthenticatedRequest, user], // Removed sessionStatus dependency
+    [saveGameResult, t, makeAuthenticatedRequest, user],
   );
 
   const updatePhysicsEngine = useCallback(() => {
@@ -511,7 +502,6 @@ export default function PhysicsGameManager() {
         cancelAnimationFrame(engineUpdateRef.current);
         engineUpdateRef.current = undefined;
       }
-
       return;
     }
 
@@ -714,31 +704,29 @@ export default function PhysicsGameManager() {
     [triggerHapticFeedback],
   );
 
+  // FIXED: Corrected startGame logic to prevent false "no attempts" errors
   const startGame = useCallback(async () => {
     isGameEndingRef.current = false;
 
     try {
       const attemptsResult = await consumeAttemptWithSession(GameMode.PHYSICS);
 
-      if (!attemptsResult || !attemptsResult.canPlay) {
+      // FIXED: Only check if result exists, not canPlay status
+      if (!attemptsResult) {
         setPlayAgainError({
           show: true,
           message: t("game.modes.physics.playAgain.noAttempts"),
           redirecting: false,
           isSessionError: false,
         });
-
         return;
       }
 
-      // CRITICAL FIX: Store session ID in ref immediately after getting it
       if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
         console.log("Session created:", attemptsResult.sessionId);
 
-        // Store in ref for immediate access
         currentSessionRef.current = attemptsResult.sessionId;
 
-        // Also set state for UI purposes
         setSessionStatus({
           sessionId: attemptsResult.sessionId,
           expiresAt: attemptsResult.sessionExpiresAt,
@@ -753,7 +741,6 @@ export default function PhysicsGameManager() {
           redirecting: false,
           isSessionError: true,
         });
-
         return;
       }
 
@@ -774,7 +761,7 @@ export default function PhysicsGameManager() {
 
       setGameState(initialState);
       setGameResult(null);
-      setBestScoreInfo(null); // NEW: Reset best score info
+      setBestScoreInfo(null);
       setSaveStatus(initialSaveStatus);
       setPlayAgainError(initialPlayAgainError);
       setIsPlayingAgain(false);
@@ -796,9 +783,16 @@ export default function PhysicsGameManager() {
       }, 800);
     } catch (error) {
       console.error("Failed to start game:", error);
+      
+      // FIXED: Improved error handling to distinguish attempts errors
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
+      
       setPlayAgainError({
         show: true,
-        message: t("game.modes.physics.playAgain.error"),
+        message: isAttemptsError 
+          ? t("game.modes.physics.playAgain.noAttempts")
+          : t("game.modes.physics.playAgain.error"),
         redirecting: false,
         isSessionError: false,
       });
@@ -810,26 +804,13 @@ export default function PhysicsGameManager() {
     t,
   ]);
 
+  // FIXED: Simplified handlePlayAgain - removed redundant fetchAttemptsStatus check
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
 
     setIsPlayingAgain(true);
 
     try {
-      const currentAttemptsStatus = await fetchAttemptsStatus(true);
-
-      if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.physics.playAgain.noAttempts"),
-          redirecting: false,
-          isSessionError: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
       await startGame();
     } catch (error) {
       setPlayAgainError({
@@ -840,7 +821,7 @@ export default function PhysicsGameManager() {
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, fetchAttemptsStatus, startGame, t]);
+  }, [isPlayingAgain, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -857,7 +838,6 @@ export default function PhysicsGameManager() {
         clearInterval(sessionTimerRef.current);
       }
 
-      // ADDED: Cleanup session ref
       currentSessionRef.current = null;
     };
   }, []);
@@ -932,7 +912,6 @@ export default function PhysicsGameManager() {
               </div>
             </div>
 
-            {/* NEW: Best Score Display */}
             {bestScoreInfo && (
               <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
             )}
@@ -1155,7 +1134,6 @@ export default function PhysicsGameManager() {
       >
         <div className="px-6 py-4 h-full flex flex-col justify-center">
           <div className="flex items-center justify-between mb-4">
-
             <div className="flex items-center space-x-2">
               <span className="text-lg font-bold text-white">
                 {formatPhysicsTime(gameState.stats.gameTime)}

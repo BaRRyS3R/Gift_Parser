@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Fixed session management with Best Score display
+// src/game-modes/reaction/ReactionGameManager.tsx - Fixed session management with Best Score display and attempt consumption bug fix
 
 "use client";
 
@@ -62,13 +62,13 @@ interface SessionStatus {
   timeRemaining: number | null;
 }
 
-// NEW: Best Score information from API response (для режима реакции - по времени)
+// Best Score information from API response (for reaction mode - by time)
 interface BestScoreInfo {
-  previousBestScore: number; // Предыдущее лучшее время в мс
-  currentScore: number;      // Текущее время в мс
-  newBestScore: number;      // Новое лучшее время в мс
-  isBestScore: boolean;      // Является ли новым рекордом (меньше времени = лучше)
-  pointsNeeded?: number;     // Сколько мс нужно для побития рекорда
+  previousBestScore: number; // Previous best time in ms
+  currentScore: number;      // Current time in ms
+  newBestScore: number;      // New best time in ms
+  isBestScore: boolean;      // Is new record (lower time = better)
+  pointsNeeded?: number;     // How many ms needed to beat the record
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -96,7 +96,7 @@ const initialSessionStatus: SessionStatus = {
   timeRemaining: null,
 };
 
-// NEW: Best Score Display Component для режима реакции
+// Best Score Display Component for reaction mode
 interface BestScoreDisplayProps {
   bestScoreInfo: BestScoreInfo;
 }
@@ -140,7 +140,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
           {t("game.modes.reaction.bestScore.yourBest")}
         </span>
         <span className="text-sm text-white font-bold">
-          {previousBestScore} мс
+          {previousBestScore} ms
         </span>
       </div>
       {pointsNeeded && pointsNeeded > 0 && (
@@ -157,9 +157,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 export default function ReactionGameManager() {
   const { makeAuthenticatedRequest } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
-  const { consumeAttemptWithSession, fetchAttemptsStatus } = useAttempts(
-    makeAuthenticatedRequest,
-  );
+  const { consumeAttemptWithSession } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -169,7 +167,7 @@ export default function ReactionGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
-  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null); // NEW: Best score info
+  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null);
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
     initialPlayAgainError,
   );
@@ -248,7 +246,6 @@ export default function ReactionGameManager() {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
-      // Store the handler function reference
       const handleBackButton = () => {
         router.push("/game");
       };
@@ -257,7 +254,6 @@ export default function ReactionGameManager() {
       tg.BackButton.onClick(handleBackButton);
 
       return () => {
-        // Use the same handler reference for cleanup
         tg.BackButton.offClick(handleBackButton);
         tg.BackButton.hide();
       };
@@ -272,6 +268,7 @@ export default function ReactionGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
+  // FIXED: Changed timer from 3 seconds to 5 seconds
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -279,7 +276,7 @@ export default function ReactionGameManager() {
         setTimeout(() => {
           router.push("/game");
         }, 500);
-      }, 3000);
+      }, 5000); // Changed from 3000 to 5000
 
       return () => clearTimeout(timer);
     }
@@ -291,12 +288,11 @@ export default function ReactionGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
 
-  // FIXED: Enhanced save game result with proper session management and Best Score handling
+  // Enhanced save game result with proper session management and Best Score handling
   const handleSaveGameResult = useCallback(
     async (result: ReactionGameResult) => {
       if (result.missed || result.reactionTime <= 0) {
@@ -308,11 +304,9 @@ export default function ReactionGameManager() {
           error: null,
           sessionError: null,
         }));
-
         return;
       }
 
-      // CRITICAL FIX: Use ref instead of state to avoid race condition
       const sessionId = currentSessionRef.current;
 
       if (!sessionId) {
@@ -322,7 +316,6 @@ export default function ReactionGameManager() {
           sessionError: "No valid session found",
           isLoading: false,
         }));
-
         return;
       }
 
@@ -350,10 +343,9 @@ export default function ReactionGameManager() {
         }
 
         try {
-          // FIXED: Use sessionId from ref, not state
           const response = await saveGameResult(result, sessionId);
 
-          // NEW: Process Best Score information from API response
+          // Process Best Score information from API response
           if (response.bestScoreInfo) {
             setBestScoreInfo(response.bestScoreInfo);
             console.log("Best score info received:", response.bestScoreInfo);
@@ -374,7 +366,6 @@ export default function ReactionGameManager() {
               sessionError: error.message,
               error: null,
             }));
-
             return;
           }
 
@@ -382,7 +373,6 @@ export default function ReactionGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -405,7 +395,7 @@ export default function ReactionGameManager() {
         }));
       }
     },
-    [saveGameResult, t], // Removed sessionStatus dependency
+    [saveGameResult, t],
   );
 
   const handleGameTimeout = useCallback(() => {
@@ -496,29 +486,27 @@ export default function ReactionGameManager() {
     [triggerHapticFeedback, handleSaveGameResult],
   );
 
+  // FIXED: Corrected startGame logic to prevent false "no attempts" errors
   const startGame = useCallback(async () => {
     try {
       const attemptsResult = await consumeAttemptWithSession(GameMode.REACTION);
 
-      if (!attemptsResult || !attemptsResult.canPlay) {
+      // FIXED: Only check if result exists, not canPlay status
+      if (!attemptsResult) {
         setPlayAgainError({
           show: true,
           message: t("game.modes.reaction.playAgain.noAttempts"),
           redirecting: false,
           isSessionError: false,
         });
-
         return;
       }
 
-      // CRITICAL FIX: Store session ID in ref immediately after getting it
       if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
         console.log("Session created:", attemptsResult.sessionId);
 
-        // Store in ref for immediate access
         currentSessionRef.current = attemptsResult.sessionId;
 
-        // Also set state for UI purposes
         setSessionStatus({
           sessionId: attemptsResult.sessionId,
           expiresAt: attemptsResult.sessionExpiresAt,
@@ -533,13 +521,12 @@ export default function ReactionGameManager() {
           redirecting: false,
           isSessionError: true,
         });
-
         return;
       }
 
       setGameState(initializeReactionGameState());
       setGameResult(null);
-      setBestScoreInfo(null); // NEW: Reset best score info
+      setBestScoreInfo(null);
       setSaveStatus(initialSaveStatus);
       setPlayAgainError(initialPlayAgainError);
       setActivatedCircles([]);
@@ -574,35 +561,29 @@ export default function ReactionGameManager() {
       }, 500);
     } catch (error) {
       console.error("Failed to start game:", error);
+      
+      // FIXED: Improved error handling to distinguish attempts errors
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
+      
       setPlayAgainError({
         show: true,
-        message: t("game.modes.reaction.playAgain.error"),
+        message: isAttemptsError 
+          ? t("game.modes.reaction.playAgain.noAttempts")
+          : t("game.modes.reaction.playAgain.error"),
         redirecting: false,
         isSessionError: false,
       });
     }
   }, [handleCircleActivated, handleGameTimeout, consumeAttemptWithSession, t]);
 
+  // FIXED: Simplified handlePlayAgain - removed redundant fetchAttemptsStatus check
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
 
     setIsPlayingAgain(true);
 
     try {
-      const currentAttemptsStatus = await fetchAttemptsStatus(true);
-
-      if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.reaction.playAgain.noAttempts"),
-          redirecting: false,
-          isSessionError: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
       await startGame();
     } catch (error) {
       console.error("Error starting new game:", error);
@@ -614,7 +595,7 @@ export default function ReactionGameManager() {
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, fetchAttemptsStatus, startGame, t]);
+  }, [isPlayingAgain, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -624,7 +605,6 @@ export default function ReactionGameManager() {
         clearInterval(sessionTimerRef.current);
       }
 
-      // ADDED: Cleanup session ref
       currentSessionRef.current = null;
     };
   }, []);
@@ -701,7 +681,6 @@ export default function ReactionGameManager() {
               </div>
             </div>
 
-            {/* NEW: Best Score Display */}
             {bestScoreInfo && !gameResult.missed && (
               <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
             )}

@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Fixed session management with Best Score display
+// src/game-modes/rotation/RotationGameManager.tsx - Fixed session management with Best Score display and attempt consumption bug fix
 
 "use client";
 
@@ -63,7 +63,7 @@ interface SessionStatus {
   timeRemaining: number | null;
 }
 
-// NEW: Best Score information from API response
+// Best Score information from API response
 interface BestScoreInfo {
   previousBestScore: number;
   currentScore: number;
@@ -98,7 +98,7 @@ const initialSessionStatus: SessionStatus = {
 
 const LEVEL_UPDATE_INTERVAL = 100;
 
-// NEW: Best Score Display Component для режима ротации
+// Best Score Display Component for rotation mode
 interface BestScoreDisplayProps {
   bestScoreInfo: BestScoreInfo;
 }
@@ -159,9 +159,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 export default function RotationGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
-  const { consumeAttemptWithSession, fetchAttemptsStatus } = useAttempts(
-    makeAuthenticatedRequest,
-  );
+  const { consumeAttemptWithSession } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -171,7 +169,7 @@ export default function RotationGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<RotationGameResult | null>(null);
-  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null); // NEW: Best score info
+  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null);
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
     initialPlayAgainError,
   );
@@ -366,7 +364,6 @@ export default function RotationGameManager() {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
-      // Store the handler function reference
       const handleBackButton = () => {
         router.push("/game");
       };
@@ -375,7 +372,6 @@ export default function RotationGameManager() {
       tg.BackButton.onClick(handleBackButton);
 
       return () => {
-        // Use the same handler reference for cleanup
         tg.BackButton.offClick(handleBackButton);
         tg.BackButton.hide();
       };
@@ -390,6 +386,7 @@ export default function RotationGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
+  // FIXED: Changed timer from 3 seconds to 5 seconds
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -397,7 +394,7 @@ export default function RotationGameManager() {
         setTimeout(() => {
           router.push("/game");
         }, 500);
-      }, 3000);
+      }, 5000); // Changed from 3000 to 5000
 
       return () => clearTimeout(timer);
     }
@@ -409,15 +406,13 @@ export default function RotationGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
 
-  // FIXED: Enhanced save game result with proper session management and Best Score handling
+  // Enhanced save game result with proper session management and Best Score handling
   const handleSaveGameResult = useCallback(
     async (result: RotationGameResult) => {
-      // CRITICAL FIX: Use ref instead of state to avoid race condition
       const sessionId = currentSessionRef.current;
 
       if (!sessionId) {
@@ -427,7 +422,6 @@ export default function RotationGameManager() {
           sessionError: "No valid session found",
           isLoading: false,
         }));
-
         return;
       }
 
@@ -493,10 +487,9 @@ export default function RotationGameManager() {
             await processSuspiciousActivity();
           }
 
-          // FIXED: Use sessionId from ref, not state
           const response = await saveGameResult(result, sessionId);
 
-          // NEW: Process Best Score information from API response
+          // Process Best Score information from API response
           if (response.bestScoreInfo) {
             setBestScoreInfo(response.bestScoreInfo);
             console.log("Best score info received:", response.bestScoreInfo);
@@ -517,7 +510,6 @@ export default function RotationGameManager() {
               sessionError: error.message,
               error: null,
             }));
-
             return;
           }
 
@@ -525,7 +517,6 @@ export default function RotationGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -548,7 +539,7 @@ export default function RotationGameManager() {
         }));
       }
     },
-    [makeAuthenticatedRequest, t, user, saveGameResult], // Removed sessionStatus dependency
+    [makeAuthenticatedRequest, t, user, saveGameResult],
   );
 
   const endGame = useCallback(
@@ -796,6 +787,7 @@ export default function RotationGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
+  // FIXED: Corrected startGame logic to prevent false "no attempts" errors
   const startGame = useCallback(async () => {
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
@@ -803,25 +795,22 @@ export default function RotationGameManager() {
     try {
       const attemptsResult = await consumeAttemptWithSession(GameMode.ROTATION);
 
-      if (!attemptsResult || !attemptsResult.canPlay) {
+      // FIXED: Only check if result exists, not canPlay status
+      if (!attemptsResult) {
         setPlayAgainError({
           show: true,
           message: t("game.modes.rotation.playAgain.noAttempts"),
           redirecting: false,
           isSessionError: false,
         });
-
         return;
       }
 
-      // CRITICAL FIX: Store session ID in ref immediately after getting it
       if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
         console.log("Session created:", attemptsResult.sessionId);
 
-        // Store in ref for immediate access
         currentSessionRef.current = attemptsResult.sessionId;
 
-        // Also set state for UI purposes
         setSessionStatus({
           sessionId: attemptsResult.sessionId,
           expiresAt: attemptsResult.sessionExpiresAt,
@@ -836,7 +825,6 @@ export default function RotationGameManager() {
           redirecting: false,
           isSessionError: true,
         });
-
         return;
       }
 
@@ -857,7 +845,7 @@ export default function RotationGameManager() {
 
       setGameState(newGameState);
       setGameResult(null);
-      setBestScoreInfo(null); // NEW: Reset best score info
+      setBestScoreInfo(null);
       setSaveStatus(initialSaveStatus);
       setPlayAgainError(initialPlayAgainError);
       setActivatedCircles([]);
@@ -881,7 +869,6 @@ export default function RotationGameManager() {
               isGameEndingRef.current
             ) {
               clearInterval(levelInterval);
-
               return current;
             }
 
@@ -900,35 +887,29 @@ export default function RotationGameManager() {
       }, 800);
     } catch (error) {
       console.error("Failed to start game:", error);
+      
+      // FIXED: Improved error handling to distinguish attempts errors
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
+      
       setPlayAgainError({
         show: true,
-        message: t("game.modes.rotation.playAgain.error"),
+        message: isAttemptsError 
+          ? t("game.modes.rotation.playAgain.noAttempts")
+          : t("game.modes.rotation.playAgain.error"),
         redirecting: false,
         isSessionError: false,
       });
     }
   }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
+  // FIXED: Simplified handlePlayAgain - removed redundant fetchAttemptsStatus check
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
 
     setIsPlayingAgain(true);
 
     try {
-      const currentAttemptsStatus = await fetchAttemptsStatus(true);
-
-      if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.rotation.playAgain.noAttempts"),
-          redirecting: false,
-          isSessionError: false,
-        });
-        setIsPlayingAgain(false);
-
-        return;
-      }
-
       await startGame();
     } catch (error) {
       setPlayAgainError({
@@ -939,7 +920,7 @@ export default function RotationGameManager() {
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, fetchAttemptsStatus, startGame, t]);
+  }, [isPlayingAgain, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -953,7 +934,6 @@ export default function RotationGameManager() {
         clearInterval(sessionTimerRef.current);
       }
 
-      // ADDED: Cleanup session ref
       currentSessionRef.current = null;
     };
   }, []);
@@ -1019,7 +999,6 @@ export default function RotationGameManager() {
               </div>
             </div>
 
-            {/* NEW: Best Score Display */}
             {bestScoreInfo && (
               <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
             )}

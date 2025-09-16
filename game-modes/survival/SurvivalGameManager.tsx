@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed session management with Best Score display
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed session management with Best Score display and attempt consumption bug fix
 
 "use client";
 
@@ -62,7 +62,7 @@ interface SessionStatus {
   timeRemaining: number | null;
 }
 
-// NEW: Best Score information from API response
+// Best Score information from API response
 interface BestScoreInfo {
   previousBestScore: number;
   currentScore: number;
@@ -97,7 +97,7 @@ const initialSessionStatus: SessionStatus = {
 
 const LEVEL_UPDATE_INTERVAL = 200;
 
-// NEW: Best Score Display Component
+// Best Score Display Component
 interface BestScoreDisplayProps {
   bestScoreInfo: BestScoreInfo;
 }
@@ -157,9 +157,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
-  const { consumeAttemptWithSession, fetchAttemptsStatus } = useAttempts(
-    makeAuthenticatedRequest,
-  );
+  const { consumeAttemptWithSession } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -169,7 +167,7 @@ export default function SurvivalGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
-  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null); // NEW: Best score info
+  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null);
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
     initialPlayAgainError,
   );
@@ -402,6 +400,7 @@ export default function SurvivalGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
+  // FIXED: Changed timer from 3 seconds to 5 seconds
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -409,7 +408,7 @@ export default function SurvivalGameManager() {
         setTimeout(() => {
           router.push("/game");
         }, 500);
-      }, 3000);
+      }, 5000); // Changed from 3000 to 5000
 
       return () => clearTimeout(timer);
     }
@@ -425,7 +424,7 @@ export default function SurvivalGameManager() {
     }
   }, []);
 
-  // FIXED: Enhanced save game result with Best Score handling
+  // Enhanced save game result with Best Score handling
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
       const sessionId = currentSessionRef.current;
@@ -532,7 +531,7 @@ export default function SurvivalGameManager() {
             throw new Error(responseData.error || "Failed to save game result");
           }
 
-          // NEW: Process Best Score information from API response
+          // Process Best Score information from API response
           const saveResult = responseData.data as GameSaveResult;
           if (saveResult.bestScoreInfo) {
             setBestScoreInfo(saveResult.bestScoreInfo);
@@ -839,6 +838,7 @@ export default function SurvivalGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
+  // FIXED: Corrected startGame logic to prevent false "no attempts" errors
   const startGame = useCallback(async () => {
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
@@ -846,7 +846,8 @@ export default function SurvivalGameManager() {
     try {
       const attemptsResult = await consumeAttemptWithSession(GameMode.SURVIVAL);
 
-      if (!attemptsResult || !attemptsResult.canPlay) {
+      // FIXED: Only check if result exists, not canPlay status
+      if (!attemptsResult) {
         setPlayAgainError({
           show: true,
           message: t("game.modes.survival.playAgain.noAttempts"),
@@ -895,7 +896,7 @@ export default function SurvivalGameManager() {
 
       setGameState(newGameState);
       setGameResult(null);
-      setBestScoreInfo(null); // NEW: Reset best score info
+      setBestScoreInfo(null);
       setSaveStatus(initialSaveStatus);
       setPlayAgainError(initialPlayAgainError);
       setActivatedCircles([]);
@@ -941,34 +942,29 @@ export default function SurvivalGameManager() {
       }, 800);
     } catch (error) {
       console.error("Failed to start game:", error);
+      
+      // FIXED: Improved error handling to distinguish attempts errors
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
+      
       setPlayAgainError({
         show: true,
-        message: t("game.modes.survival.playAgain.error"),
+        message: isAttemptsError 
+          ? t("game.modes.survival.playAgain.noAttempts")
+          : t("game.modes.survival.playAgain.error"),
         redirecting: false,
         isSessionError: false,
       });
     }
   }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
+  // FIXED: Simplified handlePlayAgain - removed redundant fetchAttemptsStatus check
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
 
     setIsPlayingAgain(true);
 
     try {
-      const currentAttemptsStatus = await fetchAttemptsStatus(true);
-
-      if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
-        setPlayAgainError({
-          show: true,
-          message: t("game.modes.survival.playAgain.noAttempts"),
-          redirecting: false,
-          isSessionError: false,
-        });
-        setIsPlayingAgain(false);
-        return;
-      }
-
       await startGame();
     } catch (error) {
       setPlayAgainError({
@@ -979,7 +975,7 @@ export default function SurvivalGameManager() {
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, fetchAttemptsStatus, startGame, t]);
+  }, [isPlayingAgain, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -1058,7 +1054,6 @@ export default function SurvivalGameManager() {
               </div>
             </div>
 
-            {/* NEW: Best Score Display */}
             {bestScoreInfo && (
               <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
             )}
