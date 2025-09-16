@@ -1,4 +1,4 @@
-// src/hooks/modules/useGame.ts - Enhanced with session validation
+// src/hooks/modules/useGame.ts - Enhanced with session validation and Best Score tracking
 
 import { useState, useCallback } from "react";
 
@@ -15,7 +15,7 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Enhanced game save result interface
+// Enhanced game save result interface with Best Score information
 export interface GameSaveResult {
   success: boolean;
   leagueChanged?: boolean;
@@ -24,19 +24,46 @@ export interface GameSaveResult {
   newLevel?: number;
   reward?: any;
   missedRewards?: any[];
+  attemptsAwarded?: number;
+  achievementsUnlocked?: Array<{
+    id: string;
+    name: string;
+    attemptsAwarded: number;
+  }>;
+  totalAttemptsAwarded?: number;
+  tournamentInfo?: {
+    tournamentId: string;
+    tournamentName: string;
+    newBestScore: boolean;
+    participated: boolean;
+  };
+  questCompletions?: Array<{
+    questId: string;
+    completed: boolean;
+    attemptsAwarded: number;
+  }>;
+  questAttemptsAwarded?: number;
+  // NEW: Best score information for game modes
+  bestScoreInfo?: {
+    previousBestScore: number;
+    currentScore: number;
+    newBestScore: number;
+    isBestScore: boolean;
+    pointsNeeded?: number; // How many points needed to beat the record
+  };
   error?: string;
-  sessionError?: string; // NEW: Session-specific errors
+  sessionError?: string; // Session-specific errors
 }
 
 // Enhanced hook state interface
 interface GameState {
   isLoading: boolean;
   error: string | null;
-  sessionError: string | null; // NEW: Session validation errors
+  sessionError: string | null;
 }
 
 /**
- * Enhanced game logic module with session validation
+ * Enhanced game logic module with session validation and Best Score tracking
  */
 export function useGame(
   makeAuthenticatedRequest: (
@@ -84,7 +111,7 @@ export function useGame(
           },
           body: JSON.stringify({
             gameResult,
-            sessionId, // NEW: Include session ID
+            sessionId, // Include session ID
           }),
         });
 
@@ -240,18 +267,18 @@ export function useGame(
     // State
     isLoading: state.isLoading,
     error: state.error,
-    sessionError: state.sessionError, // NEW: Session-specific errors
+    sessionError: state.sessionError,
 
     // Enhanced actions
-    saveGameResult, // NEW: With session validation
+    saveGameResult, // With session validation and Best Score tracking
     saveGameResultLegacy, // Deprecated method
 
     // Error management
     clearError,
-    clearSessionError, // NEW: Clear session errors
-    clearAllErrors, // NEW: Clear all errors
+    clearSessionError,
+    clearAllErrors,
     isSessionError,
-    getErrorSummary, // NEW: Get comprehensive error info
+    getErrorSummary,
 
     // Utility
     hasAnyError: Boolean(state.error || state.sessionError),

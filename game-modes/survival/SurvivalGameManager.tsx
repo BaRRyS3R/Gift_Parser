@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with best score tracking
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed session management with Best Score display
 
 "use client";
 
@@ -11,8 +11,7 @@ import {
   Shield,
   ShieldAlert,
   Trophy,
-  TrendingUp,
-  TrendingDown,
+  Target,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -38,6 +37,7 @@ import {
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
+import { GameSaveResult } from "@/hooks/modules/useGame";
 
 interface SaveStatus {
   isLoading: boolean;
@@ -63,12 +63,13 @@ interface SessionStatus {
   timeRemaining: number | null;
 }
 
-// NEW: Interface for best score tracking
+// NEW: Best Score information from API response
 interface BestScoreInfo {
   previousBestScore: number;
-  isNewBest: boolean;
-  scoreDifference: number; // Positive if exceeded, negative if fell short
-  percentageOfBest: number;
+  currentScore: number;
+  newBestScore: number;
+  isBestScore: boolean;
+  pointsNeeded?: number;
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -95,15 +96,53 @@ const initialSessionStatus: SessionStatus = {
   timeRemaining: null,
 };
 
-// NEW: Initial best score info
-const initialBestScoreInfo: BestScoreInfo = {
-  previousBestScore: 0,
-  isNewBest: false,
-  scoreDifference: 0,
-  percentageOfBest: 0,
-};
-
 const LEVEL_UPDATE_INTERVAL = 200;
+
+// NEW: Best Score Display Component
+interface BestScoreDisplayProps {
+  bestScoreInfo: BestScoreInfo;
+}
+
+const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) => {
+  const t = useT();
+  const { isBestScore, previousBestScore, pointsNeeded } = bestScoreInfo;
+
+  if (isBestScore) {
+    return (
+      <div className="bg-green-500/20 border border-green-400/30 rounded-lg p-3 animate-pulse">
+        <div className="flex items-center justify-center space-x-2">
+          <Trophy className="text-green-400" size={20} />
+          <span className="text-sm text-green-300 font-bold">
+            {t("game.modes.survival.bestScore.newRecord")}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-500/10 border border-gray-400/30 rounded-lg p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Target className="text-gray-400" size={16} />
+          <span className="text-xs text-gray-400">
+            {t("game.modes.survival.bestScore.yourBest")}
+          </span>
+        </div>
+        <span className="text-sm text-white font-bold">
+          {previousBestScore}
+        </span>
+      </div>
+      {pointsNeeded && pointsNeeded > 0 && (
+        <div className="mt-2 text-center">
+          <span className="text-xs text-gray-500">
+            {t("game.modes.survival.bestScore.pointsNeeded", { points: pointsNeeded })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -119,7 +158,7 @@ export default function SurvivalGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
-  const [isNewBestScore, setIsNewBestScore] = useState(false);
+  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null); // NEW: Best score info
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
     initialPlayAgainError,
   );
@@ -129,10 +168,7 @@ export default function SurvivalGameManager() {
     useState<SessionStatus>(initialSessionStatus);
   const [sessionWarningShown, setSessionWarningShown] = useState(false);
 
-  // NEW: Best score tracking state
-  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo>(initialBestScoreInfo);
-  const currentBestScoreRef = useRef<number>(0);
-
+  // CRITICAL FIX: Store session ID in a ref to avoid race conditions
   const currentSessionRef = useRef<string | null>(null);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -374,41 +410,11 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
 
-  // ENHANCED: Check for new best score with detailed comparison
-  const checkForNewBestScore = useCallback(
-    (newScore: number) => {
-      const previousBest = currentBestScoreRef.current || 0;
-      const isNewBest = newScore > previousBest;
-      const scoreDifference = newScore - previousBest;
-      const percentageOfBest = previousBest > 0 ? (newScore / previousBest) * 100 : 100;
-      
-      setBestScoreInfo({
-        previousBestScore: previousBest,
-        isNewBest,
-        scoreDifference,
-        percentageOfBest,
-      });
-      
-      setIsNewBestScore(isNewBest);
-      
-      // Log for debugging
-      console.log("Best Score Check:", {
-        previous: previousBest,
-        current: newScore,
-        difference: scoreDifference,
-        isNewBest,
-        percentage: percentageOfBest,
-      });
-    },
-    [],
-  );
-
-  // Enhanced save game result with proper session management and best score update
+  // FIXED: Enhanced save game result with Best Score handling
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
       const sessionId = currentSessionRef.current;
@@ -420,7 +426,6 @@ export default function SurvivalGameManager() {
           sessionError: "No valid session found",
           isLoading: false,
         }));
-
         return;
       }
 
@@ -516,6 +521,13 @@ export default function SurvivalGameManager() {
             throw new Error(responseData.error || "Failed to save game result");
           }
 
+          // NEW: Process Best Score information from API response
+          const saveResult = responseData.data as GameSaveResult;
+          if (saveResult.bestScoreInfo) {
+            setBestScoreInfo(saveResult.bestScoreInfo);
+            console.log("Best score info received:", saveResult.bestScoreInfo);
+          }
+
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -523,16 +535,6 @@ export default function SurvivalGameManager() {
             error: null,
             sessionError: null,
           }));
-          
-          // Update local best score reference if new record was achieved
-          const finalScore = result.score * 2;
-          if (finalScore > currentBestScoreRef.current) {
-            console.log("Updating local best score from", currentBestScoreRef.current, "to", finalScore);
-            currentBestScoreRef.current = finalScore;
-            
-            // If you have a method to update user context, call it here
-            // Example: updateUserBestScore('survival', finalScore);
-          }
         } catch (error) {
           if (
             error instanceof Error &&
@@ -546,7 +548,6 @@ export default function SurvivalGameManager() {
               sessionError,
               error: null,
             }));
-
             return;
           }
 
@@ -554,7 +555,6 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -640,9 +640,6 @@ export default function SurvivalGameManager() {
           (result as any).deathCause = cause;
         }
 
-        // Calculate final score with 2x multiplier for survival mode
-        const finalScore = result.score * 2;
-        checkForNewBestScore(finalScore);
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -650,7 +647,7 @@ export default function SurvivalGameManager() {
         return finalGameState;
       });
     },
-    [handleSaveGameResult, checkForNewBestScore],
+    [handleSaveGameResult],
   );
 
   const scheduleNextActivation = useCallback(() => {
@@ -835,14 +832,6 @@ export default function SurvivalGameManager() {
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
-    // ENHANCED: Store current best score at game start
-    if (user && user.survival_best_score !== undefined) {
-      currentBestScoreRef.current = user.survival_best_score || 0;
-      console.log("Starting game with best score:", currentBestScoreRef.current);
-    } else {
-      currentBestScoreRef.current = 0;
-    }
-
     try {
       const attemptsResult = await consumeAttemptWithSession(GameMode.SURVIVAL);
 
@@ -853,7 +842,6 @@ export default function SurvivalGameManager() {
           redirecting: false,
           isSessionError: false,
         });
-
         return;
       }
 
@@ -876,7 +864,6 @@ export default function SurvivalGameManager() {
           redirecting: false,
           isSessionError: true,
         });
-
         return;
       }
 
@@ -897,17 +884,14 @@ export default function SurvivalGameManager() {
 
       setGameState(newGameState);
       setGameResult(null);
+      setBestScoreInfo(null); // NEW: Reset best score info
       setSaveStatus(initialSaveStatus);
       setPlayAgainError(initialPlayAgainError);
       setActivatedCircles([]);
       setLastActivationTimestamp(0);
-      setIsNewBestScore(false);
       setInstantlyDeactivatedCircles([]);
       setIsPlayingAgain(false);
       setSessionWarningShown(false);
-      
-      // Reset best score info but keep the reference
-      setBestScoreInfo(initialBestScoreInfo);
 
       setTimeout(() => {
         setShowCircles(true);
@@ -916,7 +900,6 @@ export default function SurvivalGameManager() {
       setTimeout(() => {
         setGameState((prev) => {
           const updatedState = { ...prev, gameState: GameState.PLAYING };
-
           return updatedState;
         });
 
@@ -929,7 +912,6 @@ export default function SurvivalGameManager() {
               isGameEndingRef.current
             ) {
               clearInterval(levelInterval);
-
               return current;
             }
 
@@ -955,15 +937,12 @@ export default function SurvivalGameManager() {
         isSessionError: false,
       });
     }
-  }, [scheduleNextActivation, consumeAttemptWithSession, t, user]);
+  }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
 
     setIsPlayingAgain(true);
-    
-    // Clear best score info for next game
-    setBestScoreInfo(initialBestScoreInfo);
 
     try {
       const currentAttemptsStatus = await fetchAttemptsStatus(true);
@@ -976,7 +955,6 @@ export default function SurvivalGameManager() {
           isSessionError: false,
         });
         setIsPlayingAgain(false);
-
         return;
       }
 
@@ -1005,9 +983,6 @@ export default function SurvivalGameManager() {
       }
 
       currentSessionRef.current = null;
-      
-      // Clear best score reference on unmount
-      currentBestScoreRef.current = 0;
     };
   }, []);
 
@@ -1046,8 +1021,6 @@ export default function SurvivalGameManager() {
   };
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
-    const finalScore = gameResult.score * 2;
-    
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
@@ -1062,17 +1035,6 @@ export default function SurvivalGameManager() {
                 </span>
               </div>
             </div>
-
-            {isNewBestScore && (
-              <div className="bg-green-500/20 border border-green-400/30 rounded-lg p-3 animate-pulse">
-                <div className="flex items-center justify-center space-x-2">
-                  <span className="text-lg">🏆</span>
-                  <span className="text-sm text-green-300 font-bold">
-                    {t("game.modes.newBestScore")}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-6">
@@ -1084,57 +1046,14 @@ export default function SurvivalGameManager() {
                 {gameResult.score}
               </div>
               <div className="text-lg text-red-300/80">
-                {finalScore} (×2)
-              </div>
-              
-              {/* NEW: Best score comparison section */}
-              <div className="mt-4 space-y-2">
-                {bestScoreInfo.previousBestScore > 0 && (
-                  <>
-                    <div className="text-xs text-white/60">
-                      {t("game.modes.survival.results.yourBestScore")}
-                    </div>
-                    <div className="text-xl font-bold text-white/80">
-                      {bestScoreInfo.previousBestScore}
-                    </div>
-                    
-                    <div className="flex items-center justify-center space-x-2 mt-2">
-                      {bestScoreInfo.isNewBest ? (
-                        <>
-                          <TrendingUp className="text-green-400" size={16} />
-                          <span className="text-sm text-green-400">
-                            {t("game.modes.survival.results.exceededBy", {
-                              points: Math.abs(bestScoreInfo.scoreDifference)
-                            })}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <TrendingDown className="text-red-400" size={16} />
-                          <span className="text-sm text-red-400">
-                            {t("game.modes.survival.results.missedBy", {
-                              points: Math.abs(bestScoreInfo.scoreDifference)
-                            })}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="text-xs text-white/40">
-                      {t("game.modes.survival.results.percentageOfBest", {
-                        percentage: Math.round(bestScoreInfo.percentageOfBest)
-                      })}
-                    </div>
-                  </>
-                )}
-                
-                {bestScoreInfo.previousBestScore === 0 && isNewBestScore && (
-                  <div className="text-sm text-green-400/80 mt-2">
-                    {t("game.modes.survival.results.firstRecord")}
-                  </div>
-                )}
+                {gameResult.score * 2} (×2)
               </div>
             </div>
+
+            {/* NEW: Best Score Display */}
+            {bestScoreInfo && (
+              <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center space-y-1">

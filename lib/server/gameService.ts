@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with simplified tournament integration
+// src/lib/server/gameService.ts - Updated with Best Score tracking for Survival mode
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -9,7 +9,7 @@ import { supabaseServer } from "../supabase_server";
 
 import { serverAchievementsService } from "./achievementsService";
 import { serverTournamentService } from "./tournamentService";
-import { serverDailyQuestsService } from "./dailyQuestsService"; // NEW: Daily quests integration
+import { serverDailyQuestsService } from "./dailyQuestsService";
 
 import { GameMode } from "@/types/game-modes/common";
 
@@ -20,7 +20,7 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Enhanced game save result with tournaments, achievements, and daily quests
+// Enhanced game save result with Best Score information
 export interface GameSaveResult {
   success: boolean;
   levelChanged?: boolean;
@@ -33,20 +33,28 @@ export interface GameSaveResult {
     attemptsAwarded: number;
   }>;
   totalAttemptsAwarded?: number;
-  // Tournament information - УПРОЩЕНО
+  // Tournament information
   tournamentInfo?: {
     tournamentId: string;
     tournamentName: string;
     newBestScore: boolean;
-    participated: boolean; // Заменяет позиции
+    participated: boolean;
   };
-  // NEW: Daily quest information
+  // Daily quest information
   questCompletions?: Array<{
     questId: string;
     completed: boolean;
     attemptsAwarded: number;
   }>;
   questAttemptsAwarded?: number;
+  // NEW: Best score information for game modes
+  bestScoreInfo?: {
+    previousBestScore: number;
+    currentScore: number;
+    newBestScore: number;
+    isBestScore: boolean;
+    pointsNeeded?: number; // How many points needed to beat the record
+  };
   error?: string;
 }
 
@@ -89,7 +97,7 @@ function calculateReactionScore(reactionTime: number, missed: boolean): number {
 function getScoreMultiplier(mode: GameMode): number {
   switch (mode) {
     case GameMode.REACTION:
-      return 1; // No multiplier for reaction mode (already calculated)
+      return 1;
     case GameMode.SURVIVAL:
       return 2;
     case GameMode.PHYSICS:
@@ -107,10 +115,8 @@ function getScoreMultiplier(mode: GameMode): number {
 function calculateTotalScoreContribution(gameResult: GameResult): number {
   let baseScore = gameResult.score;
 
-  // For reaction mode, recalculate score based on reaction time
   if (gameResult.mode === GameMode.REACTION) {
     const reactionResult = gameResult as ReactionGameResult;
-
     baseScore = calculateReactionScore(
       reactionResult.reactionTime,
       reactionResult.missed,
@@ -118,7 +124,6 @@ function calculateTotalScoreContribution(gameResult: GameResult): number {
   }
 
   const multiplier = getScoreMultiplier(gameResult.mode);
-
   return baseScore * multiplier;
 }
 
@@ -128,20 +133,48 @@ function calculateTotalScoreContribution(gameResult: GameResult): number {
 function calculateModeSpecificScore(gameResult: GameResult): number {
   let baseScore = gameResult.score;
 
-  // For reaction mode, use calculated score
   if (gameResult.mode === GameMode.REACTION) {
     const reactionResult = gameResult as ReactionGameResult;
-
     return calculateReactionScore(
       reactionResult.reactionTime,
       reactionResult.missed,
     );
   }
 
-  // For other modes, apply multiplier to mode-specific best score
   const multiplier = getScoreMultiplier(gameResult.mode);
-
   return baseScore * multiplier;
+}
+
+/**
+ * NEW: Calculate best score information for a specific game mode
+ */
+function calculateBestScoreInfo(
+  gameResult: GameResult,
+  currentBestScore: number,
+): {
+  previousBestScore: number;
+  currentScore: number;
+  newBestScore: number;
+  isBestScore: boolean;
+  pointsNeeded?: number;
+} {
+  const currentScore = calculateModeSpecificScore(gameResult);
+  const previousBestScore = currentBestScore || 0;
+  const newBestScore = Math.max(previousBestScore, currentScore);
+  const isBestScore = currentScore > previousBestScore;
+  
+  let pointsNeeded: number | undefined;
+  if (!isBestScore && previousBestScore > 0) {
+    pointsNeeded = previousBestScore - currentScore;
+  }
+
+  return {
+    previousBestScore,
+    currentScore,
+    newBestScore,
+    isBestScore,
+    pointsNeeded,
+  };
 }
 
 /**
@@ -157,7 +190,6 @@ function convertToTournamentGameResult(gameResult: GameResult): any {
   switch (gameResult.mode) {
     case GameMode.SURVIVAL:
       const survivalResult = gameResult as SurvivalGameResult;
-
       return {
         ...base,
         survivalTime: survivalResult.survivalTime,
@@ -168,7 +200,6 @@ function convertToTournamentGameResult(gameResult: GameResult): any {
 
     case GameMode.PHYSICS:
       const physicsResult = gameResult as PhysicsGameResult;
-
       return {
         ...base,
         gameTime: physicsResult.gameTime,
@@ -178,7 +209,6 @@ function convertToTournamentGameResult(gameResult: GameResult): any {
 
     case GameMode.ROTATION:
       const rotationResult = gameResult as RotationGameResult;
-
       return {
         ...base,
         survivalTime: rotationResult.survivalTime,
@@ -236,31 +266,29 @@ export const serverGameService = {
 
     // Award attempts for level increase
     let levelAttemptsAwarded = 0;
-
     if (levelChanged) {
       const levelsGained = newLevel - previousLevel;
-
       levelAttemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
       updates.attempts_reset_at = null;
-      updates.attempts_remaining =
-        user.attempts_remaining + levelAttemptsAwarded;
+      updates.attempts_remaining = user.attempts_remaining + levelAttemptsAwarded;
     }
+
+    // NEW: Calculate best score information before updating stats
+    let bestScoreInfo: GameSaveResult["bestScoreInfo"];
 
     // Mode-specific statistics updates
     if (gameResult.mode === GameMode.REACTION) {
       const reactionResult = gameResult as ReactionGameResult;
-
-      // Calculate actual score for reaction mode
       const calculatedScore = calculateReactionScore(
         reactionResult.reactionTime,
         reactionResult.missed,
       );
 
+      // Calculate best score info for reaction mode
+      bestScoreInfo = calculateBestScoreInfo(gameResult, user.reaction_best_score || 0);
+
       updates.reaction_games = user.reaction_games + 1;
-      updates.reaction_best_score = Math.max(
-        user.reaction_best_score || 0,
-        calculatedScore,
-      );
+      updates.reaction_best_score = bestScoreInfo.newBestScore;
 
       if (!reactionResult.missed && reactionResult.reactionTime > 0) {
         updates.reaction_best_time =
@@ -272,8 +300,7 @@ export const serverGameService = {
         const currentAverage = user.reaction_average_time || 0;
         const newAverage =
           totalReactionGames > 0
-            ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
+            ? (currentAverage * totalReactionGames + reactionResult.reactionTime) /
               (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
@@ -282,11 +309,11 @@ export const serverGameService = {
     } else if (gameResult.mode === GameMode.SURVIVAL) {
       const survivalResult = gameResult as SurvivalGameResult;
 
+      // Calculate best score info for survival mode
+      bestScoreInfo = calculateBestScoreInfo(gameResult, user.survival_best_score || 0);
+
       updates.survival_games = user.survival_games + 1;
-      updates.survival_best_score = Math.max(
-        user.survival_best_score || 0,
-        survivalResult.score * 2,
-      );
+      updates.survival_best_score = bestScoreInfo.newBestScore;
       updates.survival_best_time = Math.max(
         user.survival_best_time || 0,
         survivalResult.survivalTime,
@@ -302,17 +329,16 @@ export const serverGameService = {
     } else if (gameResult.mode === GameMode.PHYSICS) {
       const physicsResult = gameResult as PhysicsGameResult;
 
+      // Calculate best score info for physics mode
+      bestScoreInfo = calculateBestScoreInfo(gameResult, user.physics_best_score || 0);
+
       updates.physics_games = user.physics_games + 1;
-      updates.physics_best_score = Math.max(
-        user.physics_best_score || 0,
-        physicsResult.score * 4,
-      );
+      updates.physics_best_score = bestScoreInfo.newBestScore;
       updates.physics_best_time = Math.max(
         user.physics_best_time || 0,
         Math.round(physicsResult.gameTime),
       );
-      updates.physics_total_hits =
-        (user.physics_total_hits || 0) + physicsResult.totalHits;
+      updates.physics_total_hits = (user.physics_total_hits || 0) + physicsResult.totalHits;
       updates.physics_best_hits = Math.max(
         user.physics_best_hits || 0,
         physicsResult.totalHits,
@@ -332,11 +358,11 @@ export const serverGameService = {
     } else if (gameResult.mode === GameMode.ROTATION) {
       const rotationResult = gameResult as RotationGameResult;
 
+      // Calculate best score info for rotation mode
+      bestScoreInfo = calculateBestScoreInfo(gameResult, user.rotation_best_score || 0);
+
       updates.rotation_games = user.rotation_games + 1;
-      updates.rotation_best_score = Math.max(
-        user.rotation_best_score || 0,
-        rotationResult.score * 3,
-      );
+      updates.rotation_best_score = bestScoreInfo.newBestScore;
       updates.rotation_best_time = Math.max(
         user.rotation_best_time || 0,
         rotationResult.survivalTime,
@@ -364,17 +390,16 @@ export const serverGameService = {
       throw new Error("Failed to update user statistics");
     }
 
-    // NEW: Process daily quest updates after user stats are updated
+    // Process daily quest updates after user stats are updated
     let questCompletions: any[] = [];
     let questAttemptsAwarded = 0;
 
     try {
-      const questResults =
-        await serverDailyQuestsService.processGameQuestUpdates(
-          user.id,
-          gameResult.mode,
-          gameResult,
-        );
+      const questResults = await serverDailyQuestsService.processGameQuestUpdates(
+        user.id,
+        gameResult.mode,
+        gameResult,
+      );
 
       questCompletions = questResults.map((result) => ({
         questId: result.questId,
@@ -390,56 +415,43 @@ export const serverGameService = {
       console.warn("Daily quest update failed but game saved:", questError);
     }
 
-    // Check and award achievements after stats update (with error handling)
+    // Check and award achievements after stats update
     let newAchievements: any[] = [];
     let achievementAttemptsAwarded = 0;
 
     try {
-      newAchievements =
-        await serverAchievementsService.checkAndAwardAchievements(telegramId);
-
+      newAchievements = await serverAchievementsService.checkAndAwardAchievements(telegramId);
       achievementAttemptsAwarded = newAchievements.reduce(
-        (total: number, achievement: any) =>
-          total + achievement.attempts_awarded,
+        (total: number, achievement: any) => total + achievement.attempts_awarded,
         0,
       );
     } catch (achievementError) {
-      console.warn(
-        "Achievement check failed but game saved:",
-        achievementError,
-      );
+      console.warn("Achievement check failed but game saved:", achievementError);
     }
 
-    // ✅ ИСПРАВЛЕНО: Упрощенная обработка турниров без расчета позиций
+    // Tournament processing
     let tournamentInfo: any = undefined;
 
     try {
-      const isTournamentActive =
-        await serverTournamentService.isTournamentActiveForMode(
-          gameResult.mode,
-        );
+      const isTournamentActive = await serverTournamentService.isTournamentActiveForMode(
+        gameResult.mode,
+      );
 
       if (isTournamentActive) {
-        const activeTournament =
-          await serverTournamentService.getActiveTournament();
+        const activeTournament = await serverTournamentService.getActiveTournament();
 
-        if (
-          activeTournament &&
-          activeTournament.mode === gameResult.mode.toLowerCase()
-        ) {
+        if (activeTournament && activeTournament.mode === gameResult.mode.toLowerCase()) {
           console.log(`[GAME_SERVICE] Processing tournament game for ${activeTournament.name}`);
 
-          // ✅ Получаем предыдущую статистику пользователя БЕЗ позиции
           const previousStats = await serverTournamentService.getUserTournamentStats(
             activeTournament.id,
             telegramId,
           );
 
-          const previousBestScore = previousStats.is_participating 
-            ? previousStats.user_score || 0 
+          const previousBestScore = previousStats.is_participating
+            ? previousStats.user_score || 0
             : 0;
 
-          // ✅ Обновляем лидерборд турнира
           await serverTournamentService.updateTournamentLeaderboard(
             activeTournament.id,
             telegramId,
@@ -453,7 +465,6 @@ export const serverGameService = {
             },
           );
 
-          // ✅ Проверяем, улучшился ли счет (БЕЗ получения новой позиции)
           const tournamentScore = modeSpecificScore;
           const newBestScore = tournamentScore > previousBestScore;
 
@@ -462,14 +473,14 @@ export const serverGameService = {
             previous_score: previousBestScore,
             new_score: tournamentScore,
             is_new_best: newBestScore,
-            was_participating: previousStats.is_participating
+            was_participating: previousStats.is_participating,
           });
 
           tournamentInfo = {
             tournamentId: activeTournament.id,
             tournamentName: activeTournament.name,
             newBestScore,
-            participated: true, // ✅ Упрощено: просто факт участия
+            participated: true,
           };
         }
       }
@@ -477,17 +488,16 @@ export const serverGameService = {
       console.warn("Tournament update failed but game saved:", tournamentError);
     }
 
-    const totalAttemptsAwarded =
-      levelAttemptsAwarded + achievementAttemptsAwarded + questAttemptsAwarded;
+    const totalAttemptsAwarded = levelAttemptsAwarded + achievementAttemptsAwarded + questAttemptsAwarded;
 
-    // Prepare response
+    // Prepare response with best score information
     const response: GameSaveResult = {
       success: true,
       levelChanged,
       newLevel: levelChanged ? newLevel : undefined,
-      attemptsAwarded:
-        levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
+      attemptsAwarded: levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
       tournamentInfo,
+      bestScoreInfo, // NEW: Include best score information
     };
 
     // Add achievement information if any were unlocked
@@ -499,7 +509,7 @@ export const serverGameService = {
       }));
     }
 
-    // NEW: Add quest completion information
+    // Add quest completion information
     if (questCompletions.length > 0) {
       response.questCompletions = questCompletions;
       response.questAttemptsAwarded = questAttemptsAwarded;
@@ -514,22 +524,17 @@ export const serverGameService = {
   },
 
   /**
-   * Save regular game result (non-tournament)
+   * Save regular game result
    */
-  async saveGameResult(
-    telegramId: number,
-    gameResult: GameResult,
-  ): Promise<GameSaveResult> {
+  async saveGameResult(telegramId: number, gameResult: GameResult): Promise<GameSaveResult> {
     return await this.updateGameStats(telegramId, gameResult);
   },
 
-  // Export utility functions for use in game logic
+  // Export utility functions
   calculateReactionScore,
   getScoreMultiplier,
   calculateTotalScoreContribution,
   calculateModeSpecificScore,
   calculateLevel,
-
-  // Export level system constants
   LEVEL_CONFIG,
 };
