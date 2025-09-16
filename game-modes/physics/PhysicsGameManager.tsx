@@ -150,7 +150,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
       {pointsNeeded && pointsNeeded > 0 && (
         <div className="text-center">
           <span className="text-xs text-gray-500">
-            {t("game.modes.bestScore.pointsNeeded", { points: pointsNeeded })}
+            {t("game.modes.bestScore.pointsNeeded", { points: pointsNeeded + 1 })}
           </span>
         </div>
       )}
@@ -928,10 +928,7 @@ export default function PhysicsGameManager() {
                 {t("game.modes.physics.results.finalScore")}
               </div>
               <div className="text-6xl font-bold text-green-400">
-                {Math.round(gameResult.finalScore)}
-              </div>
-              <div className="text-lg text-purple-300/80">
-                {Math.round(gameResult.finalScore * 4)} (×4)
+                {Math.round(gameResult.finalScore * 4)}
               </div>
             </div>
 
@@ -1158,12 +1155,6 @@ export default function PhysicsGameManager() {
       >
         <div className="px-6 py-4 h-full flex flex-col justify-center">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <Zap className="text-purple-400" size={18} />
-              <span className="text-lg font-bold text-purple-400">
-                {t("common.level")} {levelInfo.level}
-              </span>
-            </div>
 
             <div className="flex items-center space-x-2">
               <span className="text-lg font-bold text-white">

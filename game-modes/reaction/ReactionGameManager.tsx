@@ -146,7 +146,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
       {pointsNeeded && pointsNeeded > 0 && (
         <div className="text-center">
           <span className="text-xs text-gray-500">
-            {t("game.modes.reaction.bestScore.timeNeeded", { time: pointsNeeded })}
+            {t("game.modes.reaction.bestScore.timeNeeded", { time: pointsNeeded - 1 })}
           </span>
         </div>
       )}

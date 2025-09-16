@@ -148,7 +148,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
       {pointsNeeded && pointsNeeded > 0 && (
         <div className="text-center">
           <span className="text-xs text-gray-500">
-            {t("game.modes.bestScore.pointsNeeded", { points: pointsNeeded })}
+            {t("game.modes.bestScore.pointsNeeded", { points: pointsNeeded + 1 })}
           </span>
         </div>
       )}
@@ -1015,10 +1015,7 @@ export default function RotationGameManager() {
                 {t("game.modes.rotation.results.finalScore")}
               </div>
               <div className="text-6xl font-bold text-green-400">
-                {gameResult.score}
-              </div>
-              <div className="text-lg text-orange-300/80">
-                {gameResult.score * 3} (×3)
+                {gameResult.score * 3}
               </div>
             </div>
 
@@ -1237,13 +1234,6 @@ export default function RotationGameManager() {
       <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-orange-400/30 safe-area-inset-bottom">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <RotateCw className="text-orange-400" size={18} />
-              <span className="text-lg font-bold text-orange-400">
-                {t("common.level")} {gameState.currentLevel}
-              </span>
-            </div>
-
             <div className="flex items-center space-x-2">
               <span className="text-lg font-bold text-white">
                 {formatRotationTime(gameState.stats.survivalTime)}

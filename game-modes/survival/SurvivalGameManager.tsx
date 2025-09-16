@@ -147,7 +147,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
       {pointsNeeded && pointsNeeded > 0 && (
         <div className="text-center">
           <span className="text-xs text-gray-500">
-            {t("game.modes.survival.bestScore.pointsNeeded", { points: pointsNeeded })}
+            {t("game.modes.survival.bestScore.pointsNeeded", { points: pointsNeeded + 1 })}
           </span>
         </div>
       )}
