@@ -190,7 +190,7 @@ export default function AchievementsModal({
       backdrop="blur"
       classNames={{
         backdrop: "bg-black/90 backdrop-blur-md",
-        base: "bg-gradient-to-b from-gray-900 via-black to-gray-900 border border-white/10 h-full w-full max-w-none max-h-none m-0",
+        base: "bg-gradient-to-b from-gray-900 via-black to-gray-900 h-full w-full max-w-none max-h-none m-0",
         header: "border-b border-white/10 bg-black/50",
         body: "px-0 bg-transparent",
         closeButton: "hidden",

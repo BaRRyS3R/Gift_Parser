@@ -52,7 +52,7 @@ const TelegramSharing = {
     imageUrl: string,
   ) => {
     // Using zero-width characters to embed image in message
-    const embeddedMessage = `${message}\n\n[​​​​​​​​​​​](${imageUrl})\n\n${referralLink}`;
+    const embeddedMessage = `${message}\n\n[​​​​​​​​​​​​​](${imageUrl})\n\n${referralLink}`;
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(embeddedMessage)}`;
 
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -202,7 +202,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       backdrop="blur"
       classNames={{
         backdrop: "bg-black/80",
-        base: "bg-black border border-white/20 h-full w-full max-w-none max-h-none m-0",
+        base: "bg-black h-full w-full max-w-none max-h-none m-0",
         header: "border-b border-white/10",
         body: "py-4",
       }}
