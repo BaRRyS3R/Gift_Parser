@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with Best Score tracking and Attempts Status in response
+// src/lib/server/gameService.ts - Исправлено получение актуального статуса попыток
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -54,13 +54,13 @@ export interface GameSaveResult {
     currentScore: number;
     newBestScore: number;
     isBestScore: boolean;
-    pointsNeeded?: number; // How many points needed to beat the record
+    pointsNeeded?: number;
   };
-  // NEW: Current attempts status after game processing
+  // FIXED: Current attempts status after game processing
   attemptsStatus?: {
     canPlay: boolean;
     attemptsRemaining: number;
-    resetTime?: string; // ISO string
+    resetTime?: string;
     timeUntilReset?: number;
   };
   error?: string;
@@ -230,6 +230,84 @@ function convertToTournamentGameResult(gameResult: GameResult): any {
   }
 }
 
+/**
+ * НОВАЯ ФУНКЦИЯ: Получение актуального статуса попыток напрямую из базы данных
+ */
+async function getActualAttemptsStatus(telegramId: number): Promise<{
+  canPlay: boolean;
+  attemptsRemaining: number;
+  resetTime?: string;
+  timeUntilReset?: number;
+}> {
+  try {
+    console.log(`[GAME_SERVICE] Getting actual attempts status for user ${telegramId}`);
+
+    // Получаем актуальные данные пользователя напрямую из базы
+    const { data: user, error } = await supabaseServer
+      .from("users")
+      .select("attempts_remaining, attempts_reset_at")
+      .eq("telegram_id", telegramId)
+      .single();
+
+    if (error || !user) {
+      console.error(`[GAME_SERVICE] Failed to get user attempts:`, error);
+      return {
+        canPlay: false,
+        attemptsRemaining: 0,
+      };
+    }
+
+    const currentTime = new Date();
+    const resetTime = user.attempts_reset_at ? new Date(user.attempts_reset_at) : null;
+
+    // Проверяем нужно ли автоматически сбросить попытки
+    let actualAttemptsRemaining = user.attempts_remaining;
+    let actualResetTime = resetTime;
+
+    if (resetTime && currentTime >= resetTime) {
+      // Время сброса прошло, нужно сбросить попытки
+      actualAttemptsRemaining = Math.max(10, user.attempts_remaining);
+      actualResetTime = null;
+
+      console.log(`[GAME_SERVICE] Auto-resetting attempts for user ${telegramId}: ${actualAttemptsRemaining}`);
+
+      // Обновляем в базе данных
+      await supabaseServer
+        .from("users")
+        .update({
+          attempts_remaining: actualAttemptsRemaining,
+          attempts_reset_at: null,
+          updated_at: currentTime.toISOString(),
+        })
+        .eq("telegram_id", telegramId);
+    }
+
+    const canPlay = actualAttemptsRemaining > 0;
+    let timeUntilReset: number | undefined;
+
+    if (!canPlay && actualResetTime) {
+      timeUntilReset = Math.max(0, actualResetTime.getTime() - currentTime.getTime());
+    }
+
+    const result = {
+      canPlay,
+      attemptsRemaining: actualAttemptsRemaining,
+      resetTime: actualResetTime?.toISOString(),
+      timeUntilReset,
+    };
+
+    console.log(`[GAME_SERVICE] Actual attempts status for user ${telegramId}:`, result);
+
+    return result;
+  } catch (error) {
+    console.error(`[GAME_SERVICE] Error getting actual attempts status:`, error);
+    return {
+      canPlay: false,
+      attemptsRemaining: 0,
+    };
+  }
+}
+
 // Server-side game service
 export const serverGameService = {
   /**
@@ -239,6 +317,8 @@ export const serverGameService = {
     telegramId: number,
     gameResult: GameResult,
   ): Promise<GameSaveResult> {
+    console.log(`[GAME_SERVICE] Starting game stats update for user ${telegramId}`);
+
     // Get user data
     const { data: user, error: userError } = await supabaseServer
       .from("users")
@@ -279,6 +359,8 @@ export const serverGameService = {
       levelAttemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
       updates.attempts_reset_at = null;
       updates.attempts_remaining = user.attempts_remaining + levelAttemptsAwarded;
+      
+      console.log(`[GAME_SERVICE] Level increased: ${previousLevel} -> ${newLevel}, awarded ${levelAttemptsAwarded} attempts`);
     }
 
     // Calculate best score information before updating stats
@@ -292,7 +374,6 @@ export const serverGameService = {
         reactionResult.missed,
       );
 
-      // Calculate best score info for reaction mode
       bestScoreInfo = calculateBestScoreInfo(gameResult, user.reaction_best_score || 0);
 
       updates.reaction_games = user.reaction_games + 1;
@@ -317,7 +398,6 @@ export const serverGameService = {
     } else if (gameResult.mode === GameMode.SURVIVAL) {
       const survivalResult = gameResult as SurvivalGameResult;
 
-      // Calculate best score info for survival mode
       bestScoreInfo = calculateBestScoreInfo(gameResult, user.survival_best_score || 0);
 
       updates.survival_games = user.survival_games + 1;
@@ -337,7 +417,6 @@ export const serverGameService = {
     } else if (gameResult.mode === GameMode.PHYSICS) {
       const physicsResult = gameResult as PhysicsGameResult;
 
-      // Calculate best score info for physics mode
       bestScoreInfo = calculateBestScoreInfo(gameResult, user.physics_best_score || 0);
 
       updates.physics_games = user.physics_games + 1;
@@ -366,7 +445,6 @@ export const serverGameService = {
     } else if (gameResult.mode === GameMode.ROTATION) {
       const rotationResult = gameResult as RotationGameResult;
 
-      // Calculate best score info for rotation mode
       bestScoreInfo = calculateBestScoreInfo(gameResult, user.rotation_best_score || 0);
 
       updates.rotation_games = user.rotation_games + 1;
@@ -388,6 +466,8 @@ export const serverGameService = {
     }
 
     // Update user stats in database
+    console.log(`[GAME_SERVICE] Updating user stats in database`);
+    
     const { error: updateError } = await supabaseServer
       .from("users")
       .update(updates)
@@ -419,6 +499,10 @@ export const serverGameService = {
         (total, result) => total + result.attemptsAwarded,
         0,
       );
+
+      if (questAttemptsAwarded > 0) {
+        console.log(`[GAME_SERVICE] Quest attempts awarded: ${questAttemptsAwarded}`);
+      }
     } catch (questError) {
       console.warn("Daily quest update failed but game saved:", questError);
     }
@@ -433,6 +517,10 @@ export const serverGameService = {
         (total: number, achievement: any) => total + achievement.attempts_awarded,
         0,
       );
+
+      if (achievementAttemptsAwarded > 0) {
+        console.log(`[GAME_SERVICE] Achievement attempts awarded: ${achievementAttemptsAwarded}`);
+      }
     } catch (achievementError) {
       console.warn("Achievement check failed but game saved:", achievementError);
     }
@@ -496,36 +584,22 @@ export const serverGameService = {
       console.warn("Tournament update failed but game saved:", tournamentError);
     }
 
-    // NEW: Get current attempts status after all processing
-    let attemptsStatus: GameSaveResult["attemptsStatus"];
-
-    try {
-      const currentAttemptsStatus = await serverAttemptsService.checkAndUpdateAttempts(telegramId);
-      
-      attemptsStatus = {
-        canPlay: currentAttemptsStatus.canPlay,
-        attemptsRemaining: currentAttemptsStatus.attemptsRemaining,
-        resetTime: currentAttemptsStatus.resetTime?.toISOString(),
-        timeUntilReset: currentAttemptsStatus.timeUntilReset,
-      };
-
-      console.log(`[GAME_SERVICE] Current attempts status:`, attemptsStatus);
-    } catch (attemptsError) {
-      console.error("Failed to get current attempts status:", attemptsError);
-      // Don't throw error, just log warning - game save was successful
-    }
+    // ИСПРАВЛЕНО: Получение актуального статуса попыток после ВСЕХ обновлений
+    console.log(`[GAME_SERVICE] Getting actual attempts status after all processing`);
+    
+    const attemptsStatus = await getActualAttemptsStatus(telegramId);
 
     const totalAttemptsAwarded = levelAttemptsAwarded + achievementAttemptsAwarded + questAttemptsAwarded;
 
-    // Prepare response with best score information and attempts status
+    // Prepare response with best score information and ACTUAL attempts status
     const response: GameSaveResult = {
       success: true,
       levelChanged,
       newLevel: levelChanged ? newLevel : undefined,
       attemptsAwarded: levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
       tournamentInfo,
-      bestScoreInfo, // Best score information
-      attemptsStatus, // NEW: Current attempts status
+      bestScoreInfo,
+      attemptsStatus, // ИСПРАВЛЕНО: Теперь это АКТУАЛЬНЫЕ данные
     };
 
     // Add achievement information if any were unlocked
@@ -547,6 +621,8 @@ export const serverGameService = {
     if (totalAttemptsAwarded > 0) {
       response.totalAttemptsAwarded = totalAttemptsAwarded;
     }
+
+    console.log(`[GAME_SERVICE] Game save completed successfully for user ${telegramId}`);
 
     return response;
   },
