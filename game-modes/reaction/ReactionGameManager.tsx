@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Fixed attempts status handling with cache updates
+// src/game-modes/reaction/ReactionGameManager.tsx - Fixed with enhanced attempts logic and best time display
 
 "use client";
 
@@ -62,13 +62,13 @@ interface SessionStatus {
   timeRemaining: number | null;
 }
 
-// Best Score information from API response (for reaction mode - by time)
-interface BestScoreInfo {
-  previousBestScore: number; // Previous best time in ms
-  currentScore: number;      // Current time in ms
-  newBestScore: number;      // New best time in ms
-  isBestScore: boolean;      // Is new record (lower time = better)
-  pointsNeeded?: number;     // How many ms needed to beat the record
+// FIXED: Best Time information for reaction mode (time-based, not score-based)
+interface BestTimeInfo {
+  previousBestTime: number; // Previous best time in ms
+  currentTime: number;      // Current time in ms
+  newBestTime: number;      // New best time in ms
+  isBestTime: boolean;      // Is new record (lower time = better)
+  timeNeeded?: number;      // How many ms needed to beat the record
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -96,25 +96,25 @@ const initialSessionStatus: SessionStatus = {
   timeRemaining: null,
 };
 
-// Best Score Display Component for reaction mode
-interface BestScoreDisplayProps {
-  bestScoreInfo: BestScoreInfo;
+// FIXED: Best Time Display Component for reaction mode - shows time, not score
+interface BestTimeDisplayProps {
+  bestTimeInfo: BestTimeInfo;
 }
 
-const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) => {
+const BestTimeDisplay: React.FC<BestTimeDisplayProps> = ({ bestTimeInfo }) => {
   const t = useT();
-  const { isBestScore, previousBestScore, pointsNeeded } = bestScoreInfo;
+  const { isBestTime, previousBestTime, timeNeeded } = bestTimeInfo;
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    if (isBestScore) {
+    if (isBestTime) {
       setShowConfetti(true);
       const timer = setTimeout(() => setShowConfetti(false), 3000);
       return () => clearTimeout(timer);
     }
-  }, [isBestScore]);
+  }, [isBestTime]);
 
-  if (isBestScore) {
+  if (isBestTime) {
     return (
       <div className="text-center relative">
         {showConfetti && (
@@ -140,13 +140,13 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
           {t("game.modes.reaction.bestScore.yourBest")}
         </span>
         <span className="text-sm text-white font-bold">
-          {previousBestScore} ms
+          {previousBestTime} ms
         </span>
       </div>
-      {pointsNeeded && pointsNeeded > 0 && (
+      {timeNeeded && timeNeeded > 0 && (
         <div className="text-center">
           <span className="text-xs text-gray-500">
-            {t("game.modes.reaction.bestScore.timeNeeded", { time: pointsNeeded - 1 })}
+            {t("game.modes.reaction.bestScore.timeNeeded", { time: timeNeeded - 1 })}
           </span>
         </div>
       )}
@@ -157,7 +157,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 export default function ReactionGameManager() {
   const { makeAuthenticatedRequest } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
-  const { consumeAttemptWithSession, updateAttemptsFromGameSave } = useAttempts(makeAuthenticatedRequest);
+  const { consumeAttemptWithSession, updateAttemptsFromGameSave, preValidateCanPlay } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -167,13 +167,13 @@ export default function ReactionGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
-  const [bestScoreInfo, setBestScoreInfo] = useState<BestScoreInfo | null>(null);
+  const [bestTimeInfo, setBestTimeInfo] = useState<BestTimeInfo | null>(null); // FIXED: Changed from bestScoreInfo
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(
     initialPlayAgainError,
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  // NEW: Track if user can play again after save
+  // Track if user can play again after save
   const [canPlayAfterSave, setCanPlayAfterSave] = useState<boolean | null>(null);
 
   const [sessionStatus, setSessionStatus] =
@@ -299,6 +299,7 @@ export default function ReactionGameManager() {
   const handleSaveGameResult = useCallback(
     async (result: ReactionGameResult) => {
       if (result.missed || result.reactionTime <= 0) {
+        console.log("[SAVE_GAME] Skipping save for missed attempt");
         setSaveStatus((prev) => ({
           ...prev,
           skipped: true,
@@ -308,16 +309,15 @@ export default function ReactionGameManager() {
           sessionError: null,
         }));
         
-        // Even for missed games, check if user can play again
-        // For missed games, we don't save but we still should check attempts
-        setCanPlayAfterSave(true); // Assume user can play again for missed attempts
+        // For missed games, assume user can play again
+        setCanPlayAfterSave(true);
         return;
       }
 
       const sessionId = currentSessionRef.current;
 
       if (!sessionId) {
-        console.error("No session ID available for game save");
+        console.error("[SAVE_GAME] No session ID available for game save");
         setSaveStatus((prev) => ({
           ...prev,
           sessionError: "No valid session found",
@@ -326,7 +326,7 @@ export default function ReactionGameManager() {
         return;
       }
 
-      console.log("Saving game with session ID:", sessionId);
+      console.log("[SAVE_GAME] Starting save process with session ID:", sessionId);
 
       setSaveStatus((prev) => ({
         ...prev,
@@ -352,15 +352,23 @@ export default function ReactionGameManager() {
         try {
           const response = await saveGameResult(result, sessionId);
 
-          // Process Best Score information from API response
+          // FIXED: Process Best Time information from API response
           if (response.bestScoreInfo) {
-            setBestScoreInfo(response.bestScoreInfo);
-            console.log("Best score info received:", response.bestScoreInfo);
+            // Convert score-based response to time-based for reaction mode
+            const bestTimeInfo: BestTimeInfo = {
+              previousBestTime: response.bestScoreInfo.previousBestScore,
+              currentTime: result.reactionTime,
+              newBestTime: response.bestScoreInfo.newBestScore,
+              isBestTime: response.bestScoreInfo.isBestScore,
+              timeNeeded: response.bestScoreInfo.pointsNeeded,
+            };
+            setBestTimeInfo(bestTimeInfo);
+            console.log("[SAVE_GAME] Best time info received:", bestTimeInfo);
           }
 
-          // NEW: Process attempts status from API response
+          // Process attempts status from API response
           if (response.attemptsStatus) {
-            console.log("Attempts status received:", response.attemptsStatus);
+            console.log("[SAVE_GAME] Attempts status received:", response.attemptsStatus);
             
             // Update attempts cache with fresh data from game save
             updateAttemptsFromGameSave(response.attemptsStatus);
@@ -370,7 +378,7 @@ export default function ReactionGameManager() {
             
             // If user cannot play anymore, set up redirect
             if (!response.attemptsStatus.canPlay) {
-              console.log("User cannot play again - setting up redirect");
+              console.log("[SAVE_GAME] User cannot play again - setting up redirect");
               setPlayAgainError({
                 show: true,
                 message: t("game.modes.reaction.playAgain.noAttempts"),
@@ -379,14 +387,9 @@ export default function ReactionGameManager() {
               });
             }
           } else {
-            console.warn("No attempts status received from game save response");
-            // If no attempts status received, show error and redirect
-            setPlayAgainError({
-              show: true,
-              message: t("game.modes.reaction.playAgain.error"),
-              redirecting: false,
-              isSessionError: false,
-            });
+            console.warn("[SAVE_GAME] No attempts status received from game save response");
+            // Reset flag to force validation
+            setCanPlayAfterSave(null);
           }
 
           setSaveStatus((prev) => ({
@@ -533,10 +536,13 @@ export default function ReactionGameManager() {
   );
 
   const startGame = useCallback(async () => {
+    console.log("[START_GAME] Starting game initialization");
+
     try {
       const attemptsResult = await consumeAttemptWithSession(GameMode.REACTION);
 
       if (!attemptsResult) {
+        console.log("[START_GAME] Failed to consume attempt - no result");
         setPlayAgainError({
           show: true,
           message: t("game.modes.reaction.playAgain.noAttempts"),
@@ -546,8 +552,10 @@ export default function ReactionGameManager() {
         return;
       }
 
+      console.log("[START_GAME] Attempt consumed successfully:", attemptsResult);
+
       if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
-        console.log("Session created:", attemptsResult.sessionId);
+        console.log("[START_GAME] Session created:", attemptsResult.sessionId);
 
         currentSessionRef.current = attemptsResult.sessionId;
 
@@ -558,7 +566,7 @@ export default function ReactionGameManager() {
           timeRemaining: attemptsResult.sessionExpiresAt.getTime() - Date.now(),
         });
       } else {
-        console.error("No session data received from consume attempt");
+        console.error("[START_GAME] No session data received from consume attempt");
         setPlayAgainError({
           show: true,
           message: "Failed to create game session",
@@ -570,7 +578,7 @@ export default function ReactionGameManager() {
 
       setGameState(initializeReactionGameState());
       setGameResult(null);
-      setBestScoreInfo(null);
+      setBestTimeInfo(null); // FIXED: Reset best time info
       setSaveStatus(initialSaveStatus);
       setPlayAgainError(initialPlayAgainError);
       setActivatedCircles([]);
@@ -605,7 +613,7 @@ export default function ReactionGameManager() {
         }));
       }, 500);
     } catch (error) {
-      console.error("Failed to start game:", error);
+      console.error("[START_GAME] Failed to start game:", error);
       
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
@@ -621,30 +629,57 @@ export default function ReactionGameManager() {
     }
   }, [handleCircleActivated, handleGameTimeout, consumeAttemptWithSession, t]);
 
+  // ENHANCED: Play again with pre-validation like Survival mode
   const handlePlayAgain = useCallback(async () => {
-    if (isPlayingAgain) return;
-
-    // NEW: Check if user can play based on save result
-    if (canPlayAfterSave === false) {
-      console.log("Cannot play again - no attempts remaining");
+    if (isPlayingAgain) {
+      console.log("[PLAY_AGAIN] Already in progress, ignoring");
       return;
     }
 
+    console.log("[PLAY_AGAIN] Starting play again process");
     setIsPlayingAgain(true);
 
     try {
+      // ENHANCED: Always do fresh pre-validation before starting game
+      console.log("[PLAY_AGAIN] Doing fresh pre-validation...");
+      
+      const preValidation = await preValidateCanPlay();
+      console.log("[PLAY_AGAIN] Pre-validation result:", preValidation);
+
+      if (!preValidation.canPlay) {
+        console.log("[PLAY_AGAIN] Pre-validation failed - cannot play");
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.reaction.playAgain.noAttempts"),
+          redirecting: false,
+          isSessionError: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      console.log("[PLAY_AGAIN] Pre-validation passed, starting game...");
       await startGame();
+      
     } catch (error) {
-      console.error("Error starting new game:", error);
+      console.error("[PLAY_AGAIN] Error during play again:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const isAttemptsError = errorMessage.includes("attempts") || 
+                            errorMessage.includes("No attempts") ||
+                            errorMessage.includes("Locked");
+      
       setPlayAgainError({
         show: true,
-        message: t("game.modes.reaction.playAgain.error"),
+        message: isAttemptsError 
+          ? t("game.modes.reaction.playAgain.noAttempts")
+          : t("game.modes.reaction.playAgain.error"),
         redirecting: false,
         isSessionError: false,
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, startGame, t, canPlayAfterSave]);
+  }, [isPlayingAgain, startGame, t, preValidateCanPlay]);
 
   useEffect(() => {
     return () => {
@@ -730,8 +765,9 @@ export default function ReactionGameManager() {
               </div>
             </div>
 
-            {bestScoreInfo && !gameResult.missed && (
-              <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
+            {/* FIXED: Show best time instead of best score */}
+            {bestTimeInfo && !gameResult.missed && (
+              <BestTimeDisplay bestTimeInfo={bestTimeInfo} />
             )}
 
             <div className="grid grid-cols-2 gap-4">
@@ -911,7 +947,7 @@ export default function ReactionGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                // NEW: Enhanced button state logic
+                // ENHANCED: Improved button state logic
                 isPlayingAgain || 
                 playAgainError.show || 
                 saveStatus.isLoading ||

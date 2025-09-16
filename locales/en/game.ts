@@ -63,7 +63,7 @@ export const game = {
         failedToConsume: "Failed to consume attempt. Please try again later.",
         error:
           "Error occurred while starting the game. Please try again later.",
-        autoRedirect: "Automatic redirect to menu in 3 seconds...",
+        autoRedirect: "Automatic redirect to menu in 5 second...",
         redirecting: "Redirecting...",
       },
       // NEW: Best Score для режима реакции (по времени)
@@ -136,7 +136,7 @@ export const game = {
         failedToConsume: "Failed to consume attempt. Please try again later.",
         error:
           "Error occurred while starting survival game. Please try again later.",
-        autoRedirect: "Automatic redirect to menu in 3 seconds...",
+        autoRedirect: "Automatic redirect to menu in 5 second...",
         redirecting: "Redirecting...",
       },
       deathCauses: {
@@ -208,7 +208,7 @@ export const game = {
         failedToConsume: "Failed to consume attempt. Please try again later.",
         error:
           "Error occurred while starting physics experiment. Please try again later.",
-        autoRedirect: "Automatic redirect to menu in 3 seconds...",
+        autoRedirect: "Automatic redirect to menu in 5 second...",
         redirecting: "Redirecting...",
       },
       deathCauses: {
@@ -263,7 +263,7 @@ export const game = {
         failedToConsume: "Failed to consume attempt. Please try again later.",
         error:
           "Error occurred while starting rotation experiment. Please try again later.",
-        autoRedirect: "Automatic redirect to menu in 3 seconds...",
+        autoRedirect: "Automatic redirect to menu in 5 second...",
         redirecting: "Redirecting...",
       },
       deathCauses: {

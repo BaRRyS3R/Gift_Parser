@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Fixed attempts status handling with cache updates
+// src/game-modes/rotation/RotationGameManager.tsx - Fixed with enhanced attempts logic
 
 "use client";
 
@@ -159,7 +159,7 @@ const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) =>
 export default function RotationGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
-  const { consumeAttemptWithSession, updateAttemptsFromGameSave } = useAttempts(makeAuthenticatedRequest);
+  const { consumeAttemptWithSession, updateAttemptsFromGameSave, preValidateCanPlay } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -175,7 +175,7 @@ export default function RotationGameManager() {
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  // NEW: Track if user can play again after save
+  // Track if user can play again after save
   const [canPlayAfterSave, setCanPlayAfterSave] = useState<boolean | null>(null);
 
   const [sessionStatus, setSessionStatus] =
@@ -419,7 +419,7 @@ export default function RotationGameManager() {
       const sessionId = currentSessionRef.current;
 
       if (!sessionId) {
-        console.error("No session ID available for game save");
+        console.error("[SAVE_GAME] No session ID available for game save");
         setSaveStatus((prev) => ({
           ...prev,
           sessionError: "No valid session found",
@@ -428,7 +428,7 @@ export default function RotationGameManager() {
         return;
       }
 
-      console.log("Saving game with session ID:", sessionId);
+      console.log("[SAVE_GAME] Starting save process with session ID:", sessionId);
 
       setSaveStatus((prev) => ({
         ...prev,
@@ -495,12 +495,12 @@ export default function RotationGameManager() {
           // Process Best Score information from API response
           if (response.bestScoreInfo) {
             setBestScoreInfo(response.bestScoreInfo);
-            console.log("Best score info received:", response.bestScoreInfo);
+            console.log("[SAVE_GAME] Best score info received:", response.bestScoreInfo);
           }
 
-          // NEW: Process attempts status from API response
+          // Process attempts status from API response
           if (response.attemptsStatus) {
-            console.log("Attempts status received:", response.attemptsStatus);
+            console.log("[SAVE_GAME] Attempts status received:", response.attemptsStatus);
             
             // Update attempts cache with fresh data from game save
             updateAttemptsFromGameSave(response.attemptsStatus);
@@ -510,7 +510,7 @@ export default function RotationGameManager() {
             
             // If user cannot play anymore, set up redirect
             if (!response.attemptsStatus.canPlay) {
-              console.log("User cannot play again - setting up redirect");
+              console.log("[SAVE_GAME] User cannot play again - setting up redirect");
               setPlayAgainError({
                 show: true,
                 message: t("game.modes.rotation.playAgain.noAttempts"),
@@ -519,14 +519,9 @@ export default function RotationGameManager() {
               });
             }
           } else {
-            console.warn("No attempts status received from game save response");
-            // If no attempts status received, show error and redirect
-            setPlayAgainError({
-              show: true,
-              message: t("game.modes.rotation.playAgain.error"),
-              redirecting: false,
-              isSessionError: false,
-            });
+            console.warn("[SAVE_GAME] No attempts status received from game save response");
+            // Reset flag to force validation
+            setCanPlayAfterSave(null);
           }
 
           setSaveStatus((prev) => ({
@@ -830,6 +825,8 @@ export default function RotationGameManager() {
   );
 
   const startGame = useCallback(async () => {
+    console.log("[START_GAME] Starting game initialization");
+    
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
@@ -837,6 +834,7 @@ export default function RotationGameManager() {
       const attemptsResult = await consumeAttemptWithSession(GameMode.ROTATION);
 
       if (!attemptsResult) {
+        console.log("[START_GAME] Failed to consume attempt - no result");
         setPlayAgainError({
           show: true,
           message: t("game.modes.rotation.playAgain.noAttempts"),
@@ -846,8 +844,10 @@ export default function RotationGameManager() {
         return;
       }
 
+      console.log("[START_GAME] Attempt consumed successfully:", attemptsResult);
+
       if (attemptsResult.sessionId && attemptsResult.sessionExpiresAt) {
-        console.log("Session created:", attemptsResult.sessionId);
+        console.log("[START_GAME] Session created:", attemptsResult.sessionId);
 
         currentSessionRef.current = attemptsResult.sessionId;
 
@@ -858,7 +858,7 @@ export default function RotationGameManager() {
           timeRemaining: attemptsResult.sessionExpiresAt.getTime() - Date.now(),
         });
       } else {
-        console.error("No session data received from consume attempt");
+        console.error("[START_GAME] No session data received from consume attempt");
         setPlayAgainError({
           show: true,
           message: "Failed to create game session",
@@ -927,7 +927,7 @@ export default function RotationGameManager() {
         }));
       }, 800);
     } catch (error) {
-      console.error("Failed to start game:", error);
+      console.error("[START_GAME] Failed to start game:", error);
       
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       const isAttemptsError = errorMessage.includes("attempts") || errorMessage.includes("No attempts");
@@ -943,29 +943,57 @@ export default function RotationGameManager() {
     }
   }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
+  // ENHANCED: Play again with pre-validation like Survival mode
   const handlePlayAgain = useCallback(async () => {
-    if (isPlayingAgain) return;
-
-    // NEW: Check if user can play based on save result
-    if (canPlayAfterSave === false) {
-      console.log("Cannot play again - no attempts remaining");
+    if (isPlayingAgain) {
+      console.log("[PLAY_AGAIN] Already in progress, ignoring");
       return;
     }
 
+    console.log("[PLAY_AGAIN] Starting play again process");
     setIsPlayingAgain(true);
 
     try {
+      // ENHANCED: Always do fresh pre-validation before starting game
+      console.log("[PLAY_AGAIN] Doing fresh pre-validation...");
+      
+      const preValidation = await preValidateCanPlay();
+      console.log("[PLAY_AGAIN] Pre-validation result:", preValidation);
+
+      if (!preValidation.canPlay) {
+        console.log("[PLAY_AGAIN] Pre-validation failed - cannot play");
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.rotation.playAgain.noAttempts"),
+          redirecting: false,
+          isSessionError: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      console.log("[PLAY_AGAIN] Pre-validation passed, starting game...");
       await startGame();
+      
     } catch (error) {
+      console.error("[PLAY_AGAIN] Error during play again:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const isAttemptsError = errorMessage.includes("attempts") || 
+                            errorMessage.includes("No attempts") ||
+                            errorMessage.includes("Locked");
+      
       setPlayAgainError({
         show: true,
-        message: t("game.modes.rotation.playAgain.error"),
+        message: isAttemptsError 
+          ? t("game.modes.rotation.playAgain.noAttempts")
+          : t("game.modes.rotation.playAgain.error"),
         redirecting: false,
         isSessionError: false,
       });
       setIsPlayingAgain(false);
     }
-  }, [isPlayingAgain, startGame, t, canPlayAfterSave]);
+  }, [isPlayingAgain, startGame, t, preValidateCanPlay]);
 
   useEffect(() => {
     return () => {
@@ -1213,7 +1241,7 @@ export default function RotationGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                // NEW: Enhanced button state logic
+                // ENHANCED: Improved button state logic
                 isPlayingAgain || 
                 playAgainError.show || 
                 saveStatus.isLoading ||
