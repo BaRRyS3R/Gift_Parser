@@ -10,8 +10,6 @@ import {
   EyeOff,
   Shield,
   ShieldAlert,
-  Trophy,
-  Target,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -38,6 +36,7 @@ import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 import { GameSaveResult } from "@/hooks/modules/useGame";
+import ConfettiExplosion from "react-confetti-explosion";
 
 interface SaveStatus {
   isLoading: boolean;
@@ -106,35 +105,47 @@ interface BestScoreDisplayProps {
 const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) => {
   const t = useT();
   const { isBestScore, previousBestScore, pointsNeeded } = bestScoreInfo;
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    if (isBestScore) {
+      setShowConfetti(true);
+      const timer = setTimeout(() => setShowConfetti(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isBestScore]);
 
   if (isBestScore) {
     return (
-      <div className="bg-green-500/20 border border-green-400/30 rounded-lg p-3 animate-pulse">
-        <div className="flex items-center justify-center space-x-2">
-          <Trophy className="text-green-400" size={20} />
-          <span className="text-sm text-green-300 font-bold">
-            {t("game.modes.survival.bestScore.newRecord")}
-          </span>
+      <div className="text-center relative">
+        {showConfetti && (
+          <ConfettiExplosion
+            force={0.6}
+            duration={2500}
+            particleCount={100}
+            width={800}
+            colors={['#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5']}
+          />
+        )}
+        <div className="text-green-400 text-lg font-bold animate-pulse">
+          🏆 {t("game.modes.survival.bestScore.newRecord")}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-500/10 border border-gray-400/30 rounded-lg p-3">
+    <div className="bg-gray-500/10 border border-gray-400/30 rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Target className="text-gray-400" size={16} />
-          <span className="text-xs text-gray-400">
-            {t("game.modes.survival.bestScore.yourBest")}
-          </span>
-        </div>
+        <span className="text-xs text-gray-400">
+          {t("game.modes.survival.bestScore.yourBest")}
+        </span>
         <span className="text-sm text-white font-bold">
           {previousBestScore}
         </span>
       </div>
       {pointsNeeded && pointsNeeded > 0 && (
-        <div className="mt-2 text-center">
+        <div className="text-center">
           <span className="text-xs text-gray-500">
             {t("game.modes.survival.bestScore.pointsNeeded", { points: pointsNeeded })}
           </span>
@@ -1043,10 +1054,7 @@ export default function SurvivalGameManager() {
                 {t("game.modes.survival.results.finalScore")}
               </div>
               <div className="text-6xl font-bold text-green-400">
-                {gameResult.score}
-              </div>
-              <div className="text-lg text-red-300/80">
-                {gameResult.score * 2} (×2)
+                {gameResult.score * 2}
               </div>
             </div>
 

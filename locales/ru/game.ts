@@ -139,8 +139,8 @@ export const game = {
       // NEW: Best Score localization keys
       bestScore: {
         newRecord: "НОВЫЙ РЕКОРД!",
-        yourBest: "Ваш лучший",
-        pointsNeeded: "До рекорда не хватило {{points}} {{points, plural, one {очко} few {очка} many {очков} other {очков}}}",
+        yourBest: "Лучший счёт",
+        pointsNeeded: "Не хватило до рекорда: {{points}}",
       },
       levels: { // Не актуально
         warmingUp: "РАЗМИНКА",

@@ -138,8 +138,8 @@ export const game = {
       // NEW: Best Score localization keys
       bestScore: {
         newRecord: "NEW RECORD!",
-        yourBest: "Your Best",
-        pointsNeeded: "{{points}} {{points, plural, one {point} other {points}}} needed to beat record",
+        yourBest: "Best Score",
+        pointsNeeded: "{{points}} points needed to beat record",
       },
       levels: {
         warmingUp: "WARM-UP",
