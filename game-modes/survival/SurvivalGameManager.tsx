@@ -545,19 +545,32 @@ export default function SurvivalGameManager() {
             console.log("[SAVE_GAME] Best score info received:", saveResult.bestScoreInfo);
           }
 
-          // ИСПРАВЛЕНО: Более надежная обработка статуса попыток
+          // ИСПРАВЛЕНО: Корректная обработка статуса попыток после сохранения
           if (saveResult.attemptsStatus) {
             console.log("[SAVE_GAME] Attempts status from save:", saveResult.attemptsStatus);
             
-            // Обновляем UI (только для отображения)
+            // Обновляем UI для отображения
             updateAttemptsFromGameSave(saveResult.attemptsStatus);
             
-            // КРИТИЧНО: Не полагаемся на эти данные для принятия решений о возможности играть
-            // Вместо этого всегда делаем свежую проверку при попытке играть снова
-            console.log("[SAVE_GAME] UI updated with attempts status, but will validate fresh on play again");
+            // Устанавливаем флаг для кнопки "Играть еще"
+            setCanPlayAfterSave(saveResult.attemptsStatus.canPlay);
             
+            console.log(`[SAVE_GAME] Can play after save: ${saveResult.attemptsStatus.canPlay}, attempts: ${saveResult.attemptsStatus.attemptsRemaining}`);
+            
+            // Если пользователь не может больше играть - показываем ошибку и запускаем редирект
+            if (!saveResult.attemptsStatus.canPlay) {
+              console.log("[SAVE_GAME] User cannot play again - setting up error message and redirect");
+              setPlayAgainError({
+                show: true,
+                message: t("game.modes.survival.playAgain.noAttempts"),
+                redirecting: false,
+                isSessionError: false,
+              });
+            }
           } else {
             console.warn("[SAVE_GAME] No attempts status in save response");
+            // Если статус не получен, сбрасываем флаг для принудительной проверки
+            setCanPlayAfterSave(null);
           }
 
           setSaveStatus((prev) => ({
