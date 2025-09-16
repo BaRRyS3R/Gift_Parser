@@ -1,7 +1,7 @@
 // src/locales/en/tournaments.ts - Tournament localization (English) - UPDATED VERSION
 export const tournaments = {
   title: "TOURNAMENTS",
-  subtitle: "Weekly competitions",
+  subtitle: "Competitions",
 
   // Tournament status
   status: {
@@ -75,8 +75,8 @@ export const tournaments = {
     multipleGames: "Play as many games as you want - best result counts",
     timeLimit: "Games only count during tournament time",
     goodLuck: "Good luck in the competition!",
-    playFirst: "PLAY YOUR FIRST TOURNAMENT GAME",
-    joinCompetition: "Join the competition to appear on the leaderboard",
+    playFirst: "PLAY TOURNAMENT",
+    joinCompetition: "Join the competition",
   },
 
   // Time formatting

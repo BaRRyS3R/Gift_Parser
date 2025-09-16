@@ -1,7 +1,7 @@
 // src/locales/ru/tournaments.ts - Tournament localization (Russian) - ОБНОВЛЕННАЯ ВЕРСИЯ
 export const tournaments = {
-  title: "ТУРНИРЫ",
-  subtitle: "Еженедельные соревнования",
+  title: "TOURNAMENTS",
+  subtitle: "Соревнования",
 
   // Tournament status
   status: {
@@ -75,8 +75,8 @@ export const tournaments = {
     multipleGames: "Играйте сколько хотите - засчитывается лучший результат",
     timeLimit: "Игры засчитываются только во время турнира",
     goodLuck: "Удачи в соревновании!",
-    playFirst: "СЫГРАЙТЕ ПЕРВУЮ ИГРУ ТУРНИРА",
-    joinCompetition: "Присоединитесь к соревнованию, чтобы попасть в лидерборд",
+    playFirst: "УЧАСТВУЙ В ТУРНИРЕ",
+    joinCompetition: "Присоединитесь к соревнованию",
   },
 
   // Time formatting

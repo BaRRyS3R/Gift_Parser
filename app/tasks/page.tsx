@@ -35,7 +35,6 @@ import {
 } from "@/types/tasks";
 import { useT } from "@/contexts/LocalizationContext";
 import CatEasterEgg from "@/components/EasterEggs/CatEasterEgg";
-import MatreshkaAccordion from "@/components/MatreshkaAccordion";
 import BonusAttemptsInfoModal from "@/components/Tasks/BonusAttemptsInfoModal";
 
 export default function TasksPage() {
@@ -506,11 +505,6 @@ export default function TasksPage() {
           </Button>
         </div>
       )}
-
-      {/* Matreshka Accordion - Bonus Content */}
-      <div className="mt-12 mb-8">
-        <MatreshkaAccordion />
-      </div>
 
       {/* Bottom spacing for safe area */}
       <div className="h-24" />

@@ -229,9 +229,6 @@ function NonParticipatingNotice({ colors, t }: { colors: any; t: any }) {
               </div>
             </div>
           </div>
-          <div className="text-yellow-400">
-            <Play size={24} />
-          </div>
         </div>
       </CardBody>
     </Card>
@@ -611,7 +608,7 @@ function TournamentsPageContent() {
     <div className="min-h-screen bg-black safe-area-inset-bottom safe-area-inset">
       <div className="px-4 pb-8">
         {/* ЗАГОЛОВОК с увеличенным отступом pt-10 */}
-        <div className="text-center space-y-3 mb-8 pt-10"> {/* ИЗМЕНЕНО: pt-6 -> pt-10 для избежания перекрытия системными кнопками Telegram */}
+        <div className="text-center space-y-3 mb-8 pt-12"> {/* ИЗМЕНЕНО: pt-6 -> pt-10 для избежания перекрытия системными кнопками Telegram */}
           <div className="relative">
             <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">
               {t("tournaments.title")}
