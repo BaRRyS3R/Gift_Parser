@@ -106,26 +106,7 @@ const LoadingSpinner: React.FC<{ size?: number }> = ({ size = 16 }) => (
   />
 );
 
-// Background Elements Component - REMOVE THIS COMPONENT TO DISABLE BACKGROUND ELEMENTS
-const BackgroundElements: React.FC = () => (
-  <div className="fixed inset-0 pointer-events-none overflow-hidden">
-    {/* Geometric shapes */}
-    <div className="absolute top-20 left-10 w-2 h-2 bg-white/10 rotate-45"></div>
-    <div className="absolute top-40 right-20 w-1 h-8 bg-white/5"></div>
-    <div className="absolute bottom-32 left-16 w-6 h-px bg-white/10"></div>
-    <div className="absolute top-1/3 right-10 w-px h-12 bg-white/5"></div>
-    <div className="absolute bottom-40 right-1/3 w-3 h-3 border border-white/5 rotate-45"></div>
-    <div className="absolute top-1/2 left-8 w-1 h-1 bg-white/10 rounded-full"></div>
-    <div className="absolute bottom-20 left-1/3 w-8 h-px bg-white/5"></div>
-    <div className="absolute top-1/4 left-1/2 w-px h-6 bg-white/5"></div>
-    
-    {/* Corner elements */}
-    <div className="absolute top-0 left-0 w-16 h-16 border-l-2 border-t-2 border-white/5"></div>
-    <div className="absolute top-0 right-0 w-16 h-16 border-r-2 border-t-2 border-white/5"></div>
-    <div className="absolute bottom-0 left-0 w-16 h-16 border-l-2 border-b-2 border-white/5"></div>
-    <div className="absolute bottom-0 right-0 w-16 h-16 border-r-2 border-b-2 border-white/5"></div>
-  </div>
-);
+
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -1054,6 +1035,16 @@ export default function SurvivalGameManager() {
 
   // Get button state and styling
   const getButtonState = () => {
+    if (isPlayingAgain) {
+      return {
+        text: "Starting",
+        className: "bg-blue-900/30 text-blue-300 cursor-not-allowed border-blue-600/50 shadow-blue-600/20",
+        disabled: true,
+        showIcon: false,
+        showSpinner: true
+      };
+    }
+    
     if (saveStatus.isLoading) {
       return {
         text: "Saving",
@@ -1098,9 +1089,6 @@ export default function SurvivalGameManager() {
 
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6 text-white relative overflow-hidden">
-        {/* BACKGROUND ELEMENTS - REMOVE BackgroundElements COMPONENT TO DISABLE */}
-        <BackgroundElements />
-        
         <motion.div 
           className="w-full max-w-md space-y-8 relative z-10"
           initial={{ opacity: 0, y: 20 }}
