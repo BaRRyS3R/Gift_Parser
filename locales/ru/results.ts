@@ -5,7 +5,7 @@ export const results = {
     newRecord: "🏆 НОВЫЙ РЕКОРД!",
     finalScore: "Итоговый счёт:",
     bestScore: "Лучший счёт:",
-    pointsNeeded: "Нужно очков:",
+    pointsNeeded: "До рекорда:",
     hits: "Попаданий:",
     time: "Время:",
     levelsComplete: "Уровней пройдено:",
@@ -23,7 +23,7 @@ export const results = {
   reaction: {
     reactionTime: "Время реакции:",
     bestTime: "Лучшее время:",
-    timeNeeded: "Нужно времени:",
+    timeNeeded: "До рекорда:",
     msUnit: "мс",
     
     status: {
@@ -31,25 +31,25 @@ export const results = {
       hit: "Попал!",
       missedValue: "Промах",
       completeAttempt: "Завершите попытку",
-      setTimeFirst: "Сначала установите время"
+      setTimeFirst: "Рекорд еще не установлен"
     }
   },
 
   // Специфичные результаты для режима выживания
   survival: {
     survivalTime: "Время выживания:",
-    correctHits: "Точных попаданий:"
+    correctHits: "Попаданий:"
   },
 
   // Специфичные результаты для режима физики
   physics: {
     survivalTime: "Время выживания:",
-    totalHits: "Всего попаданий:"
+    totalHits: "Попаданий:"
   },
 
   // Специфичные результаты для режима вращения
   rotation: {
     rotationTime: "Время вращения:",
-    correctHits: "Точных попаданий:"
+    correctHits: "Попаданий:"
   }
 } as const;

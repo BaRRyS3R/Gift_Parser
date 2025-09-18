@@ -1,55 +1,56 @@
-// src/locales/en/results.ts - Game results localization (English)
+// src/locales/en/results.ts - Game Results Localization
+
 export const results = {
-  // Common result elements
-  common: {
-    newRecord: "🏆 NEW RECORD!",
-    finalScore: "Final score:",
-    bestScore: "Best score:",
-    pointsNeeded: "Points needed:",
-    hits: "Hits:",
-    time: "Time:",
-    levelsComplete: "Levels complete:",
-    
-    // Button states
-    button: {
-      starting: "Starting...",
-      saving: "Saving...",
-      noAttempts: "No attempts",
-      again: "Again"
+    // Common Results Elements
+    common: {
+        newRecord: "🏆 NEW RECORD!",
+        finalScore: "Final Score:",
+        bestScore: "Best Score:",
+        pointsNeeded: "To Break Record:",
+        hits: "Hits:",
+        time: "Time:",
+        levelsComplete: "Levels Completed:",
+
+        // Button Statuses
+        button: {
+            starting: "Starting...",
+            saving: "Saving...",
+            noAttempts: "No Attempts",
+            again: "Again"
+        }
+    },
+
+    // Specific Results for Reaction Mode
+    reaction: {
+        reactionTime: "Reaction Time:",
+        bestTime: "Best Time:",
+        timeNeeded: "To Break Record:",
+        msUnit: "ms",
+
+        status: {
+            missed: "Missed!",
+            hit: "Hit!",
+            missedValue: "Missed",
+            completeAttempt: "Complete attempt",
+            setTimeFirst: "Record not yet set"
+        }
+    },
+
+    // Survival mode-specific results
+    survival: {
+        survivalTime: "Survival time:",
+        correctHits: "Hits:"
+    },
+
+    // Physics mode-specific results
+    physics: {
+        survivalTime: "Survival time:",
+        totalHits: "Hits:"
+    },
+
+    // Rotation mode-specific results
+    rotation: {
+        rotationTime: "Rotation time:",
+        correctHits: "Hits:"
     }
-  },
-
-  // Specific results for reaction mode
-  reaction: {
-    reactionTime: "Reaction time:",
-    bestTime: "Best time:",
-    timeNeeded: "Time needed:",
-    msUnit: "ms",
-    
-    status: {
-      missed: "Missed target!",
-      hit: "Target hit!",
-      missedValue: "Missed",
-      completeAttempt: "Complete attempt",
-      setTimeFirst: "Set a time first"
-    }
-  },
-
-  // Specific results for survival mode
-  survival: {
-    survivalTime: "Survival time:",
-    correctHits: "Correct hits:"
-  },
-
-  // Specific results for physics mode
-  physics: {
-    survivalTime: "Survival time:",
-    totalHits: "Total hits:"
-  },
-
-  // Specific results for rotation mode
-  rotation: {
-    rotationTime: "Rotation time:",
-    correctHits: "Correct hits:"
-  }
 } as const;
