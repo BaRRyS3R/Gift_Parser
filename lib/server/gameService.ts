@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Исправлено получение актуального статуса попыток
+// src/lib/server/gameService.ts - Исправлено получение актуального статуса попыток + логика реакции
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -48,7 +48,7 @@ export interface GameSaveResult {
     attemptsAwarded: number;
   }>;
   questAttemptsAwarded?: number;
-  // Best score information for game modes
+  // Best score/time information for game modes
   bestScoreInfo?: {
     previousBestScore: number;
     currentScore: number;
@@ -154,7 +154,7 @@ function calculateModeSpecificScore(gameResult: GameResult): number {
 }
 
 /**
- * Calculate best score information for a specific game mode
+ * Calculate best score information for non-reaction modes
  */
 function calculateBestScoreInfo(
   gameResult: GameResult,
@@ -182,6 +182,48 @@ function calculateBestScoreInfo(
     newBestScore,
     isBestScore,
     pointsNeeded,
+  };
+}
+
+/**
+ * NEW: Calculate best time information for reaction mode
+ */
+function calculateBestTimeInfo(
+  gameResult: ReactionGameResult,
+  currentBestTime: number,
+): {
+  previousBestScore: number; // Actually previous best time
+  currentScore: number; // Actually current reaction time  
+  newBestScore: number; // Actually new best time
+  isBestScore: boolean; // Actually is best time
+  pointsNeeded?: number; // Actually time needed in ms
+} {
+  // For missed attempts, we still want to show the best time info
+  const currentTime = gameResult.missed ? 0 : gameResult.reactionTime;
+  const previousBestTime = currentBestTime || 0;
+  
+  let newBestTime = previousBestTime;
+  let isBestTime = false;
+  
+  // Only update best time if the attempt was successful and time is valid
+  if (!gameResult.missed && currentTime > 0) {
+    if (previousBestTime === 0 || currentTime < previousBestTime) {
+      newBestTime = currentTime;
+      isBestTime = true;
+    }
+  }
+  
+  let timeNeeded: number | undefined;
+  if (!isBestTime && previousBestTime > 0 && !gameResult.missed && currentTime > 0) {
+    timeNeeded = currentTime - previousBestTime + 1;
+  }
+
+  return {
+    previousBestScore: previousBestTime, // Using existing field names for compatibility
+    currentScore: currentTime,
+    newBestScore: newBestTime, 
+    isBestScore: isBestTime,
+    pointsNeeded: timeNeeded,
   };
 }
 
@@ -363,7 +405,7 @@ export const serverGameService = {
       console.log(`[GAME_SERVICE] Level increased: ${previousLevel} -> ${newLevel}, awarded ${levelAttemptsAwarded} attempts`);
     }
 
-    // Calculate best score information before updating stats
+    // Calculate best score/time information before updating stats
     let bestScoreInfo: GameSaveResult["bestScoreInfo"];
 
     // Mode-specific statistics updates
@@ -374,16 +416,15 @@ export const serverGameService = {
         reactionResult.missed,
       );
 
-      bestScoreInfo = calculateBestScoreInfo(gameResult, user.reaction_best_score || 0);
+      // NEW: Use best time logic for reaction mode
+      bestScoreInfo = calculateBestTimeInfo(reactionResult, user.reaction_best_time || 0);
 
       updates.reaction_games = user.reaction_games + 1;
-      updates.reaction_best_score = bestScoreInfo.newBestScore;
+      updates.reaction_best_score = Math.max(user.reaction_best_score || 0, calculatedScore);
 
+      // Update best time only for successful attempts
       if (!reactionResult.missed && reactionResult.reactionTime > 0) {
-        updates.reaction_best_time =
-          user.reaction_best_time > 0
-            ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
-            : reactionResult.reactionTime;
+        updates.reaction_best_time = bestScoreInfo.newBestScore; // This is actually the new best time
 
         const totalReactionGames = user.reaction_games;
         const currentAverage = user.reaction_average_time || 0;

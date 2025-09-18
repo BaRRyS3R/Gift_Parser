@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Refactored with new UI design
+// src/game-modes/reaction/ReactionGameManager.tsx - Fixed reaction mode logic and display
 
 "use client";
 
@@ -47,7 +47,6 @@ interface SaveStatus {
   sessionError: string | null;
   isSuccess: boolean;
   showRetryDetails: boolean;
-  skipped: boolean;
 }
 
 interface PlayAgainError {
@@ -80,7 +79,6 @@ const initialSaveStatus: SaveStatus = {
   sessionError: null,
   isSuccess: false,
   showRetryDetails: false,
-  skipped: false,
 };
 
 const initialPlayAgainError: PlayAgainError = {
@@ -241,24 +239,9 @@ export default function ReactionGameManager() {
     }
   }, []);
 
-  // Enhanced save game result with proper attempts status handling
+  // FIXED: Always save game result, even for missed attempts
   const handleSaveGameResult = useCallback(
     async (result: ReactionGameResult) => {
-      if (result.missed || result.reactionTime <= 0) {
-        console.log("[SAVE_GAME] Skipping save for missed attempt");
-        setSaveStatus((prev) => ({
-          ...prev,
-          skipped: true,
-          isLoading: false,
-          isSuccess: false,
-          error: null,
-          sessionError: null,
-        }));
-        
-        setCanPlayAfterSave(true);
-        return;
-      }
-
       const sessionId = currentSessionRef.current;
 
       if (!sessionId) {
@@ -271,7 +254,7 @@ export default function ReactionGameManager() {
         return;
       }
 
-      console.log("[SAVE_GAME] Starting save process with session ID:", sessionId);
+      console.log("[SAVE_GAME] Starting save process with session ID:", sessionId, "Result:", result);
 
       setSaveStatus((prev) => ({
         ...prev,
@@ -281,7 +264,6 @@ export default function ReactionGameManager() {
         sessionError: null,
         isSuccess: false,
         showRetryDetails: false,
-        skipped: false,
       }));
 
       let attemptCount = 1;
@@ -300,11 +282,11 @@ export default function ReactionGameManager() {
           // Process Best Time information from API response
           if (response.bestScoreInfo) {
             const bestTimeInfo: BestTimeInfo = {
-              previousBestTime: response.bestScoreInfo.previousBestScore,
-              currentTime: result.reactionTime,
-              newBestTime: response.bestScoreInfo.newBestScore,
-              isBestTime: response.bestScoreInfo.isBestScore,
-              timeNeeded: response.bestScoreInfo.pointsNeeded,
+              previousBestTime: response.bestScoreInfo.previousBestScore, // Actually previous best time
+              currentTime: response.bestScoreInfo.currentScore, // Actually current reaction time
+              newBestTime: response.bestScoreInfo.newBestScore, // Actually new best time
+              isBestTime: response.bestScoreInfo.isBestScore, // Actually is best time
+              timeNeeded: response.bestScoreInfo.pointsNeeded, // Actually time needed in ms
             };
             setBestTimeInfo(bestTimeInfo);
             console.log("[SAVE_GAME] Best time info received:", bestTimeInfo);
@@ -728,7 +710,7 @@ export default function ReactionGameManager() {
           transition={{ duration: 0.6 }}
         >
           {/* Confetti for new records */}
-          {bestTimeInfo?.isBestTime && (
+          {bestTimeInfo?.isBestTime && !gameResult.missed && (
             <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
               <ConfettiExplosion
                 force={0.6}
@@ -766,25 +748,27 @@ export default function ReactionGameManager() {
 
           <Divider className="bg-white/30" />
 
-          {/* Game Statistics */}
+          {/* Game Statistics - UPDATED ORDER */}
           <motion.div 
             className="space-y-4 text-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            {/* Final Score */}
+            {/* 1. Reaction Time */}
             <motion.div 
               className="flex justify-between items-center"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.5 }}
             >
-              <span className="text-lg">Final score:</span>
-              <span className="text-2xl font-bold">{gameResult.score}</span>
+              <span className="text-lg">Reaction time:</span>
+              <span className="text-xl font-bold">
+                {gameResult.missed ? "Missed" : `${gameResult.reactionTime} ms`}
+              </span>
             </motion.div>
 
-            {/* Best Time */}
+            {/* 2. Best Time */}
             <motion.div 
               className="flex justify-between items-center"
               initial={{ opacity: 0, x: -20 }}
@@ -795,15 +779,17 @@ export default function ReactionGameManager() {
               <div className="text-right">
                 {bestTimeInfo === null ? (
                   <LoadingSpinner size={20} />
-                ) : bestTimeInfo.isBestTime ? (
+                ) : bestTimeInfo.isBestTime && !gameResult.missed ? (
                   <span className="text-lg font-bold text-green-400">🏆 NEW RECORD!</span>
-                ) : (
+                ) : bestTimeInfo.previousBestTime > 0 ? (
                   <span className="text-xl font-bold">{bestTimeInfo.previousBestTime} ms</span>
+                ) : (
+                  <span className="text-xl font-bold">Not set</span>
                 )}
               </div>
             </motion.div>
 
-            {/* Time Needed */}
+            {/* 3. Time Needed */}
             <motion.div 
               className="flex justify-between items-center"
               initial={{ opacity: 0, x: -20 }}
@@ -814,49 +800,29 @@ export default function ReactionGameManager() {
               <div className="text-right">
                 {bestTimeInfo === null ? (
                   <LoadingSpinner size={20} />
-                ) : bestTimeInfo.isBestTime ? (
+                ) : bestTimeInfo.isBestTime && !gameResult.missed ? (
                   <span className="text-lg font-bold text-green-400">🏆 NEW RECORD!</span>
+                ) : gameResult.missed ? (
+                  <span className="text-xl">Complete attempt</span>
+                ) : bestTimeInfo.previousBestTime === 0 ? (
+                  <span className="text-xl">Set a time first</span>
+                ) : bestTimeInfo.timeNeeded && bestTimeInfo.timeNeeded > 0 ? (
+                  <span className="text-xl">{bestTimeInfo.timeNeeded} ms</span>
                 ) : (
-                  <span className="text-xl">
-                    {bestTimeInfo.timeNeeded && bestTimeInfo.timeNeeded > 1 ? `${bestTimeInfo.timeNeeded - 1} ms` : "0 ms"}
-                  </span>
+                  <span className="text-xl">0 ms</span>
                 )}
               </div>
             </motion.div>
 
-            {/* Reaction Time */}
+            {/* 4. Final Score */}
             <motion.div 
               className="flex justify-between items-center"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.8 }}
             >
-              <span className="text-lg">Reaction time:</span>
-              <span className="text-xl font-bold">
-                {gameResult.missed ? "Missed" : `${gameResult.reactionTime} ms`}
-              </span>
-            </motion.div>
-
-            {/* Rating */}
-            <motion.div 
-              className="flex justify-between items-center"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.9 }}
-            >
-              <span className="text-lg">Rating:</span>
-              <span className="text-xl font-bold">{gameResult.rating}</span>
-            </motion.div>
-
-            {/* Attempts (placeholder to match other modes) */}
-            <motion.div 
-              className="flex justify-between items-center"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 1.0 }}
-            >
-              <span className="text-lg">Status:</span>
-              <span className="text-xl font-bold">{gameResult.missed ? "Failed" : "Success"}</span>
+              <span className="text-lg">Final score:</span>
+              <span className="text-2xl font-bold">{gameResult.score}</span>
             </motion.div>
           </motion.div>
 
@@ -868,7 +834,7 @@ export default function ReactionGameManager() {
               className="text-center space-y-2 mb-4"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 1.1 }}
+              transition={{ duration: 0.4, delay: 0.9 }}
             >
               {saveStatus.sessionError && (
                 <div className="text-center">
@@ -903,7 +869,7 @@ export default function ReactionGameManager() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 1.2 }}
+            transition={{ duration: 0.5, delay: 1.0 }}
           >
             <button
               className={`w-full px-6 py-4 text-lg rounded-lg border-2 shadow-lg transition-all duration-300 flex items-center justify-center space-x-3 font-medium tracking-wide ${buttonState.className}`}
