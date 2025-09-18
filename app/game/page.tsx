@@ -673,9 +673,6 @@ function GamePageContent() {
           <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
             {t("game.modes.title")}
           </h1>
-          <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-            {t("game.modes.subtitle")}
-          </p>
         </div>
 
         {/* Start error display */}
@@ -722,6 +719,12 @@ function GamePageContent() {
             showShopButton={true}
             onRetry={handleAttemptsRetry}
           />
+        </div>
+
+        <div className="text-center mb-8 animate-fade-in">
+          <p className="text-white/60 text-sm uppercase tracking-[0.3em]">
+            {t("game.modes.subtitle")}
+          </p>
         </div>
       </div>
 
