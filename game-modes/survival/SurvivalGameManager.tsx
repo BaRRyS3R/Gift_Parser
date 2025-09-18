@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Исправленная версия с прямой валидацией
+// src/game-modes/survival/SurvivalGameManager.tsx - Рефакторинг результатов
 
 "use client";
 
@@ -96,63 +96,20 @@ const initialSessionStatus: SessionStatus = {
 
 const LEVEL_UPDATE_INTERVAL = 200;
 
-// Best Score Display Component
-interface BestScoreDisplayProps {
-  bestScoreInfo: BestScoreInfo;
-}
+// Loading Spinner Component
+const LoadingSpinner: React.FC<{ size?: number }> = ({ size = 16 }) => (
+  <div 
+    className="border-2 border-white/20 border-t-white rounded-full animate-spin"
+    style={{ width: size, height: size }}
+  />
+);
 
-const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) => {
-  const t = useT();
-  const { isBestScore, previousBestScore, pointsNeeded } = bestScoreInfo;
-  const [showConfetti, setShowConfetti] = useState(false);
-
-  useEffect(() => {
-    if (isBestScore) {
-      setShowConfetti(true);
-      const timer = setTimeout(() => setShowConfetti(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [isBestScore]);
-
-  if (isBestScore) {
-    return (
-      <div className="text-center relative">
-        {showConfetti && (
-          <ConfettiExplosion
-            force={0.6}
-            duration={2500}
-            particleCount={100}
-            width={800}
-            colors={['#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5']}
-          />
-        )}
-        <div className="text-green-400 text-lg font-bold animate-pulse">
-          🏆 {t("game.modes.survival.bestScore.newRecord")}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-gray-500/10 border border-gray-400/30 rounded-lg p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-400">
-          {t("game.modes.survival.bestScore.yourBest")}
-        </span>
-        <span className="text-sm text-white font-bold">
-          {previousBestScore}
-        </span>
-      </div>
-      {pointsNeeded && pointsNeeded > 0 && (
-        <div className="text-center">
-          <span className="text-xs text-gray-500">
-            {t("game.modes.survival.bestScore.pointsNeeded", { points: pointsNeeded + 1 })}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-};
+// Separator Component
+const Separator: React.FC = () => (
+  <div className="flex justify-center my-6">
+    <div className="w-16 h-px bg-white"></div>
+  </div>
+);
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -176,22 +133,16 @@ export default function SurvivalGameManager() {
     initialPlayAgainError,
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
-  
-  // ИСПРАВЛЕНО: Удалено кеширование статуса попыток после сохранения
   const [canPlayAfterSave, setCanPlayAfterSave] = useState<boolean | null>(null);
-
-  const [sessionStatus, setSessionStatus] =
-    useState<SessionStatus>(initialSessionStatus);
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
   const [sessionWarningShown, setSessionWarningShown] = useState(false);
 
   // Store session ID in a ref to avoid race conditions
   const currentSessionRef = useRef<string | null>(null);
 
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] =
-    useState<number>(0);
-  const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] =
-    useState<number[]>([]);
+  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
+  const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
 
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
@@ -251,7 +202,7 @@ export default function SurvivalGameManager() {
     sessionWarningShown,
   ]);
 
-  // App visibility monitoring (остается без изменений)
+  // App visibility monitoring
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === "visible";
@@ -357,17 +308,11 @@ export default function SurvivalGameManager() {
       window.addEventListener("orientationchange", handleOrientationChange);
 
       return () => {
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange,
-        );
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
         window.removeEventListener("blur", handleWindowBlur);
         window.removeEventListener("beforeunload", handleBeforeUnload);
         window.removeEventListener("pagehide", handlePageHide);
-        window.removeEventListener(
-          "orientationchange",
-          handleOrientationChange,
-        );
+        window.removeEventListener("orientationchange", handleOrientationChange);
         cleanupTelegram();
       };
     }
@@ -431,7 +376,6 @@ export default function SurvivalGameManager() {
     }
   }, []);
 
-  // ИСПРАВЛЕНО: Улучшенная обработка сохранения игры
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
       const sessionId = currentSessionRef.current;
@@ -545,19 +489,14 @@ export default function SurvivalGameManager() {
             console.log("[SAVE_GAME] Best score info received:", saveResult.bestScoreInfo);
           }
 
-          // ИСПРАВЛЕНО: Корректная обработка статуса попыток после сохранения
           if (saveResult.attemptsStatus) {
             console.log("[SAVE_GAME] Attempts status from save:", saveResult.attemptsStatus);
             
-            // Обновляем UI для отображения
             updateAttemptsFromGameSave(saveResult.attemptsStatus);
-            
-            // Устанавливаем флаг для кнопки "Играть еще"
             setCanPlayAfterSave(saveResult.attemptsStatus.canPlay);
             
             console.log(`[SAVE_GAME] Can play after save: ${saveResult.attemptsStatus.canPlay}, attempts: ${saveResult.attemptsStatus.attemptsRemaining}`);
             
-            // Если пользователь не может больше играть - показываем ошибку и запускаем редирект
             if (!saveResult.attemptsStatus.canPlay) {
               console.log("[SAVE_GAME] User cannot play again - setting up error message and redirect");
               setPlayAgainError({
@@ -569,7 +508,6 @@ export default function SurvivalGameManager() {
             }
           } else {
             console.warn("[SAVE_GAME] No attempts status in save response");
-            // Если статус не получен, сбрасываем флаг для принудительной проверки
             setCanPlayAfterSave(null);
           }
 
@@ -697,7 +635,6 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult],
   );
 
-  // Остальная логика игры остается без изменений...
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
@@ -945,7 +882,7 @@ export default function SurvivalGameManager() {
       setInstantlyDeactivatedCircles([]);
       setIsPlayingAgain(false);
       setSessionWarningShown(false);
-      setCanPlayAfterSave(null); // Сброс флага
+      setCanPlayAfterSave(null);
 
       setTimeout(() => {
         setShowCircles(true);
@@ -999,7 +936,6 @@ export default function SurvivalGameManager() {
     }
   }, [scheduleNextActivation, consumeAttemptWithSession, t]);
 
-  // ИСПРАВЛЕНО: Полностью переработанная логика "Играть снова"
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) {
       console.log("[PLAY_AGAIN] Already in progress, ignoring");
@@ -1010,7 +946,6 @@ export default function SurvivalGameManager() {
     setIsPlayingAgain(true);
 
     try {
-      // КРИТИЧНО: Всегда делаем свежую проверку перед началом игры
       console.log("[PLAY_AGAIN] Doing fresh pre-validation...");
       
       const preValidation = await preValidateCanPlay();
@@ -1070,17 +1005,17 @@ export default function SurvivalGameManager() {
   const getDeathCauseIcon = (deathCause: string) => {
     switch (deathCause) {
       case "miss":
-        return <Crosshair className="text-red-400" size={20} />;
+        return <Crosshair className="text-white" size={20} />;
       case "wrong_click":
-        return <AlertTriangle className="text-red-400" size={20} />;
+        return <AlertTriangle className="text-white" size={20} />;
       case "decoy_hit":
-        return <AlertTriangle className="text-red-400" size={20} />;
+        return <AlertTriangle className="text-white" size={20} />;
       case "app_minimized":
-        return <EyeOff className="text-gray-400" size={20} />;
+        return <EyeOff className="text-white" size={20} />;
       case "session_expired":
-        return <ShieldAlert className="text-orange-400" size={20} />;
+        return <ShieldAlert className="text-white" size={20} />;
       default:
-        return <Crosshair className="text-red-400" size={20} />;
+        return <Crosshair className="text-white" size={20} />;
     }
   };
 
@@ -1101,230 +1036,179 @@ export default function SurvivalGameManager() {
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
 
+  // Get button state and styling
+  const getButtonState = () => {
+    if (saveStatus.isLoading) {
+      return {
+        text: "Saving",
+        className: "bg-gray-600 text-gray-300 cursor-not-allowed",
+        disabled: true,
+        showIcon: false
+      };
+    }
+    
+    if (playAgainError.show || canPlayAfterSave === false) {
+      return {
+        text: "No attempts",
+        className: "bg-red-600 text-white cursor-not-allowed",
+        disabled: true,
+        showIcon: false
+      };
+    }
+    
+    if (saveStatus.isSuccess && (canPlayAfterSave === true || canPlayAfterSave === null)) {
+      return {
+        text: "Again",
+        className: "bg-green-600 text-white hover:bg-green-700 transition-colors",
+        disabled: false,
+        showIcon: true
+      };
+    }
+    
+    return {
+      text: "Saving",
+      className: "bg-gray-600 text-gray-300 cursor-not-allowed",
+      disabled: true,
+      showIcon: false
+    };
+  };
+
   if (gameState.gameState === GameState.FINISHED && gameResult) {
+    const buttonState = getButtonState();
+
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6">
+      <div className="min-h-screen bg-black flex items-center justify-center p-6 text-white">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
-          <div className="text-center space-y-4">
-            <div className="text-6xl mb-4">💀</div>
-
-            <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-3">
-              <div className="flex items-center justify-center space-x-2">
-                {getDeathCauseIcon(gameResult.deathCause)}
-                <span className="text-sm text-red-300">
-                  {getDeathCauseMessage(gameResult.deathCause)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-6">
-            <div className="text-center space-y-2">
-              <div className="text-sm text-red-400/60">
-                {t("game.modes.survival.results.finalScore")}
-              </div>
-              <div className="text-6xl font-bold text-green-400">
-                {gameResult.score * 2}
-              </div>
-            </div>
-
-            {bestScoreInfo && (
-              <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.correctHits")}
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {gameResult.correctHits}
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.survivalTime")}
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {formatSurvivalTime(gameResult.survivalTime)}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center space-y-1 border-t border-red-400/30 pt-4">
-              <div className="text-xs text-red-400/60">
-                {t("game.modes.survival.results.levelsCompleted")}
-              </div>
-              <div className="text-xl font-bold text-yellow-400">
-                {gameResult.maxLevelReached}
-              </div>
-            </div>
-          </div>
-
-          {(saveStatus.isLoading ||
-            saveStatus.error ||
-            saveStatus.sessionError ||
-            saveStatus.isSuccess) && (
-              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                      <span className="text-sm text-red-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
-                            attempt: saveStatus.attempt,
-                            max: saveStatus.maxAttempts,
-                          })
-                          : t("save.recording")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-red-400/60" size={14} />
-                          <span className="text-xs text-red-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-red-400/20 rounded-full h-1">
-                          <div
-                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {saveStatus.sessionError && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <ShieldAlert className="text-orange-400" size={16} />
-                      <span className="text-sm text-orange-400">
-                        Session Security Error
-                      </span>
-                    </div>
-                    <div className="text-orange-400/60 text-xs mb-3">
-                      {saveStatus.sessionError}
-                    </div>
-                    <div className="text-white/60 text-xs">
-                      Game may not be saved due to session validation failure
-                    </div>
-                  </div>
-                )}
-
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.recordedSuccessfully")}
-                      </span>
-                    </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
-                          attempts: saveStatus.attempt,
-                        })
-                        : t("save.synchronized")}
-                    </div>
-                  </div>
-                )}
-
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("save.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() =>
-                        gameResult && handleSaveGameResult(gameResult)
-                      }
-                    >
-                      {t("save.retrySave")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-          {playAgainError.show && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-              <div className="text-center">
-                <div className="flex items-center justify-center space-x-2 mb-2">
-                  {playAgainError.isSessionError ? (
-                    <ShieldAlert className="text-orange-400" size={16} />
-                  ) : (
-                    <AlertTriangle className="text-red-400" size={16} />
-                  )}
-                  <span
-                    className={`text-sm font-bold ${playAgainError.isSessionError
-                      ? "text-orange-400"
-                      : "text-red-400"
-                      }`}
-                  >
-                    {t("game.modes.survival.playAgain.cannotPlay")}
-                  </span>
-                </div>
-                <div className="text-red-300/80 text-xs mb-3">
-                  {playAgainError.message}
-                </div>
-                {playAgainError.redirecting ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
-                    <span className="text-white/60 text-xs">
-                      {t("game.modes.survival.playAgain.redirecting")}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-white/60 text-xs">
-                    {t("game.modes.survival.playAgain.autoRedirect")}
-                  </div>
-                )}
-              </div>
+          {/* Confetti for new records */}
+          {bestScoreInfo?.isBestScore && (
+            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+              <ConfettiExplosion
+                force={0.6}
+                duration={2500}
+                particleCount={100}
+                width={800}
+                colors={['#ffffff', '#f0f0f0', '#e0e0e0', '#d0d0d0', '#c0c0c0']}
+              />
             </div>
           )}
 
-          <div className="space-y-4">
+          {/* Skull */}
+          <div className="text-center">
+            <div className="text-6xl mb-4">💀</div>
+          </div>
+
+          {/* Death Cause */}
+          <div className="text-center">
+            <div className="flex items-center justify-center space-x-2">
+              {getDeathCauseIcon(gameResult.deathCause)}
+              <span className="text-sm text-white">
+                {getDeathCauseMessage(gameResult.deathCause)}
+              </span>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Game Statistics */}
+          <div className="space-y-4 text-center">
+            {/* Final Score */}
+            <div className="flex justify-between items-center">
+              <span className="text-lg">Final score:</span>
+              <span className="text-2xl font-bold">{gameResult.score * 2}</span>
+            </div>
+
+            {/* Best Score */}
+            <div className="flex justify-between items-center">
+              <span className="text-lg">Best score:</span>
+              <div className="text-right">
+                {bestScoreInfo === null ? (
+                  <LoadingSpinner size={20} />
+                ) : bestScoreInfo.isBestScore ? (
+                  <span className="text-lg font-bold">🏆 NEW RECORD!</span>
+                ) : (
+                  <span className="text-xl font-bold">{bestScoreInfo.previousBestScore}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Points Needed */}
+            <div className="flex justify-between items-center">
+              <span className="text-lg">Points needed:</span>
+              <div className="text-right">
+                {bestScoreInfo === null ? (
+                  <LoadingSpinner size={20} />
+                ) : bestScoreInfo.isBestScore ? (
+                  <span className="text-lg font-bold">🏆 NEW RECORD!</span>
+                ) : (
+                  <span className="text-xl">
+                    {bestScoreInfo.pointsNeeded ? bestScoreInfo.pointsNeeded + 1 : 0}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Hits */}
+            <div className="flex justify-between items-center">
+              <span className="text-lg">Hits:</span>
+              <span className="text-xl font-bold">{gameResult.correctHits}</span>
+            </div>
+
+            {/* Survival Time */}
+            <div className="flex justify-between items-center">
+              <span className="text-lg">Survival time:</span>
+              <span className="text-xl font-bold">{formatSurvivalTime(gameResult.survivalTime)}</span>
+            </div>
+
+            {/* Levels Complete */}
+            <div className="flex justify-between items-center">
+              <span className="text-lg">Levels complete:</span>
+              <span className="text-xl font-bold">{gameResult.maxLevelReached}</span>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Error Block (above button) */}
+          {(saveStatus.error || saveStatus.sessionError) && (
+            <div className="text-center space-y-2 mb-4">
+              {saveStatus.sessionError && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-white" size={16} />
+                    <span className="text-sm text-white">Session Security Error</span>
+                  </div>
+                  <div className="text-white/60 text-xs">{saveStatus.sessionError}</div>
+                </div>
+              )}
+              
+              {saveStatus.error && (
+                <div className="text-center">
+                  <div className="text-white text-sm mb-2">
+                    Save failed after {saveStatus.maxAttempts} attempts
+                  </div>
+                  <div className="text-white/60 text-xs mb-3">
+                    Game recorded locally
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-white/20 border border-white/30 text-white rounded text-xs hover:bg-white/30 transition-colors"
+                    onClick={() => gameResult && handleSaveGameResult(gameResult)}
+                  >
+                    Retry Save
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Play Again Button */}
+          <div>
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                // ИСПРАВЛЕНО: Упрощенная логика состояния кнопки
-                isPlayingAgain || 
-                playAgainError.show || 
-                saveStatus.isLoading
-                ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-                }`}
-              disabled={
-                isPlayingAgain || 
-                playAgainError.show || 
-                saveStatus.isLoading
-              }
+              className={`w-full px-6 py-4 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${buttonState.className}`}
+              disabled={buttonState.disabled}
               onClick={handlePlayAgain}
             >
-              {isPlayingAgain ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                  <span>{t("game.modes.survival.playAgain.starting")}</span>
-                </>
-              ) : (
-                <>
-                  <RotateCcw size={20} />
-                  <span>{t("game.modes.survival.playAgain.button")}</span>
-                </>
-              )}
+              {buttonState.showIcon && <RotateCcw size={20} />}
+              <span>{buttonState.text}</span>
             </button>
           </div>
         </div>
