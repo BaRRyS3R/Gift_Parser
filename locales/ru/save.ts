@@ -16,6 +16,6 @@ export const save = {
   attemptNotRecorded: "⚠ Попытка не записана",
   onlySuccessful: "Только успешное время реакции сохраняется в таблицу лидеров",
   saveFailed: "✗ Сохранение не удалось после {attempts} попыток",
-  recordedLocally: "Ваше время записано локально, но не синхронизировано",
-  retrySave: "ПОВТОРИТЬ СОХРАНЕНИЕ",
+  saveFailed2: "Не сохранено",
+  retrySave: "Повторить",
 } as const;

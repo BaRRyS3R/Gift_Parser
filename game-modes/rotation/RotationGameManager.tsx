@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Refactored with new UI design
+// src/game-modes/rotation/RotationGameManager.tsx - Обновление с локализацией результатов
 
 "use client";
 
@@ -980,7 +980,7 @@ export default function RotationGameManager() {
   const getButtonState = () => {
     if (isPlayingAgain) {
       return {
-        text: "Starting",
+        text: t("results.common.button.starting"),
         className: "bg-blue-900/30 text-blue-300 cursor-not-allowed border-blue-600/50 shadow-blue-600/20",
         disabled: true,
         showIcon: false,
@@ -990,7 +990,7 @@ export default function RotationGameManager() {
     
     if (saveStatus.isLoading) {
       return {
-        text: "Saving",
+        text: t("results.common.button.saving"),
         className: "bg-gray-800/50 text-gray-300 cursor-not-allowed border-gray-600/50 shadow-gray-600/20",
         disabled: true,
         showIcon: false,
@@ -1000,7 +1000,7 @@ export default function RotationGameManager() {
     
     if (playAgainError.show || canPlayAfterSave === false) {
       return {
-        text: "No attempts",
+        text: t("results.common.button.noAttempts"),
         className: "bg-red-900/30 text-red-300 cursor-not-allowed border-red-600/50 shadow-red-600/20",
         disabled: true,
         showIcon: false,
@@ -1010,7 +1010,7 @@ export default function RotationGameManager() {
     
     if (saveStatus.isSuccess && (canPlayAfterSave === true || canPlayAfterSave === null)) {
       return {
-        text: "Again",
+        text: t("results.common.button.again"),
         className: "bg-green-900/30 text-green-300 hover:bg-green-800/40 hover:shadow-green-400/20 border-green-600/50 shadow-green-600/20 hover:border-green-400/70 transition-all",
         disabled: false,
         showIcon: true,
@@ -1019,7 +1019,7 @@ export default function RotationGameManager() {
     }
     
     return {
-      text: "Saving",
+      text: t("results.common.button.saving"),
       className: "bg-gray-800/50 text-gray-300 cursor-not-allowed border-gray-600/50 shadow-gray-600/20",
       disabled: true,
       showIcon: false,
@@ -1092,7 +1092,7 @@ export default function RotationGameManager() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.5 }}
             >
-              <span className="text-lg">Final score:</span>
+              <span className="text-lg">{t("results.common.finalScore")}</span>
               <span className="text-2xl font-bold">{gameResult.score * 3}</span>
             </motion.div>
 
@@ -1103,12 +1103,12 @@ export default function RotationGameManager() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.6 }}
             >
-              <span className="text-lg">Best score:</span>
+              <span className="text-lg">{t("results.common.bestScore")}</span>
               <div className="text-right">
                 {bestScoreInfo === null ? (
                   <LoadingSpinner size={20} />
                 ) : bestScoreInfo.isBestScore ? (
-                  <span className="text-lg font-bold text-green-400">🏆 NEW RECORD!</span>
+                  <span className="text-lg font-bold text-green-400">{t("results.common.newRecord")}</span>
                 ) : (
                   <span className="text-xl font-bold">{bestScoreInfo.previousBestScore}</span>
                 )}
@@ -1122,12 +1122,12 @@ export default function RotationGameManager() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.7 }}
             >
-              <span className="text-lg">Points needed:</span>
+              <span className="text-lg">{t("results.common.pointsNeeded")}</span>
               <div className="text-right">
                 {bestScoreInfo === null ? (
                   <LoadingSpinner size={20} />
                 ) : bestScoreInfo.isBestScore ? (
-                  <span className="text-lg font-bold text-green-400">🏆 NEW RECORD!</span>
+                  <span className="text-lg font-bold text-green-400">{t("results.common.newRecord")}</span>
                 ) : (
                   <span className="text-xl">
                     {bestScoreInfo.pointsNeeded ? bestScoreInfo.pointsNeeded + 1 : 0}
@@ -1143,7 +1143,7 @@ export default function RotationGameManager() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.8 }}
             >
-              <span className="text-lg">Hits:</span>
+              <span className="text-lg">{t("results.rotation.correctHits")}</span>
               <span className="text-xl font-bold">{gameResult.correctHits}</span>
             </motion.div>
 
@@ -1154,7 +1154,7 @@ export default function RotationGameManager() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.9 }}
             >
-              <span className="text-lg">Survival time:</span>
+              <span className="text-lg">{t("results.rotation.rotationTime")}</span>
               <span className="text-xl font-bold">{formatRotationTime(gameResult.survivalTime)}</span>
             </motion.div>
 
@@ -1165,7 +1165,7 @@ export default function RotationGameManager() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 1.0 }}
             >
-              <span className="text-lg">Levels complete:</span>
+              <span className="text-lg">{t("results.common.levelsComplete")}</span>
               <span className="text-xl font-bold">{gameResult.maxLevelReached}</span>
             </motion.div>
           </motion.div>
@@ -1193,16 +1193,13 @@ export default function RotationGameManager() {
               {saveStatus.error && (
                 <div className="text-center">
                   <div className="text-white text-sm mb-2">
-                    Save failed after {saveStatus.maxAttempts} attempts
-                  </div>
-                  <div className="text-white/60 text-xs mb-3">
-                    Game recorded locally
+                    {t("save.saveFailed")}
                   </div>
                   <button
                     className="px-3 py-1 bg-white/20 border border-white/30 text-white rounded text-xs hover:bg-white/30 transition-colors"
                     onClick={() => gameResult && handleSaveGameResult(gameResult)}
                   >
-                    Retry Save
+                    {t("save.retrySave")}
                   </button>
                 </div>
               )}

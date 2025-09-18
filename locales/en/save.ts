@@ -15,6 +15,6 @@ export const save = {
   attemptNotRecorded: "⚠ Attempt not recorded",
   onlySuccessful: "Only successful reaction times are saved to leaderboard",
   saveFailed: "✗ Save failed after {attempts} attempts",
-  recordedLocally: "Your time recorded locally but not synchronized",
-  retrySave: "RETRY SAVE",
+  saveFailed2: "Save Failed",
+  retrySave: "Retry",
 } as const;
