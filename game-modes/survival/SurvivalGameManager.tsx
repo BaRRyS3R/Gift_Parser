@@ -11,6 +11,8 @@ import {
   Shield,
   ShieldAlert,
 } from "lucide-react";
+import { Divider } from "@nextui-org/react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
 import {
@@ -104,10 +106,24 @@ const LoadingSpinner: React.FC<{ size?: number }> = ({ size = 16 }) => (
   />
 );
 
-// Separator Component
-const Separator: React.FC = () => (
-  <div className="flex justify-center my-6">
-    <div className="w-16 h-px bg-white"></div>
+// Background Elements Component - REMOVE THIS COMPONENT TO DISABLE BACKGROUND ELEMENTS
+const BackgroundElements: React.FC = () => (
+  <div className="fixed inset-0 pointer-events-none overflow-hidden">
+    {/* Geometric shapes */}
+    <div className="absolute top-20 left-10 w-2 h-2 bg-white/10 rotate-45"></div>
+    <div className="absolute top-40 right-20 w-1 h-8 bg-white/5"></div>
+    <div className="absolute bottom-32 left-16 w-6 h-px bg-white/10"></div>
+    <div className="absolute top-1/3 right-10 w-px h-12 bg-white/5"></div>
+    <div className="absolute bottom-40 right-1/3 w-3 h-3 border border-white/5 rotate-45"></div>
+    <div className="absolute top-1/2 left-8 w-1 h-1 bg-white/10 rounded-full"></div>
+    <div className="absolute bottom-20 left-1/3 w-8 h-px bg-white/5"></div>
+    <div className="absolute top-1/4 left-1/2 w-px h-6 bg-white/5"></div>
+    
+    {/* Corner elements */}
+    <div className="absolute top-0 left-0 w-16 h-16 border-l-2 border-t-2 border-white/5"></div>
+    <div className="absolute top-0 right-0 w-16 h-16 border-r-2 border-t-2 border-white/5"></div>
+    <div className="absolute bottom-0 left-0 w-16 h-16 border-l-2 border-b-2 border-white/5"></div>
+    <div className="absolute bottom-0 right-0 w-16 h-16 border-r-2 border-b-2 border-white/5"></div>
   </div>
 );
 
@@ -1041,35 +1057,39 @@ export default function SurvivalGameManager() {
     if (saveStatus.isLoading) {
       return {
         text: "Saving",
-        className: "bg-gray-600 text-gray-300 cursor-not-allowed",
+        className: "bg-gray-800/50 text-gray-300 cursor-not-allowed border-gray-600/50 shadow-gray-600/20",
         disabled: true,
-        showIcon: false
+        showIcon: false,
+        showSpinner: true
       };
     }
     
     if (playAgainError.show || canPlayAfterSave === false) {
       return {
         text: "No attempts",
-        className: "bg-red-600 text-white cursor-not-allowed",
+        className: "bg-red-900/30 text-red-300 cursor-not-allowed border-red-600/50 shadow-red-600/20",
         disabled: true,
-        showIcon: false
+        showIcon: false,
+        showSpinner: false
       };
     }
     
     if (saveStatus.isSuccess && (canPlayAfterSave === true || canPlayAfterSave === null)) {
       return {
         text: "Again",
-        className: "bg-green-600 text-white hover:bg-green-700 transition-colors",
+        className: "bg-green-900/30 text-green-300 hover:bg-green-800/40 hover:shadow-green-400/20 border-green-600/50 shadow-green-600/20 hover:border-green-400/70 transition-all",
         disabled: false,
-        showIcon: true
+        showIcon: true,
+        showSpinner: false
       };
     }
     
     return {
       text: "Saving",
-      className: "bg-gray-600 text-gray-300 cursor-not-allowed",
+      className: "bg-gray-800/50 text-gray-300 cursor-not-allowed border-gray-600/50 shadow-gray-600/20",
       disabled: true,
-      showIcon: false
+      showIcon: false,
+      showSpinner: true
     };
   };
 
@@ -1077,8 +1097,16 @@ export default function SurvivalGameManager() {
     const buttonState = getButtonState();
 
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6 text-white">
-        <div className="w-full max-w-md space-y-8 animate-fade-in">
+      <div className="min-h-screen bg-black flex items-center justify-center p-6 text-white relative overflow-hidden">
+        {/* BACKGROUND ELEMENTS - REMOVE BackgroundElements COMPONENT TO DISABLE */}
+        <BackgroundElements />
+        
+        <motion.div 
+          className="w-full max-w-md space-y-8 relative z-10"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
           {/* Confetti for new records */}
           {bestScoreInfo?.isBestScore && (
             <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
@@ -1093,84 +1121,134 @@ export default function SurvivalGameManager() {
           )}
 
           {/* Skull */}
-          <div className="text-center">
+          <motion.div 
+            className="text-center"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
             <div className="text-6xl mb-4">💀</div>
-          </div>
+          </motion.div>
 
           {/* Death Cause */}
-          <div className="text-center">
+          <motion.div 
+            className="text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
             <div className="flex items-center justify-center space-x-2">
               {getDeathCauseIcon(gameResult.deathCause)}
               <span className="text-sm text-white">
                 {getDeathCauseMessage(gameResult.deathCause)}
               </span>
             </div>
-          </div>
+          </motion.div>
 
-          <Separator />
+          <Divider className="bg-white/30" />
 
           {/* Game Statistics */}
-          <div className="space-y-4 text-center">
+          <motion.div 
+            className="space-y-4 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
             {/* Final Score */}
-            <div className="flex justify-between items-center">
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.5 }}
+            >
               <span className="text-lg">Final score:</span>
               <span className="text-2xl font-bold">{gameResult.score * 2}</span>
-            </div>
+            </motion.div>
 
             {/* Best Score */}
-            <div className="flex justify-between items-center">
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.6 }}
+            >
               <span className="text-lg">Best score:</span>
               <div className="text-right">
                 {bestScoreInfo === null ? (
                   <LoadingSpinner size={20} />
                 ) : bestScoreInfo.isBestScore ? (
-                  <span className="text-lg font-bold">🏆 NEW RECORD!</span>
+                  <span className="text-lg font-bold text-green-400">🏆 NEW RECORD!</span>
                 ) : (
                   <span className="text-xl font-bold">{bestScoreInfo.previousBestScore}</span>
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {/* Points Needed */}
-            <div className="flex justify-between items-center">
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.7 }}
+            >
               <span className="text-lg">Points needed:</span>
               <div className="text-right">
                 {bestScoreInfo === null ? (
                   <LoadingSpinner size={20} />
                 ) : bestScoreInfo.isBestScore ? (
-                  <span className="text-lg font-bold">🏆 NEW RECORD!</span>
+                  <span className="text-lg font-bold text-green-400">🏆 NEW RECORD!</span>
                 ) : (
                   <span className="text-xl">
                     {bestScoreInfo.pointsNeeded ? bestScoreInfo.pointsNeeded + 1 : 0}
                   </span>
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {/* Hits */}
-            <div className="flex justify-between items-center">
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.8 }}
+            >
               <span className="text-lg">Hits:</span>
               <span className="text-xl font-bold">{gameResult.correctHits}</span>
-            </div>
+            </motion.div>
 
             {/* Survival Time */}
-            <div className="flex justify-between items-center">
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.9 }}
+            >
               <span className="text-lg">Survival time:</span>
               <span className="text-xl font-bold">{formatSurvivalTime(gameResult.survivalTime)}</span>
-            </div>
+            </motion.div>
 
             {/* Levels Complete */}
-            <div className="flex justify-between items-center">
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 1.0 }}
+            >
               <span className="text-lg">Levels complete:</span>
               <span className="text-xl font-bold">{gameResult.maxLevelReached}</span>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
-          <Separator />
+          <Divider className="bg-white/30" />
 
           {/* Error Block (above button) */}
           {(saveStatus.error || saveStatus.sessionError) && (
-            <div className="text-center space-y-2 mb-4">
+            <motion.div 
+              className="text-center space-y-2 mb-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 1.1 }}
+            >
               {saveStatus.sessionError && (
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
@@ -1197,21 +1275,26 @@ export default function SurvivalGameManager() {
                   </button>
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
           {/* Play Again Button */}
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 1.2 }}
+          >
             <button
-              className={`w-full px-6 py-4 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${buttonState.className}`}
+              className={`w-full px-6 py-4 text-lg rounded-lg border-2 shadow-lg transition-all duration-300 flex items-center justify-center space-x-3 font-medium tracking-wide ${buttonState.className}`}
               disabled={buttonState.disabled}
               onClick={handlePlayAgain}
             >
-              {buttonState.showIcon && <RotateCcw size={20} />}
+              {buttonState.showSpinner && <LoadingSpinner size={18} />}
+              {buttonState.showIcon && !buttonState.showSpinner && <RotateCcw size={20} />}
               <span>{buttonState.text}</span>
             </button>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
