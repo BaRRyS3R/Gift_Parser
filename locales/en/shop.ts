@@ -2,11 +2,11 @@
 
 export const shop = {
   title: "SHOP",
-  subtitle: "Purchase additional game attempts",
+  subtitle: "Welcome to walmart",
   paymentMethods: "TON",
-  payWithTON: "Open",
+  payWithTON: "TON",
   tonDescription: "Yay",
-  openTONShop: "TON",
+  openTONShop: "Open",
   payWithStars: "Telegram Stars",
   starsDescription: "Staaaaaars mmmm",
   moreAttempts: "More Attempts",

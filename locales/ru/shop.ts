@@ -1,7 +1,7 @@
 // src/locales/ru/shop.ts - Shop and purchases with TON Shop localization
 export const shop = {
   title: "SHOP",
-  subtitle: "Покупка дополнительных игровых попыток",
+  subtitle: "Добро пожаловать в пятёрочку",
   paymentMethods: "TON",
   payWithTON: "TON",
   tonDescription: "<3",
