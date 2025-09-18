@@ -278,9 +278,11 @@ export default function ShopPage() {
 
       {/* Payment Methods Section */}
       <div className="max-w-2xl mx-auto mb-8">
-        <h3 className="text-xl font-bold text-white mb-2">
-          {t("shop.paymentMethods")}
-        </h3>
+        <div className="text-center mb-4">
+          <h3 className="text-xl font-bold text-white mb-2">
+            {t("shop.paymentMethods")}
+          </h3>
+        </div>
 
         {/* TON Payment Option */}
         <Card className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 mb-4">
@@ -289,6 +291,11 @@ export default function ShopPage() {
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
                   <Wallet className="text-blue-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg">
+                    {t("shop.payWithTON")}
+                  </h3>
                 </div>
               </div>
               <TONPurchaseButton

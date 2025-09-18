@@ -5,7 +5,7 @@ export const shop = {
   paymentMethods: "TON",
   payWithTON: "TON",
   tonDescription: "<3",
-  openTONShop: "TON",
+  openTONShop: "Открыть",
   payWithStars: "Telegram Stars",
   starsDescription: "Мммм, звёздочки",
   moreAttempts: "Больше Попыток",

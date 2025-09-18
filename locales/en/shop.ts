@@ -4,7 +4,7 @@ export const shop = {
   title: "SHOP",
   subtitle: "Purchase additional game attempts",
   paymentMethods: "TON",
-  payWithTON: "TON",
+  payWithTON: "Open",
   tonDescription: "Yay",
   openTONShop: "TON",
   payWithStars: "Telegram Stars",
