@@ -1,4 +1,4 @@
-// src/components/Profile/MinimalistActionButtons.tsx - Simple action buttons
+// src/components/Profile/MinimalistActionButtons.tsx - Updated with removed borders and monochrome theme
 
 "use client";
 
@@ -21,16 +21,16 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
   return (
     <div className="flex gap-3 px-4">
       <Button
-        className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
-        variant="bordered"
+        className="w-full bg-white/10 text-white hover:bg-white/20 justify-center shadow-md hover:shadow-lg transition-all duration-300"
+        variant="flat"
         onPress={onOpenReferrals}
       >
         {t("profile.referralButton")}
       </Button>
 
       <Button
-        className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
-        variant="bordered"
+        className="w-full bg-white/10 text-white hover:bg-white/20 justify-center shadow-md hover:shadow-lg transition-all duration-300"
+        variant="flat"
         onPress={onOpenAchievements}
       >
         {t("profile.achievementButton")}

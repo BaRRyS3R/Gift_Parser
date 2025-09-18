@@ -767,25 +767,6 @@ function LeaderboardPageContent() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-center space-x-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-white drop-shadow-lg">
-                        {currentUserData.value}
-                      </div>
-                      <div className="text-xs text-white/70 drop-shadow-sm">
-                        {activeTab === "season"
-                          ? t("leaderboard.points")
-                          : activeTab === "reaction"
-                            ? t("leaderboard.reactionTime")
-                            : activeTab === "survival"
-                              ? t("leaderboard.points")
-                              : activeTab === "physics"
-                                ? t("leaderboard.points")
-                                : t("leaderboard.points")}
-                      </div>
-                    </div>
-
-                    <div className="w-px h-8 bg-white/30" />
-
-                    <div className="text-center">
                       {currentUserData.position ? (
                         <>
                           <div className="text-2xl font-bold text-white drop-shadow-lg">
@@ -805,6 +786,25 @@ function LeaderboardPageContent() {
                           </div>
                         </>
                       )}
+                    </div>
+
+                    <div className="w-px h-8 bg-white/30" />
+
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white drop-shadow-lg">
+                        {currentUserData.value}
+                      </div>
+                      <div className="text-xs text-white/70 drop-shadow-sm">
+                        {activeTab === "season"
+                          ? t("leaderboard.points")
+                          : activeTab === "reaction"
+                            ? t("leaderboard.reactionTime")
+                            : activeTab === "survival"
+                              ? t("leaderboard.points")
+                              : activeTab === "physics"
+                                ? t("leaderboard.points")
+                                : t("leaderboard.points")}
+                      </div>
                     </div>
                   </div>
 
@@ -954,14 +954,14 @@ function LeaderboardPageContent() {
                           <div className="flex items-center space-x-2">
                             <span
                               className={`font-medium truncate ${entry.isCurrentUser
-                                  ? "text-white"
-                                  : entry.position === 1
-                                    ? "text-yellow-100"
-                                    : entry.position === 2
-                                      ? "text-gray-100"
-                                      : entry.position === 3
-                                        ? "text-amber-100"
-                                        : "text-white/90"
+                                ? "text-white"
+                                : entry.position === 1
+                                  ? "text-yellow-100"
+                                  : entry.position === 2
+                                    ? "text-gray-100"
+                                    : entry.position === 3
+                                      ? "text-amber-100"
+                                      : "text-white/90"
                                 }`}
                             >
                               {entry.first_name} {entry.last_name || ""}
@@ -970,8 +970,8 @@ function LeaderboardPageContent() {
                           {entry.username && (
                             <div
                               className={`text-xs truncate ${entry.position <= 3
-                                  ? "text-white/60"
-                                  : "text-white/50"
+                                ? "text-white/60"
+                                : "text-white/50"
                                 }`}
                             >
                               @{entry.username}
@@ -983,20 +983,20 @@ function LeaderboardPageContent() {
                       <div className="text-right flex-shrink-0">
                         <div
                           className={`font-bold text-lg ${entry.position === 1
-                              ? "text-yellow-400"
-                              : entry.position === 2
-                                ? "text-gray-300"
-                                : entry.position === 3
-                                  ? "text-amber-500"
-                                  : "text-white"
+                            ? "text-yellow-400"
+                            : entry.position === 2
+                              ? "text-gray-300"
+                              : entry.position === 3
+                                ? "text-amber-500"
+                                : "text-white"
                             }`}
                         >
                           {getPlayerValue(entry)}
                         </div>
                         <div
                           className={`text-xs ${entry.position <= 3
-                              ? "text-white/60"
-                              : "text-white/50"
+                            ? "text-white/60"
+                            : "text-white/50"
                             }`}
                         >
                           {activeTab === "season"

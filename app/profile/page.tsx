@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with Telegram BackButton management
+// src/app/profile/page.tsx - Updated with removed dividers
 
 "use client";
 
@@ -10,7 +10,6 @@ import { useT } from "@/contexts/LocalizationContext";
 // Import components
 import EnhancedProfileHeader from "@/components/Profile/EnhancedProfileHeader";
 import MinimalistActionButtons from "@/components/Profile/MinimalistActionButtons";
-import MinimalistDivider from "@/components/Profile/MinimalistDivider";
 import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
@@ -158,7 +157,7 @@ export default function ProfilePage() {
           </div>
           <p className="text-white">{profile.error}</p>
           <button
-            className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors"
+            className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors shadow-md"
             onClick={() => {
               profile.fetchProfileData();
             }}
@@ -187,13 +186,11 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {/* Header */}
-      <div className="text-center">
+      <div className="text-center py-6">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
           {t("profile.title")}
         </h1>
       </div>
-
-      <MinimalistDivider />
 
       <div className="max-w-md mx-auto">
         {/* Enhanced Profile Header with Skeleton */}
@@ -248,14 +245,13 @@ export default function ProfilePage() {
             ))}
           </div>
         ) : (
-          <MinimalistActionButtons
-            onOpenAchievements={handleOpenAchievements}
-            onOpenReferrals={handleOpenReferrals}
-          />
+          <div className="mb-8">
+            <MinimalistActionButtons
+              onOpenAchievements={handleOpenAchievements}
+              onOpenReferrals={handleOpenReferrals}
+            />
+          </div>
         )}
-
-        {/* Divider */}
-        <MinimalistDivider />
 
         {/* Game Statistics with Skeleton */}
         {isLoading ? (
@@ -267,7 +263,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Stats Card Skeleton */}
-            <div className="bg-black/40 border border-white/20 rounded-lg p-5">
+            <div className="bg-black/40 rounded-lg p-5 shadow-lg">
               <div className="space-y-6">
                 {/* 5 Stats Sections (Overall + 4 Game Modes) */}
                 {[...Array(5)].map((_, sectionIndex) => (

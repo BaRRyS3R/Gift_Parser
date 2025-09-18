@@ -1,4 +1,4 @@
-// src/components/Profile/ReferralModal.tsx - Enhanced with Telegram BackButton support
+// src/components/Profile/ReferralModal.tsx - Updated with removed story sharing and borders replaced with shadows
 
 "use client";
 
@@ -19,8 +19,6 @@ import {
   Copy,
   Check,
   X,
-  MessageCircle,
-  Camera,
   Star,
 } from "lucide-react";
 
@@ -32,9 +30,9 @@ interface ReferralModalProps {
   referralInfo: ReferralInfo;
 }
 
-// Enhanced sharing methods for Telegram Mini Apps
+// Simplified sharing for Telegram Mini Apps
 const TelegramSharing = {
-  // Method 1: Simple share with web preview (recommended for most cases)
+  // Simple share with web preview (only method now)
   shareWithPreview: (referralLink: string, message: string) => {
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(message)}`;
 
@@ -42,82 +40,6 @@ const TelegramSharing = {
       window.Telegram.WebApp.openTelegramLink(shareUrl);
     } else {
       window.open(shareUrl, "_blank");
-    }
-  },
-
-  // Method 2: Share with embedded image using zero-width characters
-  shareWithEmbeddedImage: (
-    referralLink: string,
-    message: string,
-    imageUrl: string,
-  ) => {
-    // Using zero-width characters to embed image in message
-    const embeddedMessage = `${message}\n\n[​​​​​​​​​​​​​](${imageUrl})\n\n${referralLink}`;
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(embeddedMessage)}`;
-
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      window.Telegram.WebApp.openTelegramLink(shareUrl);
-    } else {
-      window.open(shareUrl, "_blank");
-    }
-  },
-
-  // Method 3: Native share using new Telegram Mini Apps API (if available)
-  shareMessage: async (
-    referralLink: string,
-    message: string,
-    imageUrl: string,
-  ) => {
-    if (
-      typeof window !== "undefined" &&
-      window.Telegram?.WebApp?.shareMessage
-    ) {
-      try {
-        // The shareMessage method expects a prepared message ID
-        // For now, we'll use the simple share method as the prepared message API
-        // requires backend integration with Telegram Bot API
-        console.log(
-          "Native shareMessage available but requires message preparation",
-        );
-        TelegramSharing.shareWithPreview(referralLink, message);
-      } catch (error) {
-        console.warn(
-          "Native shareMessage failed, falling back to simple share:",
-          error,
-        );
-        TelegramSharing.shareWithPreview(referralLink, message);
-      }
-    } else {
-      // Fallback to simple share
-      TelegramSharing.shareWithPreview(referralLink, message);
-    }
-  },
-
-  // Method 4: Share to Stories (if supported)
-  shareToStory: (referralLink: string, message: string, imageUrl: string) => {
-    if (
-      typeof window !== "undefined" &&
-      window.Telegram?.WebApp?.shareToStory
-    ) {
-      try {
-        // shareToStory method signature: shareToStory(media_url, params?)
-        window.Telegram.WebApp.shareToStory(imageUrl, {
-          text: message,
-          widget_link: {
-            url: referralLink,
-            name: "Join Circusle",
-          },
-        });
-      } catch (error) {
-        console.warn(
-          "Story sharing failed, falling back to regular share:",
-          error,
-        );
-        TelegramSharing.shareWithPreview(referralLink, message);
-      }
-    } else {
-      console.log("shareToStory not available, using regular share");
-      TelegramSharing.shareWithPreview(referralLink, message);
     }
   },
 };
@@ -129,19 +51,14 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 }) => {
   const t = useT();
   const [copySuccess, setCopySuccess] = useState(false);
-  const [sharingMethod, setSharingMethod] = useState<"simple" | "story">(
-    "simple",
-  );
   
   // Track if BackButton handler is registered for this modal
   const backButtonHandlerRef = useRef<(() => void) | null>(null);
 
-  // Enhanced sharing configuration
+  // Simplified sharing configuration (removed story sharing)
   const SHARING_CONFIG = {
     message: "Psh, maybe.. Play? 🎮",
-    imageUrl: "https://notfren.com/circusle/circusle.png",
-    fallbackMessage:
-      "Join me in Circusle - an awesome game where every tap counts! 🎯",
+    fallbackMessage: "Join me in Circusle - an awesome game where every tap counts! 🎯",
   };
 
   // Set up BackButton handler when modal is open
@@ -180,21 +97,10 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
     }
   };
 
-  // Enhanced sharing with multiple methods
+  // Simplified sharing (removed story option)
   const handleShareReferralLink = () => {
-    const { message, imageUrl } = SHARING_CONFIG;
-
-    switch (sharingMethod) {
-      case "story":
-        TelegramSharing.shareToStory(
-          referralInfo.referralLink,
-          message,
-          imageUrl,
-        );
-        break;
-      default:
-        TelegramSharing.shareWithPreview(referralInfo.referralLink, message);
-    }
+    const { message } = SHARING_CONFIG;
+    TelegramSharing.shareWithPreview(referralInfo.referralLink, message);
   };
 
   return (
@@ -203,7 +109,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       classNames={{
         backdrop: "bg-black/80",
         base: "bg-black h-full w-full max-w-none max-h-none m-0",
-        header: "border-b border-white/10",
+        header: "",
         body: "py-4",
       }}
       hideCloseButton={true}
@@ -222,7 +128,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </div>
           </div>
           <button
-            className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
+            className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300 shadow-md"
             onClick={onClose}
           >
             <X size={20} />
@@ -230,9 +136,9 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
         </ModalHeader>
 
         <ModalBody className="px-4 pb-4 space-y-4 max-w-md mx-auto">
-          {/* Statistics Cards */}
+          {/* Statistics Cards with shadows instead of borders */}
           <div className="grid grid-cols-2 gap-3">
-            <Card className="bg-white/5 border border-white/20">
+            <Card className="bg-white/5 shadow-lg">
               <CardBody className="text-center p-3">
                 <div className="text-xl font-bold text-white">
                   {referralInfo.count}
@@ -243,7 +149,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               </CardBody>
             </Card>
 
-            <Card className="bg-white/5 border border-white/20">
+            <Card className="bg-white/5 shadow-lg">
               <CardBody className="text-center p-3">
                 <div className="text-xl font-bold text-white">
                   +{referralInfo.bonus}
@@ -255,41 +161,12 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </Card>
           </div>
 
-          {/* Sharing Method Selector */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-white">
-              {t("profile.referrals.share")}
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                className={`p-2 rounded-lg border text-xs transition-all ${
-                  sharingMethod === "simple"
-                    ? "bg-white/20 border-white/40 text-white"
-                    : "bg-white/5 border-white/20 text-white/70 hover:bg-white/10"
-                }`}
-                onClick={() => setSharingMethod("simple")}
-              >
-                <MessageCircle className="mx-auto mb-1" size={24} />
-              </button>
-              <button
-                className={`p-2 rounded-lg border text-xs transition-all ${
-                  sharingMethod === "story"
-                    ? "bg-white/20 border-white/40 text-white"
-                    : "bg-white/5 border-white/20 text-white/70 hover:bg-white/10"
-                }`}
-                onClick={() => setSharingMethod("story")}
-              >
-                <Camera className="mx-auto mb-1" size={24} />
-              </button>
-            </div>
-          </div>
-
-          {/* Referral Code Section */}
+          {/* Referral Code Section with shadow */}
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-white">
               {t("profile.referrals.yourReferralCode")}
             </h3>
-            <Card className="bg-black/40 border border-white/30">
+            <Card className="bg-black/40 shadow-lg">
               <CardBody className="p-3">
                 <div className="text-center font-mono text-xl font-bold text-white tracking-wider">
                   {referralInfo.code}
@@ -298,12 +175,12 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </Card>
           </div>
 
-          {/* Referral Link Section */}
+          {/* Referral Link Section with shadow */}
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-white">
               {t("profile.referrals.referralLink")}
             </h3>
-            <Card className="bg-black/40 border border-white/30">
+            <Card className="bg-black/40 shadow-lg">
               <CardBody className="p-2">
                 <div className="text-xs font-mono text-white/80 break-all">
                   {referralInfo.referralLink}
@@ -312,12 +189,11 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </Card>
           </div>
 
-          {/* Enhanced Action Buttons */}
+          {/* Action Buttons (keeping borders for buttons as requested) */}
           <div className="space-y-2">
-            {/* Main sharing buttons */}
             <div className="flex space-x-2">
               <Button
-                className="flex-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/40 text-white hover:from-blue-500/30 hover:to-purple-500/30 text-sm"
+                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:border-white/30 text-sm shadow-md hover:shadow-lg transition-all duration-300"
                 size="sm"
                 startContent={<Share2 className="text-white" size={14} />}
                 variant="bordered"
@@ -327,7 +203,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               </Button>
 
               <Button
-                className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20 text-sm"
+                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:border-white/30 text-sm shadow-md hover:shadow-lg transition-all duration-300"
                 size="sm"
                 startContent={
                   copySuccess ? (
@@ -346,8 +222,8 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </div>
           </div>
 
-          {/* How it Works Section */}
-          <Card className="bg-white/5 border border-white/20">
+          {/* How it Works Section with shadow */}
+          <Card className="bg-white/5 shadow-lg">
             <CardBody className="p-3 space-y-2">
               <h4 className="text-sm font-bold text-white">
                 {t("profile.referrals.howItWorks")}
@@ -366,16 +242,16 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                   <span>{t("profile.referrals.youGetRecognition")}</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <div className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
+                  <div className="w-1 h-1 rounded-full bg-white/60 mt-1.5 flex-shrink-0" />
                   <span>{t("profile.referrals.helpGrow")}</span>
                 </div>
               </div>
             </CardBody>
           </Card>
 
-          {/* Referred By Section */}
+          {/* Referred By Section with shadow */}
           {referralInfo.referredBy && (
-            <Card className="bg-white/5 border border-white/20">
+            <Card className="bg-white/5 shadow-lg">
               <CardBody className="p-3">
                 <div className="flex items-center space-x-2 mb-1">
                   <Star className="text-white" size={14} />

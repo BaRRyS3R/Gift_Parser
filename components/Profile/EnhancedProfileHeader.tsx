@@ -1,4 +1,4 @@
-// src/components/Profile/EnhancedProfileHeader.tsx - Updated with Easter Egg achievement icons
+// src/components/Profile/EnhancedProfileHeader.tsx - Updated with removed borders and monochrome theme
 
 "use client";
 
@@ -26,83 +26,15 @@ interface EnhancedProfileHeaderProps {
   achievements?: Achievement[];
 }
 
-// Map achievement IDs to their icon components - UPDATED with Easter Egg icons
+// Map achievement IDs to their icon components
 const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<any>> = {
-  // Regular achievements
   first_game: Trophy,
   all_modes_player: Gamepad2,
   super_recruiter: Users,
   lightning_reflexes: Zap,
-
-  // NEW: Easter Egg achievements
-  binary_easter_egg: Hash, // 🔢 Binary symbol
-  cat_easter_egg: Cat, // 🐱 Cat icon
-  winx_easter_egg: Wand2, // 🧚‍♀️ Magic wand for fairy
-};
-
-// Future tech color schemes - UPDATED with Easter Egg colors
-const ACHIEVEMENT_COLORS: Record<
-  string,
-  {
-    gradient: string;
-    border: string;
-    glow: string;
-    icon: string;
-    bgGradient: string;
-  }
-> = {
-  // Regular achievements
-  first_game: {
-    gradient: "from-cyan-500/20 to-blue-600/20",
-    border: "border-cyan-500/30",
-    glow: "shadow-[0_0_20px_rgba(6,182,212,0.4)]",
-    icon: "text-cyan-400",
-    bgGradient: "from-cyan-500 to-blue-600",
-  },
-  all_modes_player: {
-    gradient: "from-purple-500/20 to-pink-600/20",
-    border: "border-purple-500/30",
-    glow: "shadow-[0_0_20px_rgba(168,85,247,0.4)]",
-    icon: "text-purple-400",
-    bgGradient: "from-purple-500 to-pink-600",
-  },
-  super_recruiter: {
-    gradient: "from-amber-500/20 to-orange-600/20",
-    border: "border-amber-500/30",
-    glow: "shadow-[0_0_20px_rgba(245,158,11,0.4)]",
-    icon: "text-amber-400",
-    bgGradient: "from-amber-500 to-orange-600",
-  },
-  lightning_reflexes: {
-    gradient: "from-emerald-500/20 to-teal-600/20",
-    border: "border-emerald-500/30",
-    glow: "shadow-[0_0_20px_rgba(16,185,129,0.4)]",
-    icon: "text-emerald-400",
-    bgGradient: "from-emerald-500 to-teal-600",
-  },
-
-  // NEW: Easter Egg achievement colors
-  binary_easter_egg: {
-    gradient: "from-green-500/20 to-lime-600/20",
-    border: "border-green-500/30",
-    glow: "shadow-[0_0_20px_rgba(34,197,94,0.4)]",
-    icon: "text-green-400",
-    bgGradient: "from-green-500 to-lime-600",
-  },
-  cat_easter_egg: {
-    gradient: "from-pink-500/20 to-rose-600/20",
-    border: "border-pink-500/30",
-    glow: "shadow-[0_0_20px_rgba(236,72,153,0.4)]",
-    icon: "text-pink-400",
-    bgGradient: "from-pink-500 to-rose-600",
-  },
-  winx_easter_egg: {
-    gradient: "from-violet-500/20 to-fuchsia-600/20",
-    border: "border-violet-500/30",
-    glow: "shadow-[0_0_20px_rgba(139,92,246,0.4)]",
-    icon: "text-violet-400",
-    bgGradient: "from-violet-500 to-fuchsia-600",
-  },
+  binary_easter_egg: Hash,
+  cat_easter_egg: Cat,
+  winx_easter_egg: Wand2,
 };
 
 const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
@@ -119,33 +51,24 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
 
   return (
     <div className="relative text-center space-y-4 px-4 py-6">
-      {/* Background gradient effect */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/5 via-transparent to-cyan-900/5 pointer-events-none" />
-
-      {/* User Name with glowing effect */}
+      {/* User Name */}
       <div className="relative">
         <h1 className="text-2xl font-bold text-white tracking-wider">
-          <span className="relative">
-            {user.first_name} {user.last_name || ""}
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 blur-xl" />
-          </span>
+          {user.first_name} {user.last_name || ""}
         </h1>
 
-        {/* Username with tech styling */}
+        {/* Username */}
         {user.username && (
           <p className="text-white/60 text-sm font-mono mt-1">
             <span className="text-white/30">@</span>
-            <span className="bg-gradient-to-r from-cyan-400/70 to-purple-400/70 bg-clip-text text-transparent">
-              {user.username}
-            </span>
+            <span className="text-white/70">{user.username}</span>
           </p>
         )}
       </div>
 
-      {/* Level Display with neon border */}
+      {/* Level Display with shadow instead of border */}
       <div className="relative inline-block">
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg blur opacity-30" />
-        <div className="relative bg-black/60 border border-white/20 rounded-lg px-4 py-1.5 backdrop-blur-sm">
+        <div className="bg-black/60 rounded-lg px-4 py-1.5 backdrop-blur-sm shadow-lg">
           <div className="text-white/80 text-sm font-mono tracking-wider">
             <span className="text-white/50">{t("profile.levelDisplay")}</span>
             <span className="ml-2 text-white font-bold">
@@ -155,16 +78,13 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
         </div>
       </div>
 
-      {/* Achievement Icons Display with Future Tech styling */}
+      {/* Achievement Icons Display */}
       {unlockedAchievements.length > 0 && (
         <div className="mt-6 space-y-4">
           {/* Achievement grid */}
           <div className="flex items-center justify-center gap-4 flex-wrap">
             {unlockedAchievements.map((achievement) => {
               const IconComponent = ACHIEVEMENT_ICONS[achievement.id] || Trophy;
-              const colors =
-                ACHIEVEMENT_COLORS[achievement.id] ||
-                ACHIEVEMENT_COLORS.first_game;
               const isHovered = hoveredAchievement === achievement.id;
 
               return (
@@ -174,42 +94,22 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
                   onMouseEnter={() => setHoveredAchievement(achievement.id)}
                   onMouseLeave={() => setHoveredAchievement(null)}
                 >
-                  {/* Achievement Icon Container with holographic effect */}
-                  <div className="relative">
-                    {/* Glow effect */}
-                    <div
-                      className={`
-                        absolute inset-0 bg-gradient-to-r ${colors.bgGradient} 
-                        rounded-lg blur-md opacity-0 group-hover:opacity-50 
-                        transition-opacity duration-300
-                      `}
+                  {/* Achievement Icon Container */}
+                  <div
+                    className={`
+                      relative w-12 h-12 rounded-lg flex items-center justify-center
+                      bg-white/10 backdrop-blur-sm transition-all duration-300
+                      group-hover:scale-110 cursor-pointer
+                      ${isHovered ? "shadow-lg" : "shadow-md"}
+                    `}
+                  >
+                    <IconComponent
+                      className={`text-white/80 transition-all duration-300 ${isHovered ? "scale-110" : ""}`}
+                      size={24}
                     />
-
-                    {/* Main icon container */}
-                    <div
-                      className={`
-                        relative w-12 h-12 rounded-lg flex items-center justify-center
-                        bg-gradient-to-br ${colors.gradient} ${colors.border}
-                        border backdrop-blur-sm transition-all duration-300
-                        group-hover:scale-110 ${isHovered ? colors.glow : ""}
-                        cursor-pointer
-                      `}
-                    >
-                      <IconComponent
-                        className={`${colors.icon} transition-all duration-300 ${isHovered ? "scale-110" : ""}`}
-                        size={24}
-                      />
-
-                      {/* Shimmer effect on hover */}
-                      {isHovered && (
-                        <div className="absolute inset-0 rounded-lg overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
-                        </div>
-                      )}
-                    </div>
                   </div>
 
-                  {/* Tooltip on hover with futuristic design */}
+                  {/* Tooltip on hover */}
                   <div
                     className={`
                     absolute bottom-full left-1/2 transform -translate-x-1/2 mb-8
@@ -218,13 +118,7 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
                   `}
                   >
                     <div className="relative">
-                      {/* Tooltip glow */}
-                      <div
-                        className={`absolute inset-0 bg-gradient-to-r ${colors.bgGradient} rounded-lg blur-md opacity-50`}
-                      />
-
-                      {/* Tooltip content */}
-                      <div className="relative bg-black/90 border border-white/20 rounded-lg px-3 py-2 backdrop-blur-sm">
+                      <div className="bg-black/90 rounded-lg px-3 py-2 backdrop-blur-sm shadow-lg">
                         <div className="font-semibold text-white text-xs whitespace-nowrap">
                           {achievement.name}
                         </div>
@@ -234,7 +128,7 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
                       </div>
 
                       {/* Tooltip arrow */}
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-white/20" />
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-black/90" />
                     </div>
                   </div>
                 </div>
@@ -242,12 +136,11 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
             })}
           </div>
 
-          {/* Achievement Summary with tech styling */}
+          {/* Achievement Summary with shadow instead of border */}
           <div className="relative inline-block mt-6">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 rounded-full blur" />
-            <div className="relative bg-black/50 border border-white/10 rounded-full px-3 py-1 backdrop-blur-sm">
+            <div className="bg-black/50 rounded-full px-3 py-1 backdrop-blur-sm shadow-md">
               <div className="flex items-center gap-2">
-                <Sparkles className="text-cyan-400" size={12} />
+                <Sparkles className="text-white/60" size={12} />
                 <p className="text-white/70 text-xs font-mono">
                   {t("profile.achievementsUnlocked", {
                     count: unlockedAchievements.length,
