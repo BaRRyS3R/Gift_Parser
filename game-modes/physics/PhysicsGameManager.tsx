@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Fixed with enhanced attempts logic
+// src/game-modes/physics/PhysicsGameManager.tsx - Refactored with new UI design
 
 "use client";
 
@@ -13,6 +13,8 @@ import {
   EyeOff,
   ShieldAlert,
 } from "lucide-react";
+import { Divider } from "@nextui-org/react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import * as Matter from "matter-js";
 import ConfettiExplosion from "react-confetti-explosion";
@@ -67,7 +69,6 @@ interface SessionStatus {
   timeRemaining: number | null;
 }
 
-// Best Score information from API response
 interface BestScoreInfo {
   previousBestScore: number;
   currentScore: number;
@@ -100,63 +101,13 @@ const initialSessionStatus: SessionStatus = {
   timeRemaining: null,
 };
 
-// Best Score Display Component for physics mode
-interface BestScoreDisplayProps {
-  bestScoreInfo: BestScoreInfo;
-}
-
-const BestScoreDisplay: React.FC<BestScoreDisplayProps> = ({ bestScoreInfo }) => {
-  const t = useT();
-  const { isBestScore, previousBestScore, pointsNeeded } = bestScoreInfo;
-  const [showConfetti, setShowConfetti] = useState(false);
-
-  useEffect(() => {
-    if (isBestScore) {
-      setShowConfetti(true);
-      const timer = setTimeout(() => setShowConfetti(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [isBestScore]);
-
-  if (isBestScore) {
-    return (
-      <div className="text-center relative">
-        {showConfetti && (
-          <ConfettiExplosion
-            force={0.6}
-            duration={2500}
-            particleCount={100}
-            width={800}
-            colors={['#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5']}
-          />
-        )}
-        <div className="text-green-400 text-lg font-bold animate-pulse">
-          🏆 {t("game.modes.bestScore.newRecord")}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-gray-500/10 border border-gray-400/30 rounded-lg p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-400">
-          {t("game.modes.bestScore.yourBest")}
-        </span>
-        <span className="text-sm text-white font-bold">
-          {previousBestScore}
-        </span>
-      </div>
-      {pointsNeeded && pointsNeeded > 0 && (
-        <div className="text-center">
-          <span className="text-xs text-gray-500">
-            {t("game.modes.bestScore.pointsNeeded", { points: pointsNeeded + 1 })}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-};
+// Loading Spinner Component
+const LoadingSpinner: React.FC<{ size?: number }> = ({ size = 16 }) => (
+  <div 
+    className="border-2 border-white/20 border-t-white rounded-full animate-spin"
+    style={{ width: size, height: size }}
+  />
+);
 
 export default function PhysicsGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -176,12 +127,8 @@ export default function PhysicsGameManager() {
     initialPlayAgainError,
   );
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
-
-  // Track if user can play again after save
   const [canPlayAfterSave, setCanPlayAfterSave] = useState<boolean | null>(null);
-
-  const [sessionStatus, setSessionStatus] =
-    useState<SessionStatus>(initialSessionStatus);
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialSessionStatus);
 
   // Store session ID in a ref to avoid race conditions
   const currentSessionRef = useRef<string | null>(null);
@@ -214,7 +161,6 @@ export default function PhysicsGameManager() {
           isValid: timeRemaining > 0,
         }));
 
-        // End game when session expires
         if (
           timeRemaining <= 0 &&
           gameStateRef.current.gameState === GameState.PLAYING
@@ -450,13 +396,9 @@ export default function PhysicsGameManager() {
           if (response.attemptsStatus) {
             console.log("[SAVE_GAME] Attempts status received:", response.attemptsStatus);
             
-            // Update attempts cache with fresh data from game save
             updateAttemptsFromGameSave(response.attemptsStatus);
-            
-            // Set flag for play again button
             setCanPlayAfterSave(response.attemptsStatus.canPlay);
             
-            // If user cannot play anymore, set up redirect
             if (!response.attemptsStatus.canPlay) {
               console.log("[SAVE_GAME] User cannot play again - setting up redirect");
               setPlayAgainError({
@@ -468,7 +410,6 @@ export default function PhysicsGameManager() {
             }
           } else {
             console.warn("[SAVE_GAME] No attempts status received from game save response");
-            // Reset flag to force validation
             setCanPlayAfterSave(null);
           }
 
@@ -480,7 +421,6 @@ export default function PhysicsGameManager() {
             sessionError: null,
           }));
         } catch (error) {
-          // Handle session errors specially (don't retry)
           if (error instanceof Error && error.message.includes("session")) {
             setSaveStatus((prev) => ({
               ...prev,
@@ -488,7 +428,7 @@ export default function PhysicsGameManager() {
               sessionError: error.message,
               error: null,
             }));
-            return; // Don't retry session errors
+            return;
           }
 
           attemptCount++;
@@ -516,7 +456,6 @@ export default function PhysicsGameManager() {
           sessionError: errorMessage.includes("session") ? errorMessage : null,
         }));
 
-        // If save failed, show error and redirect
         setPlayAgainError({
           show: true,
           message: t("game.modes.physics.playAgain.error"),
@@ -805,7 +744,7 @@ export default function PhysicsGameManager() {
       setSaveStatus(initialSaveStatus);
       setPlayAgainError(initialPlayAgainError);
       setIsPlayingAgain(false);
-      setCanPlayAfterSave(null); // Reset play again flag
+      setCanPlayAfterSave(null);
 
       setTimeout(() => {
         setShowCanvas(true);
@@ -844,7 +783,6 @@ export default function PhysicsGameManager() {
     t,
   ]);
 
-  // ENHANCED: Play again with pre-validation like Survival mode
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) {
       console.log("[PLAY_AGAIN] Already in progress, ignoring");
@@ -855,7 +793,6 @@ export default function PhysicsGameManager() {
     setIsPlayingAgain(true);
 
     try {
-      // ENHANCED: Always do fresh pre-validation before starting game
       console.log("[PLAY_AGAIN] Doing fresh pre-validation...");
       
       const preValidation = await preValidateCanPlay();
@@ -918,17 +855,17 @@ export default function PhysicsGameManager() {
   const getDeathCauseIcon = (deathCause: string) => {
     switch (deathCause) {
       case "mistakes":
-        return <AlertTriangle className="text-red-400" size={20} />;
+        return <AlertTriangle className="text-white" size={20} />;
       case "escaped_circles":
-        return <TrendingDown className="text-orange-400" size={20} />;
+        return <TrendingDown className="text-white" size={20} />;
       case "timeout":
-        return <Clock className="text-yellow-400" size={20} />;
+        return <Clock className="text-white" size={20} />;
       case "app_minimized":
-        return <EyeOff className="text-gray-400" size={20} />;
+        return <EyeOff className="text-white" size={20} />;
       case "session_expired":
-        return <ShieldAlert className="text-orange-400" size={20} />;
+        return <ShieldAlert className="text-white" size={20} />;
       default:
-        return <Crosshair className="text-red-400" size={20} />;
+        return <Crosshair className="text-white" size={20} />;
     }
   };
 
@@ -946,6 +883,57 @@ export default function PhysicsGameManager() {
     return key ? t(key as any) : t("game.modes.physics.deathCauses.default");
   };
 
+  // Get button state and styling
+  const getButtonState = () => {
+    if (isPlayingAgain) {
+      return {
+        text: "Starting",
+        className: "bg-blue-900/30 text-blue-300 cursor-not-allowed border-blue-600/50 shadow-blue-600/20",
+        disabled: true,
+        showIcon: false,
+        showSpinner: true
+      };
+    }
+    
+    if (saveStatus.isLoading) {
+      return {
+        text: "Saving",
+        className: "bg-gray-800/50 text-gray-300 cursor-not-allowed border-gray-600/50 shadow-gray-600/20",
+        disabled: true,
+        showIcon: false,
+        showSpinner: true
+      };
+    }
+    
+    if (playAgainError.show || canPlayAfterSave === false) {
+      return {
+        text: "No attempts",
+        className: "bg-red-900/30 text-red-300 cursor-not-allowed border-red-600/50 shadow-red-600/20",
+        disabled: true,
+        showIcon: false,
+        showSpinner: false
+      };
+    }
+    
+    if (saveStatus.isSuccess && (canPlayAfterSave === true || canPlayAfterSave === null)) {
+      return {
+        text: "Again",
+        className: "bg-green-900/30 text-green-300 hover:bg-green-800/40 hover:shadow-green-400/20 border-green-600/50 shadow-green-600/20 hover:border-green-400/70 transition-all",
+        disabled: false,
+        showIcon: true,
+        showSpinner: false
+      };
+    }
+    
+    return {
+      text: "Saving",
+      className: "bg-gray-800/50 text-gray-300 cursor-not-allowed border-gray-600/50 shadow-gray-600/20",
+      disabled: true,
+      showIcon: false,
+      showSpinner: true
+    };
+  };
+
   const getCurrentLevelInfo = () => {
     const gameTime = gameState.stats.gameTime;
     const levelConfig = getPhysicsLevelConfig(gameTime);
@@ -959,236 +947,204 @@ export default function PhysicsGameManager() {
   };
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
+    const buttonState = getButtonState();
+
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-8 animate-fade-in">
-          <div className="text-center space-y-4">
-            <div className="text-6xl mb-4">⚗️</div>
-
-            <div className="bg-purple-500/20 border border-purple-400/30 rounded-lg p-3">
-              <div className="flex items-center justify-center space-x-2">
-                {getDeathCauseIcon(gameResult.deathCause)}
-                <span className="text-sm text-purple-300">
-                  {getDeathCauseMessage(gameResult.deathCause)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-6 space-y-6">
-            <div className="text-center space-y-2">
-              <div className="text-sm text-purple-400/60">
-                {t("game.modes.physics.results.finalScore")}
-              </div>
-              <div className="text-6xl font-bold text-green-400">
-                {Math.round(gameResult.finalScore * 4)}
-              </div>
-            </div>
-
-            {bestScoreInfo && (
-              <BestScoreDisplay bestScoreInfo={bestScoreInfo} />
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center space-y-1">
-                <div className="text-xs text-purple-400/60">
-                  {t("game.modes.physics.results.totalHits")}
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {gameResult.totalHits}
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-purple-400/60">
-                  {t("game.modes.physics.results.survivalTime")}
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {formatPhysicsTime(gameResult.survivalTime)}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center space-y-1 border-t border-purple-400/30 pt-4">
-              <div className="text-xs text-purple-400/60">
-                {t("game.modes.physics.results.levelsCompleted")}
-              </div>
-              <div className="text-xl font-bold text-yellow-400">
-                {gameResult.maxLevelReached}
-              </div>
-            </div>
-          </div>
-
-          {/* Enhanced save status with session error handling */}
-          {(saveStatus.isLoading ||
-            saveStatus.error ||
-            saveStatus.sessionError ||
-            saveStatus.isSuccess) && (
-              <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-                      <span className="text-sm text-purple-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
-                            attempt: saveStatus.attempt,
-                            max: saveStatus.maxAttempts,
-                          })
-                          : t("save.recordingPhysics")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-purple-400/60" size={14} />
-                          <span className="text-xs text-purple-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-purple-400/20 rounded-full h-1">
-                          <div
-                            className="bg-purple-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Session error display */}
-                {saveStatus.sessionError && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <ShieldAlert className="text-orange-400" size={16} />
-                      <span className="text-sm text-orange-400">
-                        Session Security Error
-                      </span>
-                    </div>
-                    <div className="text-orange-400/60 text-xs mb-3">
-                      {saveStatus.sessionError}
-                    </div>
-                    <div className="text-white/60 text-xs">
-                      Game may not be saved due to session validation failure
-                    </div>
-                  </div>
-                )}
-
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.physicsRecordedSuccessfully")}
-                      </span>
-                    </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
-                          attempts: saveStatus.attempt,
-                        })
-                        : t("save.synchronized")}
-                    </div>
-                  </div>
-                )}
-
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("save.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() =>
-                        gameResult && handleSaveGameResult(gameResult)
-                      }
-                    >
-                      {t("save.retrySave")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-          {playAgainError.show && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-              <div className="text-center">
-                <div className="flex items-center justify-center space-x-2 mb-2">
-                  {playAgainError.isSessionError ? (
-                    <ShieldAlert className="text-orange-400" size={16} />
-                  ) : (
-                    <AlertTriangle className="text-red-400" size={16} />
-                  )}
-                  <span
-                    className={`text-sm font-bold ${playAgainError.isSessionError
-                        ? "text-orange-400"
-                        : "text-red-400"
-                      }`}
-                  >
-                    {t("game.modes.physics.playAgain.cannotPlay")}
-                  </span>
-                </div>
-                <div className="text-red-300/80 text-xs mb-3">
-                  {playAgainError.message}
-                </div>
-                {playAgainError.redirecting ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
-                    <span className="text-white/60 text-xs">
-                      {t("game.modes.physics.playAgain.redirecting")}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-white/60 text-xs">
-                    {t("game.modes.physics.playAgain.autoRedirect")}
-                  </div>
-                )}
-              </div>
+      <div className="min-h-screen bg-black flex items-center justify-center p-6 text-white relative overflow-hidden">
+        <motion.div 
+          className="w-full max-w-md space-y-8 relative z-10"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          {/* Confetti for new records */}
+          {bestScoreInfo?.isBestScore && (
+            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+              <ConfettiExplosion
+                force={0.6}
+                duration={2500}
+                particleCount={100}
+                width={800}
+                colors={['#ffffff', '#f0f0f0', '#e0e0e0', '#d0d0d0', '#c0c0c0']}
+              />
             </div>
           )}
 
-          <div className="space-y-4">
+          {/* Icon */}
+          <motion.div 
+            className="text-center"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <div className="text-6xl mb-4">⚗️</div>
+          </motion.div>
+
+          {/* Death Cause */}
+          <motion.div 
+            className="text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              {getDeathCauseIcon(gameResult.deathCause)}
+              <span className="text-sm text-white">
+                {getDeathCauseMessage(gameResult.deathCause)}
+              </span>
+            </div>
+          </motion.div>
+
+          <Divider className="bg-white/30" />
+
+          {/* Game Statistics */}
+          <motion.div 
+            className="space-y-4 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            {/* Final Score */}
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.5 }}
+            >
+              <span className="text-lg">Final score:</span>
+              <span className="text-2xl font-bold">{Math.round(gameResult.finalScore * 4)}</span>
+            </motion.div>
+
+            {/* Best Score */}
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.6 }}
+            >
+              <span className="text-lg">Best score:</span>
+              <div className="text-right">
+                {bestScoreInfo === null ? (
+                  <LoadingSpinner size={20} />
+                ) : bestScoreInfo.isBestScore ? (
+                  <span className="text-lg font-bold text-green-400">🏆 NEW RECORD!</span>
+                ) : (
+                  <span className="text-xl font-bold">{bestScoreInfo.previousBestScore}</span>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Points Needed */}
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.7 }}
+            >
+              <span className="text-lg">Points needed:</span>
+              <div className="text-right">
+                {bestScoreInfo === null ? (
+                  <LoadingSpinner size={20} />
+                ) : bestScoreInfo.isBestScore ? (
+                  <span className="text-lg font-bold text-green-400">🏆 NEW RECORD!</span>
+                ) : (
+                  <span className="text-xl">
+                    {bestScoreInfo.pointsNeeded ? bestScoreInfo.pointsNeeded + 1 : 0}
+                  </span>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Hits */}
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.8 }}
+            >
+              <span className="text-lg">Hits:</span>
+              <span className="text-xl font-bold">{gameResult.totalHits}</span>
+            </motion.div>
+
+            {/* Survival Time */}
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.9 }}
+            >
+              <span className="text-lg">Survival time:</span>
+              <span className="text-xl font-bold">{formatPhysicsTime(gameResult.survivalTime)}</span>
+            </motion.div>
+
+            {/* Levels Complete */}
+            <motion.div 
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 1.0 }}
+            >
+              <span className="text-lg">Levels complete:</span>
+              <span className="text-xl font-bold">{gameResult.maxLevelReached}</span>
+            </motion.div>
+          </motion.div>
+
+          <Divider className="bg-white/30" />
+
+          {/* Error Block (above button) */}
+          {(saveStatus.error || saveStatus.sessionError) && (
+            <motion.div 
+              className="text-center space-y-2 mb-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 1.1 }}
+            >
+              {saveStatus.sessionError && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <ShieldAlert className="text-white" size={16} />
+                    <span className="text-sm text-white">Session Security Error</span>
+                  </div>
+                  <div className="text-white/60 text-xs">{saveStatus.sessionError}</div>
+                </div>
+              )}
+              
+              {saveStatus.error && (
+                <div className="text-center">
+                  <div className="text-white text-sm mb-2">
+                    Save failed after {saveStatus.maxAttempts} attempts
+                  </div>
+                  <div className="text-white/60 text-xs mb-3">
+                    Game recorded locally
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-white/20 border border-white/30 text-white rounded text-xs hover:bg-white/30 transition-colors"
+                    onClick={() => gameResult && handleSaveGameResult(gameResult)}
+                  >
+                    Retry Save
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Play Again Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 1.2 }}
+          >
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                // ENHANCED: Improved button state logic
-                isPlayingAgain || 
-                playAgainError.show || 
-                saveStatus.isLoading ||
-                canPlayAfterSave === false
-                ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-                }`}
-              disabled={
-                isPlayingAgain || 
-                playAgainError.show || 
-                saveStatus.isLoading ||
-                canPlayAfterSave === false
-              }
+              className={`w-full px-6 py-4 text-lg rounded-lg border-2 shadow-lg transition-all duration-300 flex items-center justify-center space-x-3 font-medium tracking-wide ${buttonState.className}`}
+              disabled={buttonState.disabled}
               onClick={handlePlayAgain}
             >
-              {isPlayingAgain ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-                  <span>{t("game.modes.physics.playAgain.starting")}</span>
-                </>
-              ) : (
-                <>
-                  <RotateCcw size={20} />
-                  <span>{t("game.modes.physics.playAgain.button")}</span>
-                </>
-              )}
+              {buttonState.showSpinner && <LoadingSpinner size={18} />}
+              {buttonState.showIcon && !buttonState.showSpinner && <RotateCcw size={20} />}
+              <span>{buttonState.text}</span>
             </button>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
@@ -1210,7 +1166,7 @@ export default function PhysicsGameManager() {
       </div>
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-10 bg-black/95 backdrop-blur-sm border-t border-purple-400/30 safe-area-inset-bottom"
+        className="fixed bottom-0 left-0 right-0 z-10 bg-black/95 backdrop-blur-sm border-t border-white/30 safe-area-inset-bottom"
         style={{ height: "140px" }}
       >
         <div className="px-6 py-4 h-full flex flex-col justify-center">
