@@ -290,11 +290,6 @@ export default function ShopPage() {
                 <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
                   <Wallet className="text-blue-400" size={24} />
                 </div>
-                <div>
-                  <h3 className="font-bold text-white text-lg">
-                    {t("shop.payWithTON")}
-                  </h3>
-                </div>
               </div>
               <TONPurchaseButton
                 className="bg-blue-600 text-white hover:bg-blue-700"
