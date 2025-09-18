@@ -278,9 +278,9 @@ export default function ShopPage() {
 
       {/* Payment Methods Section */}
       <div className="max-w-2xl mx-auto mb-8">
-        <h2 className="text-2xl font-bold text-white mb-4 text-center">
+        <h3 className="text-xl font-bold text-white mb-2">
           {t("shop.paymentMethods")}
-        </h2>
+        </h3>
 
         {/* TON Payment Option */}
         <Card className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 mb-4">
@@ -294,9 +294,6 @@ export default function ShopPage() {
                   <h3 className="font-bold text-white text-lg">
                     {t("shop.payWithTON")}
                   </h3>
-                  <p className="text-white/70 text-sm">
-                    {t("shop.tonDescription")}
-                  </p>
                 </div>
               </div>
               <TONPurchaseButton
@@ -321,7 +318,6 @@ export default function ShopPage() {
           <h3 className="text-xl font-bold text-white mb-2">
             {t("shop.payWithStars")}
           </h3>
-          <p className="text-white/60 text-sm">{t("shop.starsDescription")}</p>
         </div>
       </div>
 

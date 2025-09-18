@@ -1,9 +1,9 @@
 // src/locales/en/shop.ts - Shop and purchases with TON Shop localization
 
 export const shop = {
-  title: "WALMART",
+  title: "SHOP",
   subtitle: "Purchase additional game attempts",
-  paymentMethods: "Payment Methods",
+  paymentMethods: "TON",
   payWithTON: "TON",
   tonDescription: "Yay",
   openTONShop: "TON",
