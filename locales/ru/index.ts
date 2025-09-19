@@ -21,8 +21,12 @@ import { memes } from "./memes";
 import { tournaments } from "./tournaments";
 import { quests } from "./quests";
 import { results } from "./results";
+import { friendsquotes } from "./friendsquotes";
 
 export const ru = {
+  // Friends Quotes
+  friendsquotes,
+  
   // Results
   results,
   // Common UI elements
