@@ -58,13 +58,12 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
   // Track if BackButton handler is registered for this modal
   const backButtonHandlerRef = useRef<(() => void) | null>(null);
 
-  // Get random quote - detect language and select appropriate quotes
+  // Get random quote - use same localization system as rest of component
   const randomQuote = useMemo(() => {
     try {
-      // Detect language from browser or other method
-      const isRussian = typeof navigator !== "undefined" && 
-                       (navigator.language?.startsWith('ru') || 
-                        navigator.languages?.some(lang => lang.startsWith('ru')));
+      // Try to detect language from localization context by testing a known translation
+      const testTranslation = t("profile.referrals.title");
+      const isRussian = testTranslation === "РЕКРУТИНГ"; // Russian translation
       
       const quotes = isRussian ? ruQuotes.quotes : enQuotes.quotes;
       const randomIndex = Math.floor(Math.random() * quotes.length);
@@ -73,7 +72,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
       console.warn("Failed to load friend quotes:", error);
       return null;
     }
-  }, [isOpen]); // Re-calculate when modal opens
+  }, [isOpen, t]); // Re-calculate when modal opens or language changes
 
   // Simplified sharing configuration (removed story sharing)
   const SHARING_CONFIG = {
