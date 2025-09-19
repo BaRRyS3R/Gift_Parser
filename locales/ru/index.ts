@@ -21,11 +21,12 @@ import { memes } from "./memes";
 import { tournaments } from "./tournaments";
 import { quests } from "./quests";
 import { results } from "./results";
-import { friendsquotes } from "./friendsquotes";
+import { friendquotes } from "./friendquotes";
+
 
 export const ru = {
   // Friends Quotes
-  friendsquotes,
+  friendquotes,
   
   // Results
   results,

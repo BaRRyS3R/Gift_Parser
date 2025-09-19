@@ -1,10 +1,10 @@
-// src/components/Profile/ReferralModal.tsx - Updated with random friendship quotes
+// src/components/Profile/ReferralModal.tsx - Updated with random friend quotes
 
 "use client";
 
 import type { ReferralInfo } from "@/hooks/modules/useProfile";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Modal,
   ModalContent,
@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
+import { friendquotes as ruQuotes } from "@/locales/ru/friendquotes";
+import { friendquotes as enQuotes } from "@/locales/en/friendquotes";
 
 interface ReferralModalProps {
   isOpen: boolean;
@@ -52,45 +54,32 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 }) => {
   const t = useT();
   const [copySuccess, setCopySuccess] = useState(false);
-  const [randomQuote, setRandomQuote] = useState<string>("");
   
   // Track if BackButton handler is registered for this modal
   const backButtonHandlerRef = useRef<(() => void) | null>(null);
+
+  // Get random quote - detect language and select appropriate quotes
+  const randomQuote = useMemo(() => {
+    try {
+      // Detect language from browser or other method
+      const isRussian = typeof navigator !== "undefined" && 
+                       (navigator.language?.startsWith('ru') || 
+                        navigator.languages?.some(lang => lang.startsWith('ru')));
+      
+      const quotes = isRussian ? ruQuotes.quotes : enQuotes.quotes;
+      const randomIndex = Math.floor(Math.random() * quotes.length);
+      return quotes[randomIndex];
+    } catch (error) {
+      console.warn("Failed to load friend quotes:", error);
+      return null;
+    }
+  }, [isOpen]); // Re-calculate when modal opens
 
   // Simplified sharing configuration (removed story sharing)
   const SHARING_CONFIG = {
     message: "Psh, maybe.. Play? 🎮",
     fallbackMessage: "Join me in Circusle - an awesome game where every tap counts! 🎯",
   };
-
-  // Generate random quote when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      // Get quotes array from localization context
-      const quotesArray = [
-        t("friendsquotes.quote0"),
-        t("friendsquotes.quote1"),
-        t("friendsquotes.quote2"),
-        t("friendsquotes.quote3"),
-        t("friendsquotes.quote4"),
-        t("friendsquotes.quote5"),
-        t("friendsquotes.quote6"),
-        t("friendsquotes.quote7"),
-        t("friendsquotes.quote8"),
-        t("friendsquotes.quote9"),
-        t("friendsquotes.quote10"),
-        t("friendsquotes.quote11"),
-        t("friendsquotes.quote12"),
-        t("friendsquotes.quote13"),
-        t("friendsquotes.quote14"),
-      ].filter(quote => quote && !quote.startsWith("friendsquotes.quotes"));
-
-      if (quotesArray.length > 0) {
-        const randomIndex = Math.floor(Math.random() * quotesArray.length);
-        setRandomQuote(quotesArray[randomIndex]);
-      }
-    }
-  }, [isOpen, t]);
 
   // Set up BackButton handler when modal is open
   useEffect(() => {
@@ -166,7 +155,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
           </button>
         </ModalHeader>
 
-        <ModalBody className="px-4 pb-4 space-y-4 max-w-md mx-auto">
+        <ModalBody className="px-4 pb-6 space-y-4 max-w-md mx-auto">
           {/* Statistics Cards with shadows instead of borders */}
           <div className="grid grid-cols-2 gap-3">
             <Card className="bg-white/5 shadow-lg">
@@ -297,19 +286,15 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </Card>
           )}
 
-          {/* NEW: Random Friendship Quote Section */}
+          {/* Random Friend Quote Section */}
           {randomQuote && (
-            <Card className="bg-gradient-to-r from-white/5 to-white/10 shadow-lg mt-6">
-              <CardBody className="p-4">
-                <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 mt-1">
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                      <Quote className="text-white/60" size={14} />
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white/80 text-sm italic leading-relaxed">
-                      "{randomQuote}"
+            <Card className="bg-gradient-to-r from-white/3 to-white/5 shadow-lg border border-white/5">
+              <CardBody className="p-3">
+                <div className="flex items-start space-x-2">
+                  <Quote className="text-white/40 mt-0.5 flex-shrink-0" size={14} />
+                  <div className="flex-1">
+                    <p className="text-white/70 text-xs italic leading-relaxed font-light">
+                      {randomQuote}
                     </p>
                   </div>
                 </div>
@@ -318,7 +303,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
           )}
 
           {/* Bottom spacing for safe area */}
-          <div className="h-6" />
+          <div className="h-4" />
         </ModalBody>
       </ModalContent>
     </Modal>
