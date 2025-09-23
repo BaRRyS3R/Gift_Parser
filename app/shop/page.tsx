@@ -1,10 +1,11 @@
-// src/app/shop/page.tsx - Complete refactored version to match screenshot design
+// src/app/shop/page.tsx - Updated with animations and improved product layout
 
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button } from "@nextui-org/react";
+import { motion, AnimatePresence } from "framer-motion";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
   AlertCircle,
@@ -32,6 +33,54 @@ interface EasterEggState {
   lastClickTime: number;
   isActive: boolean;
 }
+
+// Animation variants for staggered entrance
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: {
+    opacity: 0,
+    y: 20,
+    scale: 0.95,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15,
+      duration: 0.6,
+    },
+  },
+};
+
+const headerVariants = {
+  hidden: {
+    opacity: 0,
+    y: -30,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 120,
+      damping: 20,
+      duration: 0.8,
+    },
+  },
+};
 
 export default function ShopPage() {
   const router = useRouter();
@@ -207,15 +256,23 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Header with clickable title for Binary Easter Egg */}
-      <div className="text-center mb-8 pt-6">
-        {/* Page title - same size as modals */}
-        <h1 className="text-xl font-medium text-white mb-4">
+      {/* Animated Header */}
+      <motion.div
+        className="text-center mb-8 pt-6"
+        initial="hidden"
+        animate="visible"
+        variants={headerVariants}
+      >
+        {/* Page title */}
+        <motion.h1
+          className="text-xl font-medium text-white mb-4"
+          variants={itemVariants}
+        >
           {t("shop.title")}
-        </h1>
+        </motion.h1>
 
         {/* Buy for stars - large heading */}
-        <h2
+        <motion.h2
           className="text-3xl font-bold text-white select-none cursor-default"
           style={{
             WebkitTapHighlightColor: "transparent",
@@ -224,37 +281,56 @@ export default function ShopPage() {
             userSelect: "none",
             touchAction: "manipulation",
           }}
+          variants={itemVariants}
           onTouchEnd={handleTitleClick}
         >
           {t("shop.buyForStars")}
-        </h2>
-      </div>
+        </motion.h2>
+      </motion.div>
 
       {/* Binary Easter Egg */}
-      <div className="max-w-2xl mx-auto">
+      <motion.div
+        className="max-w-2xl mx-auto"
+        initial="hidden"
+        animate="visible"
+        variants={itemVariants}
+      >
         <BinaryEasterEgg
           isVisible={easterEggState.isActive}
           makeAuthenticatedRequest={makeAuthenticatedRequest}
           onClose={handleEasterEggComplete}
         />
-      </div>
+      </motion.div>
 
-      {/* Error message */}
-      {purchaseModule.error && (
-        <div className="max-w-2xl mx-auto mb-6">
-          <Card className="bg-white/10 border border-white/20">
-            <CardBody className="p-4">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="text-white" size={20} />
-                <span className="text-white">{purchaseModule.error}</span>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
+      {/* Animated Error message */}
+      <AnimatePresence>
+        {purchaseModule.error && (
+          <motion.div
+            className="max-w-2xl mx-auto mb-6"
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="bg-white/10 border border-white/20">
+              <CardBody className="p-4">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="text-white" size={20} />
+                  <span className="text-white">{purchaseModule.error}</span>
+                </div>
+              </CardBody>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* TON Shop Button */}
-      <div className="max-w-2xl mx-auto mb-8">
+      <motion.div
+        className="max-w-2xl mx-auto mb-8"
+        initial="hidden"
+        animate="visible"
+        variants={itemVariants}
+      >
         <div className="flex justify-center">
           <TONPurchaseButton
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
@@ -263,56 +339,68 @@ export default function ShopPage() {
             {t("shop.goToTONShop")}
           </TONPurchaseButton>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Products List */}
-      <div className="max-w-2xl mx-auto space-y-3">
-        {Object.entries(PRODUCTS).map(([key, product]) => {
+      {/* Animated Products List */}
+      <motion.div
+        className="max-w-2xl mx-auto space-y-3"
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
+        {Object.entries(PRODUCTS).map(([key, product], index) => {
           const productType = key as ProductType;
           const isLoadingThisProduct = purchaseModule.isLoadingProduct(productType);
 
           return (
-            <ProductRow
+            <motion.div
               key={productType}
-              attempts={product.attempts_bonus || 0}
-              loading={isLoadingThisProduct}
-              price={product.price}
-              productType={productType}
-              t={t}
-              onPurchase={handlePurchase}
-            />
+              variants={itemVariants}
+              custom={index}
+            >
+              <ProductRow
+                attempts={product.attempts_bonus || 0}
+                loading={isLoadingThisProduct}
+                price={product.price}
+                productType={productType}
+                t={t}
+                onPurchase={handlePurchase}
+              />
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* Success Notification */}
-      {successNotification.show && (
-        <div
-          className={`
-            fixed top-4 left-4 right-4 z-40
-            transform transition-all duration-500 ease-out
-            ${successNotification.show ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}
-          `}
-        >
-          <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
-            <CardBody className="p-4">
-              <div className="flex items-center space-x-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                  {successNotification.icon}
+      <AnimatePresence>
+        {successNotification.show && (
+          <motion.div
+            className="fixed top-4 left-4 right-4 z-40"
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
+            transition={{ duration: 0.4, type: "spring", stiffness: 120 }}
+          >
+            <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
+              <CardBody className="p-4">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                    {successNotification.icon}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-green-400 text-lg">
+                      {successNotification.title}
+                    </h4>
+                    <p className="text-green-300 text-sm mt-1">
+                      {successNotification.message}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-green-400 text-lg">
-                    {successNotification.title}
-                  </h4>
-                  <p className="text-green-300 text-sm mt-1">
-                    {successNotification.message}
-                  </p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
+              </CardBody>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bottom spacing for safe area */}
       <div className="h-24" />
@@ -338,28 +426,47 @@ function ProductRow({
   onPurchase,
 }: ProductRowProps) {
   return (
-    <div className="bg-white/5 rounded-lg p-4 flex items-center justify-between hover:bg-white/10 transition-colors">
-      {/* Left side - attempts with lightning icon next to number */}
-      <div className="flex items-center space-x-3">
+    <motion.div
+      className="bg-white/5 rounded-lg p-4 flex items-center justify-between hover:bg-white/10 transition-all duration-300"
+      whileHover={{ 
+        scale: 1.02,
+        backgroundColor: "rgba(255, 255, 255, 0.15)",
+        transition: { duration: 0.2 }
+      }}
+      whileTap={{ 
+        scale: 0.98,
+        transition: { duration: 0.1 }
+      }}
+    >
+      {/* Left side - attempts and description */}
+      <div className="flex-1 space-y-2">
+        {/* Attempts count with lightning icon */}
         <div className="flex items-center space-x-1">
-          <span className="text-white font-medium">+{attempts}⚡</span>
+          <span className="text-white font-bold text-lg">+{attempts}⚡</span>
         </div>
+        
+        {/* Description text */}
         <div className="text-white/60 text-sm">
-          {t("shop.additionalAttempts")}
+          {t("shop.moreAttempts")}
         </div>
       </div>
 
       {/* Right side - price button */}
-      <Button
-        className="bg-white/20 text-white hover:bg-white/30 min-w-[80px] rounded-lg"
-        isDisabled={loading}
-        isLoading={loading}
-        size="sm"
-        startContent={!loading ? <Star size={16} /> : undefined}
-        onPress={() => onPurchase(productType)}
+      <motion.div
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
       >
-        {loading ? "" : price}
-      </Button>
-    </div>
+        <Button
+          className="bg-white/20 text-white hover:bg-white/30 min-w-[80px] rounded-lg transition-all duration-200"
+          isDisabled={loading}
+          isLoading={loading}
+          size="sm"
+          startContent={!loading ? <Star size={16} /> : undefined}
+          onPress={() => onPurchase(productType)}
+        >
+          {loading ? "" : price}
+        </Button>
+      </motion.div>
+    </motion.div>
   );
 }
