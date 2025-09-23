@@ -161,6 +161,14 @@ export const shop = {
         title: "+10 Attempts",
         description: "Get 10 additional game attempts",
       },
+      attempts_20: {
+        title: "+20 Attempts",
+        description: "Get 20 additional game attempts",
+      },
+      attempts_50: {
+        title: "+50 Attempts",
+        description: "Get 50 additional game attempts",
+      },
       attempts_100: {
         title: "+100 Attempts",
         description: "Get 100 additional game attempts",
