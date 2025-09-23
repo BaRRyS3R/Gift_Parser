@@ -209,8 +209,14 @@ export default function ShopPage() {
 
       {/* Header with clickable title for Binary Easter Egg */}
       <div className="text-center mb-8 pt-6">
-        <h1 
-          className="text-xl font-medium text-white select-none cursor-default"
+        {/* Page title - same size as modals */}
+        <h1 className="text-xl font-medium text-white mb-4">
+          {t("shop.title")}
+        </h1>
+        
+        {/* Buy for stars - large heading */}
+        <h2 
+          className="text-3xl font-bold text-white select-none cursor-default"
           style={{
             WebkitTapHighlightColor: "transparent",
             WebkitTouchCallout: "none",
@@ -221,7 +227,7 @@ export default function ShopPage() {
           onTouchEnd={handleTitleClick}
         >
           {t("shop.buyForStars")}
-        </h1>
+        </h2>
       </div>
 
       {/* Binary Easter Egg */}
@@ -331,23 +337,12 @@ function ProductRow({
   t,
   onPurchase,
 }: ProductRowProps) {
-  const getProductKey = (type: ProductType) => {
-    return type.replace('_', '');
-  };
-
-  const productKey = getProductKey(productType);
-  const description = t(`shop.products.${productKey}.description`);
-
   return (
     <div className="bg-white/5 rounded-lg p-4 flex items-center justify-between hover:bg-white/10 transition-colors">
-      {/* Left side - attempts with lightning icon */}
+      {/* Left side - attempts with lightning icon next to number */}
       <div className="flex items-center space-x-3">
-        <div className="text-yellow-400 text-xl">⚡</div>
-        <div>
-          <div className="text-white font-medium">+{attempts}</div>
-          <div className="text-white/60 text-sm">
-            {description}
-          </div>
+        <div className="flex items-center space-x-1">
+          <span className="text-white font-medium">+{attempts}⚡</span>
         </div>
       </div>
 
