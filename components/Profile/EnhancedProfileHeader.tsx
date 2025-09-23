@@ -50,7 +50,7 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
   const unlockedAchievements = achievements.filter((a) => a.unlocked);
 
   return (
-    <div className="relative text-center space-y-4 px-4 py-6">
+    <div className="relative text-center space-y-4 px-4 py-6 pt-16">
       {/* User Name */}
       <div className="relative">
         <h1 className="text-2xl font-bold text-white tracking-wider">

@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Complete game page with video backgrounds
+// src/app/game/page.tsx - Complete game page with updated header
 
 "use client";
 
@@ -17,13 +17,13 @@ import {
   X,
   Target,
   Clock,
+  ShoppingCart,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { usePCDetection } from "@/hooks/usePCDetection";
-import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
 import WinxEasterEggModal from "@/components/EasterEggs/WinxEasterEggModal";
 
 // Easter Egg chance configuration
@@ -36,7 +36,7 @@ interface GameMode {
   objectiveKey: string;
   icon: React.ComponentType<any>;
   route: string;
-  difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
+  difficulty: "🤡" | "👋😈" | "👉👌" | "🌀";
   durationKey: string;
   videoUrl: string;
   fallbackImageUrl: string; // Fallback на случай если видео не загрузится
@@ -99,7 +99,7 @@ const GAME_MODES: GameMode[] = [
     objectiveKey: "game.modes.survival.objective",
     icon: Crosshair,
     route: "/game/survival",
-    difficulty: "💋😈",
+    difficulty: "👋😈",
     durationKey: "game.modes.survival.difficulty",
     videoUrl: "https://notfren.com/circusle/mode_survival.mp4",
     fallbackImageUrl: "https://notfren.com/circusle/survival.jpg",
@@ -367,6 +367,7 @@ function GamePageContent() {
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const [timeUntilReset, setTimeUntilReset] = useState<string>("");
 
   // Easter Egg state
   const [showEasterEgg, setShowEasterEgg] = useState(false);
@@ -406,6 +407,40 @@ function GamePageContent() {
       setEasterEggChecked(true);
     }
   }, [easterEggChecked]);
+
+  // Timer update logic
+  useEffect(() => {
+    if (!attemptsStatus?.resetTime || attemptsRemaining > 0) {
+      setTimeUntilReset("");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeUntilReset("");
+        handleAttemptsRetry();
+      } else {
+        const hours = Math.floor(diff / 3600000);
+        const minutes = Math.floor((diff % 3600000) / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+
+        if (hours > 0) {
+          setTimeUntilReset(
+            `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+          );
+        } else {
+          setTimeUntilReset(
+            `${minutes}:${seconds.toString().padStart(2, "0")}`
+          );
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [attemptsStatus?.resetTime, attemptsRemaining]);
 
   // Предзагрузка видео через Service Worker
   useEffect(() => {
@@ -668,11 +703,52 @@ function GamePageContent() {
         </ModalContent>
       </Modal>
 
-      <div className="px-4">
-        <div className="text-center space-y-4 mb-8">
-          <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-            {t("game.modes.title")}
-          </h1>
+      <div className="px-4 pt-4">
+        {/* Minimalist Attempts Display */}
+        <div className="flex justify-center mb-8 animate-fade-in">
+          {attemptsLoading ? (
+            <div className="bg-white/10 rounded-full px-4 py-2 flex items-center space-x-2">
+              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              <span className="text-white/60 text-sm">Loading...</span>
+            </div>
+          ) : attemptsError ? (
+            <div className="bg-red-500/20 border border-red-400/40 rounded-full px-4 py-2 flex items-center space-x-2">
+              <span className="text-red-400 text-sm">⚠️ Error</span>
+              {handleAttemptsRetry && (
+                <button
+                  onClick={handleAttemptsRetry}
+                  className="text-red-300 hover:text-red-200 text-xs underline ml-2"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+          ) : attemptsRemaining === 0 ? (
+            // Empty state with timer and shop button
+            <div className="flex flex-col items-center space-y-3">
+              <div className="bg-red-500/20 border border-red-400/40 rounded-full px-4 py-2 flex items-center space-x-2">
+                <Clock className="text-red-400" size={16} />
+                <span className="text-red-400 text-sm font-medium">
+                  {timeUntilReset || "Resetting..."}
+                </span>
+              </div>
+              <button
+                onClick={() => router.push("/shop")}
+                className="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/40 hover:border-yellow-400/60 rounded-full px-4 py-2 flex items-center space-x-2 transition-all duration-200"
+              >
+                <ShoppingCart className="text-yellow-300" size={14} />
+                <span className="text-yellow-300 text-sm font-medium">Shop</span>
+              </button>
+            </div>
+          ) : (
+            // Normal state with attempts
+            <div className="bg-blue-500/20 border border-blue-400/40 rounded-full px-4 py-2 flex items-center space-x-2">
+              <Zap className="text-blue-400" size={16} />
+              <span className="text-blue-400 text-sm font-medium">
+                {attemptsRemaining} attempt{attemptsRemaining !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Start error display */}
@@ -708,23 +784,11 @@ function GamePageContent() {
           </div>
         )}
 
-        {/* Future Tech attempts display */}
-        <div className="mb-8 animate-fade-in">
-          <FutureTechAttemptsDisplay
-            attemptsRemaining={attemptsRemaining}
-            attemptsStatus={attemptsStatus}
-            canPlay={canPlay}
-            error={attemptsError}
-            isLoading={attemptsLoading}
-            showShopButton={true}
-            onRetry={handleAttemptsRetry}
-          />
-        </div>
-
-        <div className="text-center mb-8 animate-fade-in">
-          <p className="text-white/60 text-sm uppercase tracking-[0.3em]">
-            {t("game.modes.subtitle")}
-          </p>
+        {/* Minimalist Main Title */}
+        <div className="text-center mb-12 animate-fade-in">
+          <h1 className="text-2xl font-light text-white/90 tracking-wide">
+            Choose your challenge
+          </h1>
         </div>
       </div>
 
