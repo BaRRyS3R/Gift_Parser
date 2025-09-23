@@ -13,7 +13,7 @@ export const about = {
     reaction: {
       name: "Reaction",
       description:
-        "Reflex test for those sure they're not total vegetables. Surprise: you're a pickled cucumber from the basement.",
+        "Reflex test for those who think they’re fast. Spoiler: maybe not.",
     },
     survival: {
       name: "Survival",
@@ -22,11 +22,11 @@ export const about = {
     },
     physics: {
       name: "Physics",
-      description: "Newton got an apple on his head. Cool, right?",
+      description: "Newton got an apple. You get circles. Same physics.",
     },
     rotation: {
       name: "Rotation",
-      description: "Circles are spinning. Money is being muddyed.",
+      description: "Circles keep spinning. Your head might too.",
     },
   },
 
@@ -35,15 +35,15 @@ export const about = {
     description:
       "Attempts restoring every 2 hours - just enough to understand that you are hopeless. Wait 2 hours or pay - your choice between patience and humiliation.",
     details:
-      "Want more suffering? Invite friends — a great way to score free attempts. Or buy tries for Telegram Stars: we're already eyeing a new ride.",
+      "Want more tries? Invite friends for free attempts, or grab some via Telegram Stars. We won’t say no.",
   },
 
   tips: {
     title: "Bad Advice",
-    tip1: "Reaction mode: hurry up and you'll make everyone laugh.",
-    tip2: "Survival: click where needed. Where not needed — don't click.",
+    tip1: "Reaction: hurry up – or get laughed at.",
+    tip2: "Survival: click right spots, avoid the rest. Simple.",
     tip3: "Red circle — same as white, only red.",
-    tip4: "Ran out of tries? Well, drink some tea while you wait. Better yet — give us cash.",
+    tip4: "Out of tries? Take a tea break – or grab some extra. Your choice.",
   },
 
   footer: "Version 0.0.0.0.0.1 • Made with hatred for your expectations.",

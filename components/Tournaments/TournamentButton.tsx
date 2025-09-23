@@ -150,14 +150,14 @@ export default function TournamentButton({
   const isActive = activeTournament?.status === "active";
   const hasTournament = !!activeTournament && isActive;
   const tournamentMode = activeTournament?.mode;
-  const badgeText = hasTournament ? getModeName(tournamentMode) : "SOON";
+  const badgeText = hasTournament ? getModeName(tournamentMode) : t("tournaments.soon");
   const isDisabled = isTransitioning || isLoading || !hasTournament || hasError;
 
   // Получение цветовой схемы
   const colors = hasTournament ? getTournamentModeColors(tournamentMode) : getTournamentModeColors();
 
   // Определение текста кнопки
-  const buttonText = isTransitioning ? t("main.loading") : "Tournament";
+  const buttonText = isTransitioning ? t("main.loading") : t("tournaments.tournamentButton");
 
   return (
     <div className="relative group">

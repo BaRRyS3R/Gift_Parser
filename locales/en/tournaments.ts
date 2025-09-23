@@ -2,6 +2,8 @@
 export const tournaments = {
   title: "TOURNAMENTS",
   subtitle: "Competitions",
+  tournamentButton: "Tournament",
+  soon: "Soon",
 
   // Tournament status
   status: {

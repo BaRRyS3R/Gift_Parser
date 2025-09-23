@@ -638,7 +638,7 @@ function GamePageContent() {
                       <div className="flex items-center space-x-2 mb-3">
                         <Zap className={selectedModeInfo.color.primary} size={16} />
                         <h4 className={`font-bold ${selectedModeInfo.color.primary}`}>
-                          Особенности
+                          {t("game.general.peculiarities")}
                         </h4>
                       </div>
                       <ul className="space-y-2">
@@ -792,7 +792,7 @@ function GamePageContent() {
 
         {/* Main Challenge Title */}
         <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-3xl font-bold text-white tracking-wide">
+          <h1 className="text-5xl font-bold text-white tracking-wide">
             {t("game.modes.subtitle")}
           </h1>
         </div>

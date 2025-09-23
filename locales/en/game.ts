@@ -25,16 +25,16 @@ export const game = {
       description: "Hopefully you'll hit at least here.",
       difficulty: "Zero",
       duration: "~10 seconds",
-      objective: "Faster click = cooler reaction. Obviously, silly))",
+      objective: "Faster click = better reaction. Simple as that.",
       features: [
-        "One circle (not Mikhail)",
+        "One circle",
         "Random timing (3-5s)",
         "Speed measurement",
         "Performance rating",
       ],
       rules: [
-        "Wait for the white circle to appear",
-        "Click as fast as possible",
+        "Wait for the white circle",
+        "Click as fast as you can",
         "One attempt = one result",
       ],
       instructions: {
@@ -225,15 +225,15 @@ export const game = {
       difficulty: "Dizzying",
       duration: "Naaaah",
       objective:
-        "Circles rotate in a circle. Click white, don't click red. Logical? Not guaranteed.",
+        "Circles spin around. Click white, avoid red. Sounds simple? Not really.",
       features: [
         "Spinning Circles",
         "Levels",
-        "Speed grows like your nausea",
+        "Speed keeps rising. Harder to keep up",
         "You spin me right now baby right now",
       ],
       rules: [
-        "Click only on white circles",
+        "Click only white circles",
         "Red circles = instant death",
         "Higher level = faster rotation",
       ],
@@ -305,6 +305,7 @@ export const game = {
     proTips: "PRO TIPS",
     scoringSystem: "SCORING SYSTEM",
     difficulty: "Difficulty",
+    peculiarities: "Peculiarities",
     duration: "Duration",
     startPlaying: "START PLAYING",
     checkingAttempts: "CHECKING ATTEMPTS...",
