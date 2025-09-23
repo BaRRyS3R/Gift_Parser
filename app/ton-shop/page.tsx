@@ -558,11 +558,7 @@ function ProductCard({
     switch (product.productType) {
       case "attempts_5":
         return t("shop.tonShop.badges.popular");
-      case "attempts_10":
-        return t("shop.tonShop.badges.bestValue");
       case "attempts_20":
-        return t("shop.tonShop.badges.bestValue");
-      case "attempts_50":
         return t("shop.tonShop.badges.bestValue");
       case "attempts_100":
         return t("shop.tonShop.badges.ultimate");
