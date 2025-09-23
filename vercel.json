@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/crom/ton-payments-monitor",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
