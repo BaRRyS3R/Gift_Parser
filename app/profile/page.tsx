@@ -185,13 +185,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-      {/* Header */}
-      <div className="text-center py-6">
-        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-          {t("profile.title")}
-        </h1>
-      </div>
-
       <div className="max-w-md mx-auto">
         {/* Enhanced Profile Header with Skeleton */}
         {isLoading ? (
