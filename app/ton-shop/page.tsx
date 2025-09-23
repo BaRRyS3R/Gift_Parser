@@ -612,7 +612,7 @@ function ProductCard({
             >
               {isSelected
                 ? t("shop.tonShop.actions.processing")
-                : product.priceTON}
+                : `${product.priceTON} TON`}
             </Button>
           </div>
         </div>

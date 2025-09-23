@@ -50,7 +50,7 @@ export const TON_PRICES: Record<ProductType, bigint> = {
   attempts_1: BigInt(50000000), // 0.05 TON
   attempts_5: BigInt(250000000), // 0.2 TON
   attempts_10: BigInt(450000000), // 0.45 TON
-  attempts_20: BigInt(8300000000), // 0.83 TON
+  attempts_20: BigInt(830000000), // 0.83 TON
   attempts_50: BigInt(2300000000), // 2.3 TON
   attempts_100: BigInt(4200000000), // 4.2 TON
 } as const;
