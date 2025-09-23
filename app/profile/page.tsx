@@ -184,12 +184,18 @@ export default function ProfilePage() {
   const isLoading = profile.isLoading && !profileData;
 
   return (
-    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset pt-24">
+    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
+      {/* Header */}
+      <div className="text-center py-6">
+        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+          {t("profile.title")}
+        </h1>
+      </div>
 
       <div className="max-w-md mx-auto">
         {/* Enhanced Profile Header with Skeleton */}
         {isLoading ? (
-          <div className="text-center px-4 py-6 space-y-4 mt-12">
+          <div className="text-center px-4 py-6 space-y-4">
             {/* Show user name immediately from telegramUser */}
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-white animate-fade-in">

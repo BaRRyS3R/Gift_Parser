@@ -9,7 +9,7 @@ export const game = {
     subtitle: "Волшебство случилось!",
   },
   modes: {
-    title: "МОД",
+    title: "Mode",
     subtitle: "Выберите испытание",
     buttonBack: "Назад",
     newBestScore: "НОВЫЙ РЕКОРД!", // Пока не актуально

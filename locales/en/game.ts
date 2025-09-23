@@ -9,7 +9,7 @@ export const game = {
     subtitle: "Magic happened!",
   },
   modes: {
-    title: "MODE",
+    title: "Mode",
     subtitle: "Choose your challenge",
     buttonBack: "Back",
     newBestScore: "NEW BEST SCORE!",

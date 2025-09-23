@@ -704,12 +704,18 @@ function GamePageContent() {
       </Modal>
 
       <div className="px-4 pt-4">
+        {/* Small Page Title */}
+        <div className="text-center mb-6 animate-fade-in">
+          <h2 className="text-xl font-medium text-white">
+            {t("game.modes.title")}
+          </h2>
+        </div>
+
         {/* Minimalist Attempts Display */}
         <div className="flex justify-center mb-8 animate-fade-in">
           {attemptsLoading ? (
             <div className="bg-white/10 rounded-full px-4 py-2 flex items-center space-x-2">
               <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              <span className="text-white/60 text-sm">Loading...</span>
             </div>
           ) : attemptsError ? (
             <div className="bg-red-500/20 border border-red-400/40 rounded-full px-4 py-2 flex items-center space-x-2">
@@ -784,10 +790,10 @@ function GamePageContent() {
           </div>
         )}
 
-        {/* Minimalist Main Title */}
+        {/* Main Challenge Title */}
         <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-2xl font-light text-white/90 tracking-wide">
-            Choose your challenge
+          <h1 className="text-3xl font-bold text-white tracking-wide">
+            {t("game.modes.subtitle")}
           </h1>
         </div>
       </div>
