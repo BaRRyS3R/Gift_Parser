@@ -46,7 +46,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 }) => {
   const t = useT();
   const [copySuccess, setCopySuccess] = useState(false);
-  
+
   // Track if BackButton handler is registered for this modal
   const backButtonHandlerRef = useRef<(() => void) | null>(null);
 
@@ -59,18 +59,18 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
   useEffect(() => {
     if (isOpen && typeof window !== "undefined" && window.Telegram?.WebApp) {
       const webApp = window.Telegram.WebApp;
-      
+
       // Create handler for this modal
       const handleBackButton = () => {
         onClose();
       };
-      
+
       // Store handler reference
       backButtonHandlerRef.current = handleBackButton;
-      
+
       // Register BackButton handler
       webApp.BackButton.onClick(handleBackButton);
-      
+
       // Cleanup function
       return () => {
         if (backButtonHandlerRef.current) {
@@ -125,11 +125,11 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             <div className="text-4xl font-bold text-white mb-1">
               {referralInfo.count} {t("profile.referrals.friendsInvited").toLowerCase()}
             </div>
-            
+
             <div className="text-4xl font-bold text-white mb-4">
-              {referralInfo.bonus}⚡ {t("profile.referrals.attemptsBonus").toLowerCase()}
+              {referralInfo.count * referralInfo.bonus}⚡ {t("profile.referrals.attemptsBonus").toLowerCase()}
             </div>
-            
+
             <div className="text-white/60 text-base">
               +{referralInfo.bonus}⚡ {t("profile.referrals.attemptsEachFriend").toLowerCase()}
             </div>
