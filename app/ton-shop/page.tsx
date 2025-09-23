@@ -596,7 +596,6 @@ function ProductCard({
             <p className="text-white/60 text-sm mb-2">
               {t(`shop.tonShop.products.${product.productType}.description`)}
             </p>
-            <p className="text-white font-bold">{product.priceTON} TON</p>
           </div>
 
           <div className="ml-4">
@@ -613,7 +612,7 @@ function ProductCard({
             >
               {isSelected
                 ? t("shop.tonShop.actions.processing")
-                : t("shop.tonShop.actions.buyWithTON")}
+                : product.priceTON}
             </Button>
           </div>
         </div>

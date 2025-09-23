@@ -108,7 +108,7 @@ export const PRODUCTS: Record<ProductType, ProductInfo> = {
     type: "attempts_20",
     title: "+20 Attempts",
     description: "Get 20 additional game attempts",
-    price: 180, // 100 Telegram Stars
+    price: 160, // 100 Telegram Stars
     icon: "💎",
     attempts_bonus: 20,
     benefits: [
