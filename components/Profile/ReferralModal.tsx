@@ -127,11 +127,11 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </div>
             
             <div className="text-4xl font-bold text-white mb-4">
-              {referralInfo.bonus}⚡ bonus
+              {referralInfo.bonus}⚡ {t("profile.referrals.attemptsBonus").toLowerCase()}
             </div>
             
             <div className="text-white/60 text-base">
-              +5⚡ attempts each friend
+              +{referralInfo.bonus}⚡ {t("profile.referrals.attemptsEachFriend").toLowerCase()}
             </div>
           </div>
 
@@ -160,7 +160,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               startContent={<Share2 className="text-white" size={18} />}
               onPress={handleShareReferralLink}
             >
-              Invite friend
+              {t("profile.referrals.share")}
             </Button>
           </div>
 

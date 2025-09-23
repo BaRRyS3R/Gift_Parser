@@ -99,12 +99,13 @@ export const profile = {
   },
   referrals: {
     title: "РЕКРУТИНГ",
-    friendsInvited: "ПРИГЛАШЕНО ДРУЗЕЙ",
-    attemptsBonus: "БОНУСНЫЕ ПОПЫТКИ",
+    friendsInvited: "ДРУЗЕЙ",
+    attemptsBonus: "БОНУС",
     yourReferralCode: "ВАШ РЕФЕРРАЛЬНЫЙ КОД",
     referralLink: "РЕФЕРРАЛЬНАЯ ССЫЛКА",
-    copyLink: "КОПИРОВАТЬ",
-    share: "ПОДЕЛИТЬСЯ",
+    attemptsEachFriend: "попыток за каждого друга",
+    copyLink: "Копировать ссылку",
+    share: "Пригласить друга",
     howItWorks: "КАК ЭТО РАБОТАЕТ",
     shareWithFriends: "Спамь своей реферальной ссылкой.",
     theyGetExtra:
