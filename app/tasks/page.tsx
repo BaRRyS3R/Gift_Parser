@@ -128,13 +128,13 @@ export default function TasksPage() {
 
   // NEW: Group tasks by status
   const groupedTasks = React.useMemo(() => {
-    const available = tasksModule.tasks.filter(task => 
+    const available = tasksModule.tasks.filter(task =>
       task.user_status === TaskStatus.NOT_STARTED || task.user_status === TaskStatus.STARTED
     );
-    const readyToClaim = tasksModule.tasks.filter(task => 
+    const readyToClaim = tasksModule.tasks.filter(task =>
       task.user_status === TaskStatus.COMPLETED
     );
-    const completed = tasksModule.tasks.filter(task => 
+    const completed = tasksModule.tasks.filter(task =>
       task.user_status === TaskStatus.REWARDED
     );
 
@@ -162,15 +162,15 @@ export default function TasksPage() {
             // Store reward info for success message
             setLastClaimedReward({
               type: claimResult.rewardType || 'attempts',
-              amount: claimResult.rewardType === 'restore_bonus' 
-                ? claimResult.bonusRestoreAdded || 0 
+              amount: claimResult.rewardType === 'restore_bonus'
+                ? claimResult.bonusRestoreAdded || 0
                 : claimResult.attemptsAdded || 0,
               taskTitle: task.title,
             });
 
             // Refresh user data to get updated attempts/bonus
             await refreshUser();
-            
+
             // Trigger confetti explosion
             setIsExploding(true);
             setTimeout(() => {
@@ -305,12 +305,12 @@ export default function TasksPage() {
   const getRewardBadge = (task: TaskWithStatus) => {
     const rewardType = getTaskRewardType(task.task_type as TaskType);
     const isRestoreBonus = rewardType === RewardType.RESTORE_BONUS;
-    
+
     return {
       icon: isRestoreBonus ? <RestoreIcon size={12} /> : <Zap size={12} />,
       text: isRestoreBonus ? t("tasks.badges.restoreBonus") : t("tasks.badges.attempts"),
-      className: isRestoreBonus 
-        ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
+      className: isRestoreBonus
+        ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
         : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
     };
   };
@@ -358,15 +358,15 @@ export default function TasksPage() {
             </div>
             <div className="bg-black/90 backdrop-blur-xl border border-white/30 px-4 py-2 rounded">
               <p className="text-white font-bold text-sm">
-                {lastClaimedReward.type === 'restore_bonus' 
-                  ? t("tasks.success.restoreBonusRewardClaimedMessage", { 
-                      count: lastClaimedReward.amount, 
-                      title: lastClaimedReward.taskTitle 
-                    })
-                  : t("tasks.success.attemptsRewardClaimedMessage", { 
-                      count: lastClaimedReward.amount, 
-                      title: lastClaimedReward.taskTitle 
-                    })
+                {lastClaimedReward.type === 'restore_bonus'
+                  ? t("tasks.success.restoreBonusRewardClaimedMessage", {
+                    count: lastClaimedReward.amount,
+                    title: lastClaimedReward.taskTitle
+                  })
+                  : t("tasks.success.attemptsRewardClaimedMessage", {
+                    count: lastClaimedReward.amount,
+                    title: lastClaimedReward.taskTitle
+                  })
                 }
               </p>
             </div>
@@ -388,10 +388,16 @@ export default function TasksPage() {
       )}
 
       {/* Header with clickable title for easter egg */}
-      <div className="text-center space-y-4 mb-8 pt-6">
+      <div className="text-center mb-8 pt-6">
+        {/* Page title - same size as modals */}
+        <h1 className="text-xl font-medium text-white mb-4">
+          {t("tasks.title")}
+        </h1>
+
+        {/* Main title - large heading with easter egg functionality */}
         <div
           aria-label="Activate easter egg"
-          className="text-4xl font-bold tracking-widest text-white animate-fade-in select-none cursor-default"
+          className="text-3xl font-bold text-white select-none cursor-default mb-4"
           role="button"
           style={{
             WebkitTapHighlightColor: "transparent",
@@ -409,12 +415,10 @@ export default function TasksPage() {
           }}
           onTouchEnd={handleTitleClick}
         >
-          <h1 className="m-0 p-0">{t("tasks.title")}</h1>
+          <h2 className="m-0 p-0">{t("tasks.subtitle")}</h2>
         </div>
+
         <div className="space-y-2">
-          <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-            {t("tasks.subtitle")}
-          </p>
           {/* NEW: Info button for bonus attempts system */}
           <button
             className="inline-flex items-center space-x-2 text-white/50 hover:text-white/80 transition-colors text-xs"
@@ -537,7 +541,7 @@ function TaskCard({
 
   // NEW: Get reward badge info
   const rewardBadge = getRewardBadge(task);
-  
+
   // Determine reward type and get task type name
   const rewardType = getTaskRewardType(task.task_type as TaskType);
   const isRestoreBonus = rewardType === RewardType.RESTORE_BONUS;
@@ -554,10 +558,10 @@ function TaskCard({
       style={
         task.image_url
           ? {
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }
           : undefined
       }
     >
@@ -609,12 +613,11 @@ function TaskCard({
               <Button
                 className={`
                   relative z-20 
-                  ${
-                    button.variant === "success"
-                      ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
-                      : button.variant === "secondary"
-                        ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
-                        : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
+                  ${button.variant === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
+                    : button.variant === "secondary"
+                      ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
+                      : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
                   }
                   disabled:opacity-50 disabled:cursor-not-allowed
                 `}

@@ -13,7 +13,7 @@ export const shop = {
   starsDescription: "Mmm, stars",
   moreAttempts: "More Attempts",
   description: "Get 1 extra game attempt",
-  additionalAttempts: "Additional attempts: {attempts}",
+  additionalAttempts: "Additional attempts:",
   features: "Features",
   benefits: [
     "Play another game",

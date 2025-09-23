@@ -2,7 +2,7 @@
 
 export const tasks = {
   // Основные элементы
-  title: "TASKS",
+  title: "Tasks",
   subtitle: "Выполняйте задания для получения наград",
   loading: "Загрузка заданий...",
   refresh: "Обновить",

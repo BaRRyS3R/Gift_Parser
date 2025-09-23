@@ -447,7 +447,7 @@ function ProductRow({
         
         {/* Description text */}
         <div className="text-white/60 text-sm">
-          {t("shop.moreAttempts")}
+          {t("shop.additionalAttempts")} {attempts}
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 export const tasks = {
   // Main elements
-  title: "TASKS",
+  title: "Tasks",
   subtitle: "Complete tasks to earn rewards",
   loading: "Loading tasks...",
   refresh: "Refresh",
