@@ -213,9 +213,9 @@ export default function ShopPage() {
         <h1 className="text-xl font-medium text-white mb-4">
           {t("shop.title")}
         </h1>
-        
+
         {/* Buy for stars - large heading */}
-        <h2 
+        <h2
           className="text-3xl font-bold text-white select-none cursor-default"
           style={{
             WebkitTapHighlightColor: "transparent",
@@ -343,6 +343,9 @@ function ProductRow({
       <div className="flex items-center space-x-3">
         <div className="flex items-center space-x-1">
           <span className="text-white font-medium">+{attempts}⚡</span>
+        </div>
+        <div className="text-white/60 text-sm">
+          {t("shop.additionalAttempts")}
         </div>
       </div>
 

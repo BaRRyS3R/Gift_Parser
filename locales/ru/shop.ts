@@ -1,7 +1,7 @@
 // src/locales/ru/shop.ts - Updated Shop and purchases with TON Shop localization
 
 export const shop = {
-  title: "SHOP",
+  title: "Shop",
   subtitle: "Добро пожаловать в пятёрочку",
   buyForStars: "Купить за звезды",
   paymentMethods: "TON",
@@ -13,6 +13,7 @@ export const shop = {
   starsDescription: "Мммм, звёздочки",
   moreAttempts: "Больше Попыток",
   description: "Получите 1 дополнительную игровую попытку",
+  additionalAttempts: "Дополнительные попытки: {attempts}",
   features: "Особенности",
   benefits: [
     "Сыграйте ещё одну игру",
