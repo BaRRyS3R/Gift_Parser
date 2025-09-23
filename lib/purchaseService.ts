@@ -21,13 +21,6 @@ const getTelegramInitData = (): string => {
     return window.Telegram.WebApp.initData;
   }
 
-  // Для разработки и тестирования
-  if (process.env.NODE_ENV === "development") {
-    console.warn("Using mock initData for development");
-
-    return "mock_init_data_for_development";
-  }
-
   return "";
 };
 
@@ -168,6 +161,8 @@ export const validateProductType = (
     "attempts_1",
     "attempts_5",
     "attempts_10",
+    "attempts_20",
+    "attempts_50",
     "attempts_100",
   ];
 

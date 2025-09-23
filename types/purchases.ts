@@ -18,6 +18,8 @@ export type ProductType =
   | "attempts_1"
   | "attempts_5"
   | "attempts_10"
+  | "attempts_20"
+  | "attempts_50"
   | "attempts_100";
 // ============================================================================
 
@@ -92,9 +94,37 @@ export const PRODUCTS: Record<ProductType, ProductInfo> = {
     type: "attempts_10",
     title: "+10 Attempts",
     description: "Get 10 additional game attempts",
-    price: 100, // 100 Telegram Stars
+    price: 90, // 100 Telegram Stars
     icon: "💎",
     attempts_bonus: 10,
+    benefits: [
+      "10 additional games",
+      "Great value pack",
+      "Instant activation",
+      "No expiration date",
+    ],
+  },
+  attempts_20: {
+    type: "attempts_20",
+    title: "+20 Attempts",
+    description: "Get 20 additional game attempts",
+    price: 180, // 100 Telegram Stars
+    icon: "💎",
+    attempts_bonus: 20,
+    benefits: [
+      "20 additional games",
+      "Great value pack",
+      "Instant activation",
+      "No expiration date",
+    ],
+  },
+  attempts_50: {
+    type: "attempts_50",
+    title: "+50 Attempts",
+    description: "Get 50 additional game attempts",
+    price: 450, // 100 Telegram Stars
+    icon: "💎",
+    attempts_bonus: 50,
     benefits: [
       "10 additional games",
       "Great value pack",
@@ -106,7 +136,7 @@ export const PRODUCTS: Record<ProductType, ProductInfo> = {
     type: "attempts_100",
     title: "+100 Attempts",
     description: "Get 100 additional game attempts",
-    price: 1000, // 1000 Telegram Stars
+    price: 800, // 1000 Telegram Stars
     icon: "👑",
     attempts_bonus: 100,
     benefits: [
