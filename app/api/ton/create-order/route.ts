@@ -83,6 +83,8 @@ export async function POST(
       "attempts_1",
       "attempts_5",
       "attempts_10",
+      "attempts_20",
+      "attempts_50",
       "attempts_100",
     ];
 

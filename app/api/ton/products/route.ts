@@ -67,6 +67,8 @@ export async function GET(
       "attempts_1",
       "attempts_5",
       "attempts_10",
+      "attempts_20",
+      "attempts_50",
       "attempts_100",
     ];
     const products = productTypes.map((productType) =>
@@ -90,7 +92,7 @@ export async function GET(
       // Проверяем на отсутствие TELEGRAM_BOT_API
       if (error.message.includes("TELEGRAM_BOT_API")) {
         console.error(
-          "[TON_PRODUCTS] Missing TELEGRAM_BOT_API environment variable",
+          "[TON_PRODUCTS] Missing TELEGRAM BOT API environment variable",
         );
 
         return NextResponse.json(

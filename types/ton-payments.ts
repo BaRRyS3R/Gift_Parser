@@ -48,9 +48,11 @@ export interface TONOrder {
 
 export const TON_PRICES: Record<ProductType, bigint> = {
   attempts_1: BigInt(50000000), // 0.05 TON
-  attempts_5: BigInt(200000000), // 0.2 TON
+  attempts_5: BigInt(250000000), // 0.2 TON
   attempts_10: BigInt(450000000), // 0.45 TON
-  attempts_100: BigInt(4500000000), // 4.5 TON
+  attempts_20: BigInt(8300000000), // 0.83 TON
+  attempts_50: BigInt(2300000000), // 2.3 TON
+  attempts_100: BigInt(4200000000), // 4.2 TON
 } as const;
 
 // Конвертация nanotons в TON для отображения
@@ -178,6 +180,8 @@ export function parseTONPayload(payload: string): {
       "attempts_1",
       "attempts_5",
       "attempts_10",
+      "attempts_20",
+      "attempts_50",
       "attempts_100",
     ];
     const isValidProductType = validProductTypes.includes(productType);
@@ -257,6 +261,8 @@ export function getTONProductInfo(productType: ProductType) {
     attempts_1: { attempts: 1, title: "+1 Attempt" },
     attempts_5: { attempts: 5, title: "+5 Attempts" },
     attempts_10: { attempts: 10, title: "+10 Attempts" },
+    attempts_20: { attempts: 20, title: "+20 Attempts" },
+    attempts_50: { attempts: 50, title: "+50 Attempts" },
     attempts_100: { attempts: 100, title: "+100 Attempts" },
   };
 
