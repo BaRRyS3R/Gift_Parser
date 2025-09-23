@@ -1,19 +1,16 @@
-// src/app/shop/page.tsx - Updated with Binary Easter Egg (5 clicks) instead of Cat
+// src/app/shop/page.tsx - Complete refactored version to match screenshot design
 
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, Button, Chip, Divider } from "@nextui-org/react";
+import { Card, CardBody, Button } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
   AlertCircle,
   Star,
   CheckCircle,
   Clock,
-  ShoppingCart,
-  Wallet,
-  ExternalLink,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -41,7 +38,6 @@ export default function ShopPage() {
   const { user, refreshUser, makeAuthenticatedRequest } = useUser();
   const t = useT();
 
-  // Use existing purchase hook for Telegram Stars
   const purchaseModule = usePurchase(makeAuthenticatedRequest);
 
   const [isExploding, setIsExploding] = useState(false);
@@ -53,7 +49,6 @@ export default function ShopPage() {
       icon: null,
     });
 
-  // UPDATED: Easter egg state for Binary Easter Egg (5 clicks)
   const [easterEggState, setEasterEggState] = useState<EasterEggState>({
     clickCount: 0,
     lastClickTime: 0,
@@ -82,7 +77,7 @@ export default function ShopPage() {
     };
   }, []);
 
-  // UPDATED: Handle title click for Binary Easter Egg (5 clicks)
+  // Handle title click for Binary Easter Egg (5 clicks)
   const handleTitleClick = (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -90,20 +85,17 @@ export default function ShopPage() {
     const currentTime = Date.now();
     const timeDifference = currentTime - easterEggState.lastClickTime;
 
-    // If more than 5 seconds passed since last click, reset counter
     if (timeDifference > 5000) {
       setEasterEggState({
         clickCount: 1,
         lastClickTime: currentTime,
         isActive: false,
       });
-
       return;
     }
 
     const newClickCount = easterEggState.clickCount + 1;
 
-    // Activate Binary Easter Egg on 5th click
     if (newClickCount >= 5) {
       setEasterEggState({
         clickCount: 0,
@@ -111,9 +103,8 @@ export default function ShopPage() {
         isActive: true,
       });
 
-      // Enhanced vibration for Binary Easter Egg activation
       if (typeof window !== "undefined" && window.navigator?.vibrate) {
-        window.navigator.vibrate([100, 50, 100]); // Double vibration for success
+        window.navigator.vibrate([100, 50, 100]);
       }
     } else {
       setEasterEggState({
@@ -180,28 +171,11 @@ export default function ShopPage() {
       const success = await purchaseModule.processPurchase(productType);
 
       if (success) {
-        // Refresh user data to get updated attempts
         await refreshUser();
-
-        // Show success notification
         showSuccessNotification(productType);
-      } else {
       }
     } catch (error) {
       console.error("Error in purchase process:", error);
-    }
-  };
-
-  const getProductBadge = (productType: ProductType) => {
-    switch (productType) {
-      case "attempts_5":
-        return { text: "Popular", textKey: "shop.badges.popular" };
-      case "attempts_10":
-        return { text: "Best Value", textKey: "shop.badges.bestValue" };
-      case "attempts_100":
-        return { text: "Ultimate", textKey: "shop.badges.ultimate" };
-      default:
-        return null;
     }
   };
 
@@ -234,9 +208,9 @@ export default function ShopPage() {
       )}
 
       {/* Header with clickable title for Binary Easter Egg */}
-      <div className="text-center space-y-4 mb-8 pt-6">
-        <div
-          className="text-4xl font-bold tracking-widest text-white animate-fade-in select-none cursor-default"
+      <div className="text-center mb-8 pt-6">
+        <h1 
+          className="text-xl font-medium text-white select-none cursor-default"
           style={{
             WebkitTapHighlightColor: "transparent",
             WebkitTouchCallout: "none",
@@ -246,14 +220,11 @@ export default function ShopPage() {
           }}
           onTouchEnd={handleTitleClick}
         >
-          <h1 className="m-0 p-0">{t("shop.title")}</h1>
-        </div>
-        <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-          {t("shop.subtitle")}
-        </p>
+          {t("shop.buyForStars")}
+        </h1>
       </div>
 
-      {/* Binary Easter Egg - positioned between header and content */}
+      {/* Binary Easter Egg */}
       <div className="max-w-2xl mx-auto">
         <BinaryEasterEgg
           isVisible={easterEggState.isActive}
@@ -276,68 +247,30 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Payment Methods Section */}
+      {/* TON Shop Button */}
       <div className="max-w-2xl mx-auto mb-8">
-        <div className="text-center mb-4">
-          <h3 className="text-xl font-bold text-white mb-2">
-            {t("shop.paymentMethods")}
-          </h3>
-        </div>
-
-        {/* TON Payment Option */}
-        <Card className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 mb-4">
-          <CardBody className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
-                  <Wallet className="text-blue-400" size={24} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white text-lg">
-                    {t("shop.payWithTON")}
-                  </h3>
-                </div>
-              </div>
-              <TONPurchaseButton
-                className="bg-blue-600 text-white hover:bg-blue-700"
-                size="lg"
-                variant="solid"
-              >
-                <div className="flex items-center space-x-2">
-                  <Wallet size={18} />
-                  <span>{t("shop.openTONShop")}</span>
-                  <ExternalLink className="opacity-70" size={14} />
-                </div>
-              </TONPurchaseButton>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Divider className="my-6 bg-white/20" />
-
-        {/* Telegram Stars Payment Option */}
-        <div className="text-center mb-4">
-          <h3 className="text-xl font-bold text-white mb-2">
-            {t("shop.payWithStars")}
-          </h3>
+        <div className="flex justify-center">
+          <TONPurchaseButton
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            size="md"
+          >
+            {t("shop.goToTONShop")}
+          </TONPurchaseButton>
         </div>
       </div>
 
-      {/* Products Grid - Telegram Stars */}
-      <div className="max-w-2xl mx-auto space-y-4">
+      {/* Products List */}
+      <div className="max-w-2xl mx-auto space-y-3">
         {Object.entries(PRODUCTS).map(([key, product]) => {
           const productType = key as ProductType;
-          const badge = getProductBadge(productType);
-          const isLoadingThisProduct =
-            purchaseModule.isLoadingProduct(productType);
+          const isLoadingThisProduct = purchaseModule.isLoadingProduct(productType);
 
           return (
-            <ProductCard
+            <ProductRow
               key={productType}
-              badge={badge}
-              getButtonText={getButtonText}
+              attempts={product.attempts_bonus || 0}
               loading={isLoadingThisProduct}
-              product={product}
+              price={product.price}
               productType={productType}
               t={t}
               onPurchase={handlePurchase}
@@ -350,10 +283,10 @@ export default function ShopPage() {
       {successNotification.show && (
         <div
           className={`
-                        fixed top-4 left-4 right-4 z-40
-                        transform transition-all duration-500 ease-out
-                        ${successNotification.show ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}
-                    `}
+            fixed top-4 left-4 right-4 z-40
+            transform transition-all duration-500 ease-out
+            ${successNotification.show ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}
+          `}
         >
           <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
             <CardBody className="p-4">
@@ -381,93 +314,54 @@ export default function ShopPage() {
   );
 }
 
-interface ProductCardProps {
+interface ProductRowProps {
   productType: ProductType;
-  product: any;
-  badge: { text: string; textKey: string } | null;
+  attempts: number;
+  price: number;
   loading: boolean;
-  onPurchase: (productType: ProductType) => void;
-  getButtonText: (productType: ProductType) => string;
   t: any;
+  onPurchase: (productType: ProductType) => void;
 }
 
-function ProductCard({
+function ProductRow({
   productType,
-  product,
-  badge,
+  attempts,
+  price,
   loading,
-  onPurchase,
-  getButtonText,
   t,
-}: ProductCardProps) {
+  onPurchase,
+}: ProductRowProps) {
+  const getProductKey = (type: ProductType) => {
+    return type.replace('_', '');
+  };
+
+  const productKey = getProductKey(productType);
+  const description = t(`shop.products.${productKey}.description`);
+
   return (
-    <Card
-      className={`
-                relative overflow-hidden
-                hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
-                transition-all duration-200
-            `}
-    >
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -right-12 top-1/2 transform -translate-y-1/2 opacity-10">
-          <div className="text-white text-[140px] leading-none">⚡</div>
+    <div className="bg-white/5 rounded-lg p-4 flex items-center justify-between hover:bg-white/10 transition-colors">
+      {/* Left side - attempts with lightning icon */}
+      <div className="flex items-center space-x-3">
+        <div className="text-yellow-400 text-xl">⚡</div>
+        <div>
+          <div className="text-white font-medium">+{attempts}</div>
+          <div className="text-white/60 text-sm">
+            {description}
+          </div>
         </div>
       </div>
 
-      <CardBody className="p-4 relative z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-start space-x-3 mb-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center space-x-2 mb-1">
-                  <h3 className="font-bold text-white truncate">
-                    {t(
-                      `shop.products.${productType.replace("_", "") === "instantreset" ? "instantReset" : productType.replace("_", "")}.title`,
-                    )}
-                  </h3>
-                  {badge && (
-                    <Chip
-                      className="bg-white/20 text-white border border-white/30"
-                      size="sm"
-                      variant="flat"
-                    >
-                      {t(badge.textKey)}
-                    </Chip>
-                  )}
-                </div>
-                <p className="text-white/70 text-sm">
-                  {t(
-                    `shop.products.${productType.replace("_", "") === "instantreset" ? "instantReset" : productType.replace("_", "")}.description`,
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Star className="text-white" size={16} />
-                <span className="text-white font-bold">{product.price}</span>
-              </div>
-
-              <Button
-                className="
-                                    relative z-20 
-                                    bg-white/20 text-white border border-white/40 
-                                    hover:bg-white/30 hover:border-white/60
-                                    disabled:opacity-50 disabled:cursor-not-allowed
-                                "
-                isDisabled={loading}
-                isLoading={loading}
-                size="sm"
-                startContent={!loading ? <ShoppingCart size={16} /> : null}
-                onPress={() => onPurchase(productType)}
-              >
-                {getButtonText(productType)}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </CardBody>
-    </Card>
+      {/* Right side - price button */}
+      <Button
+        className="bg-white/20 text-white hover:bg-white/30 min-w-[80px] rounded-lg"
+        isDisabled={loading}
+        isLoading={loading}
+        size="sm"
+        startContent={!loading ? <Star size={16} /> : undefined}
+        onPress={() => onPurchase(productType)}
+      >
+        {loading ? "" : price}
+      </Button>
+    </div>
   );
 }

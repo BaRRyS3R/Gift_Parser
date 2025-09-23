@@ -125,7 +125,7 @@ export default function AchievementsModal({
   const [hoveredAchievement, setHoveredAchievement] = useState<string | null>(
     null,
   );
-  
+
   // Track if BackButton handler is registered for this modal
   const backButtonHandlerRef = useRef<(() => void) | null>(null);
 
@@ -139,18 +139,18 @@ export default function AchievementsModal({
   useEffect(() => {
     if (isOpen && typeof window !== "undefined" && window.Telegram?.WebApp) {
       const webApp = window.Telegram.WebApp;
-      
+
       // Create handler for this modal
       const handleBackButton = () => {
         onClose();
       };
-      
+
       // Store handler reference
       backButtonHandlerRef.current = handleBackButton;
-      
+
       // Register BackButton handler
       webApp.BackButton.onClick(handleBackButton);
-      
+
       // Cleanup function
       return () => {
         if (backButtonHandlerRef.current) {
@@ -228,20 +228,13 @@ export default function AchievementsModal({
         {(onClose) => (
           <>
             <ModalHeader className="flex flex-col gap-1 relative px-6 py-4 pt-16">
-              {/* Futuristic close button */}
-              <button
-                className="absolute top-4 right-4 p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 z-10 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                onClick={onClose}
-              >
-                <X size={20} />
-              </button>
 
               {/* Header with glowing effect - centered */}
               <div className="flex flex-col items-center space-y-3">
                 <div className="text-center">
-                  <span className="text-white font-bold tracking-wider bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent text-2xl">
+                  <h2 className="text-xl font-medium text-white">
                     {t("profile.achievements.title")}
-                  </span>
+                  </h2>
                   <p className="text-sm text-white/60 font-normal mt-2">
                     {t("profile.achievementsUnlocked", {
                       count: unlockedCount,
@@ -310,10 +303,9 @@ export default function AchievementsModal({
                         key={achievement.id}
                         className={`
                           relative p-4 rounded-lg border transition-all duration-300
-                          ${
-                            achievement.unlocked
-                              ? `bg-gradient-to-r ${colors.gradient} ${colors.border} ${colors.glow}`
-                              : "bg-black/40 border-white/5 opacity-60"
+                          ${achievement.unlocked
+                            ? `bg-gradient-to-r ${colors.gradient} ${colors.border} ${colors.glow}`
+                            : "bg-black/40 border-white/5 opacity-60"
                           }
                           hover:scale-[1.02] cursor-pointer
                         `}
@@ -340,11 +332,10 @@ export default function AchievementsModal({
                             <div
                               className={`
                               relative w-10 h-10 rounded-lg flex items-center justify-center
-                              ${
-                                achievement.unlocked
+                              ${achievement.unlocked
                                   ? `bg-black/50 border ${colors.border}`
                                   : "bg-white/5 border border-white/10"
-                              }
+                                }
                             `}
                             >
                               <Icon
@@ -384,11 +375,10 @@ export default function AchievementsModal({
                               <div
                                 className={`
                                 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono
-                                ${
-                                  achievement.unlocked
+                                ${achievement.unlocked
                                     ? "bg-green-500/20 text-green-400 border border-green-500/30"
                                     : "bg-white/5 text-white/30 border border-white/10"
-                                }
+                                  }
                               `}
                               >
                                 {achievement.unlocked ? (

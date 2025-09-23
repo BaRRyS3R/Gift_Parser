@@ -1,11 +1,14 @@
-// src/locales/ru/shop.ts - Shop and purchases with TON Shop localization
+// src/locales/ru/shop.ts - Updated Shop and purchases with TON Shop localization
+
 export const shop = {
   title: "SHOP",
   subtitle: "Добро пожаловать в пятёрочку",
+  buyForStars: "Купить за звезды",
   paymentMethods: "TON",
   payWithTON: "TON",
   tonDescription: "<3",
   openTONShop: "Открыть",
+  goToTONShop: "Перейти в TON магазин",
   payWithStars: "Telegram Stars",
   starsDescription: "Мммм, звёздочки",
   moreAttempts: "Больше Попыток",
@@ -28,15 +31,15 @@ export const shop = {
   purchaseSuccessMessage: "Оп, попыточки: +{attempts}",
   instantResetSuccess: "Попытки Восстановлены!",
   instantResetMessage: "Ваши попытки восстановлены и таймер сброшен",
-  support: "Поддержка", // Не актуально
-  supportContact: "По вопросам обращайтесь:", // Не актуально
-  supportLink: "https://t.me/circuslecommunity", // Не актуально
+  support: "Поддержка",
+  supportContact: "По вопросам обращайтесь:",
+  supportLink: "https://t.me/circuslecommunity",
   paymentDetails: [
-    "• Платежи обрабатываются через Telegram Stars", // Не актуально
-    "• Попытки добавляются мгновенно после оплаты", // Не актуально
-    "• Безопасный платёж через Telegram", // Не актуально
-    "• Нет ограничений на количество попыток", // Не актуально
-    "• Без регулярных платежей", // Не актуально
+    "• Платежи обрабатываются через Telegram Stars",
+    "• Попытки добавляются мгновенно после оплаты",
+    "• Безопасный платёж через Telegram",
+    "• Нет ограничений на количество попыток",
+    "• Без регулярных платежей",
   ],
   products: {
     attempts1: {
@@ -55,16 +58,16 @@ export const shop = {
       title: "+100 Попыток",
       description: "Получите 100 дополнительных игровых попыток",
     },
-    instantReset: { // Не актуально
-      title: "Мгновенный Сброс", 
+    instantReset: {
+      title: "Мгновенный Сброс",
       description: "Мгновенно восстановите 10 попыток и сбросьте таймер",
-    }, // Не актуально
+    },
   },
   badges: {
     popular: "d46351ba",
     bestValue: "333607e13db3",
     ultimate: "3ff954c06925",
-    instant: "Мгновенно", // Не актуально
+    instant: "Мгновенно",
   },
   buy: "Купить",
   loading: "Загрузка...",

@@ -1,60 +1,67 @@
-// src/locales/en/shop.ts - Shop and purchases with TON Shop localization
+// src/locales/ru/shop.ts - Updated Shop and purchases with TON Shop localization
 
 export const shop = {
   title: "SHOP",
-  subtitle: "Welcome to walmart",
+  subtitle: "Welcome to Pyaterochka",
+  buyForStars: "Buy with stars",
   paymentMethods: "TON",
   payWithTON: "TON",
-  tonDescription: "Yay",
+  tonDescription: "<3",
   openTONShop: "Open",
+  goToTONShop: "Go to the TON shop",
   payWithStars: "Telegram Stars",
-  starsDescription: "Staaaaaars mmmm",
+  starsDescription: "Mmm, stars",
   moreAttempts: "More Attempts",
-  description: "Get 1 additional game attempt",
+  description: "Get 1 extra game attempt",
   features: "Features",
-  benefits: ["Play one more game", "Instant activation", "No expiration date"],
+  benefits: [
+    "Play another game",
+    "Instant activation",
+    "No expiration date",
+  ],
   price: "{price} Telegram Stars",
   purchase: "BUY FOR {price} ⭐",
-  creatingInvoice: "CREATING INVOICE...",
+  creatingInvoice: "CREATING AN INVOICE...",
   processingPayment: "PROCESSING PAYMENT...",
   purchaseSuccessful: "Purchase Successful!",
   purchaseFailed: "Purchase Failed",
   attemptAdded: "+1 attempt added to your account",
   paymentInfo: "Payment Information",
   purchaseSuccess: "Purchase Successful!",
-  purchaseSuccessMessage: "Yay! Attempts: +{attempts}",
-  instantResetSuccess: "Attempts Restored!",
-  instantResetMessage: "Your attempts have been restored and timer reset",
+  purchaseSuccessMessage: "Oops, attempts: +{attempts}",
+  instantResetSuccess: "Attempts Recovered!",
+  instantResetMessage: "Your attempts have been recovered and the timer has been reset",
   support: "Support",
-  supportContact: "For refund inquiries contact:",
-  supportLink: "https://t.me/mrmrcrowley",
+  supportContact: "For questions, please contact:",
+  supportLink: "https://t.me/circuslecommunity",
   paymentDetails: [
-    "• Payments processed through Telegram Stars",
-    "• Attempts added instantly after payment",
-    "• Secure payment through Telegram",
-    "• No limit on number of attempts",
-    "• No recurring charges",
+    "• Payments are processed via Telegram Stars",
+    "• Attempts are added instantly after payment",
+    "• Secure payment via Telegram",
+    "• No limit on the number of attempts",
+    "• No regular payments",
   ],
-  products: {
+
+  Products: {
     attempts1: {
       title: "+1 Attempt",
-      description: "Get 1 additional game attempt",
+      description: "Get 1 extra game attempt",
     },
     attempts5: {
       title: "+5 Attempts",
-      description: "Get 5 additional game attempts",
+      description: "Get 5 extra game attempts",
     },
     attempts10: {
       title: "+10 Attempts",
-      description: "Get 10 additional game attempts",
+      description: "Get 10 extra game attempts",
     },
     attempts100: {
       title: "+100 Attempts",
-      description: "Get 100 additional game attempts",
+      description: "Get 100 extra game attempts",
     },
     instantReset: {
       title: "Instant Reset",
-      description: "Instantly restore 10 attempts and reset cooldown",
+      description: "Instantly restore 10 attempts and reset the timer",
     },
   },
   badges: {
@@ -67,12 +74,12 @@ export const shop = {
   loading: "Loading...",
   notifications: {
     purchaseSuccess: "Purchase Successful!",
-    purchaseSuccessMessage: "{attempts} attempt{plural} added to your account",
-    instantResetSuccess: "Attempts Restored!",
-    instantResetMessage: "Your attempts have been restored and timer reset",
+    purchaseSuccessMessage: "{attempts} {plural} attempts added to your account",
+    instantResetSuccess: "Attempts Recovered!",
+    instantResetMessage: "Your attempts have been recovered and the timer has been reset",
   },
 
-  // TON Shop specific localization
+  // TON Shop-specific localization
   tonShop: {
     title: "TON Shop",
     subtitle: "Purchase game attempts with TON cryptocurrency",
@@ -80,26 +87,27 @@ export const shop = {
 
     errors: {
       missingAuthData:
-        "Authentication data missing. Please open this page through the main application.",
+        "Missing authentication data. Please open this page through the main app.",
       invalidAuthData: "Invalid authentication data",
-      initializationFailed: "Failed to initialize shop",
-      loadingError: "Shop Loading Error",
-      orderCreationFailed: "Failed to create order",
+      initializationFailed: "Failed to initialize the store",
+      loadingError: "Error loading store",
+      orderCreationFailed: "Failed to create an order",
       walletNotConnected: "Wallet not connected",
       invalidOrderData: "Invalid order data",
-      transactionCancelled: "Transaction cancelled by user",
-      insufficientBalance: "Insufficient TON balance in wallet",
-      transactionFailed: "Failed to send transaction. Please try again.",
-      statusCheckFailed: "Failed to check order status",
+      transactionCancelled: "Transaction canceled by user",
+      insufficientBalance: "Insufficient TON in the wallet balance",
+      transactionFailed:
+        "Failed to send the transaction. Please try again.",
+      statusCheckFailed: "Failed to check the order status",
       timeoutExpired:
-        "Timeout expired. Please check transaction status manually.",
-      authDataUnavailable: "Unable to get Telegram authentication data",
-      openingFailed: "Failed to open TON Shop",
+        "Timeout expired. Please check the transaction status manually.",
+      authDataUnavailable: "Failed to retrieve Telegram authentication data.",
+      openingFailed: "Failed to open the TON store.",
     },
 
     wallet: {
-      connected: "Wallet Connected",
-      connectRequired: "Connect wallet to make purchases",
+      connected: "Wallet connected",
+      connectRequired: "Connect your wallet to make purchases",
     },
 
     user: {
@@ -112,7 +120,7 @@ export const shop = {
       processingPayment: "Processing payment...",
       processingTime:
         "Your transaction is being processed. This may take up to 5 minutes.",
-      paymentSuccessful: "Payment successful!",
+      paymentSuccessful: "Payment successfully completed!",
       attemptsAdded: "Your attempts have been added to your account.",
       paymentError: "Payment error",
     },
@@ -130,7 +138,7 @@ export const shop = {
       safeToClose: "You can safely close this page after payment",
       attemptsVisible:
         "Attempts will be visible in the main app after processing",
-      corporateWallet: "All transactions here",
+      corporateWallet: "Here are all transactions",
     },
 
     badges: {
@@ -142,7 +150,7 @@ export const shop = {
     products: {
       attempts_1: {
         title: "+1 Attempt",
-        description: "Get 1 additional game attempt",
+        description: "Get 1 extra game attempt",
       },
       attempts_5: {
         title: "+5 Attempts",
@@ -160,7 +168,7 @@ export const shop = {
 
     button: {
       tooltip:
-        "Open TON Shop to purchase game attempts with TON cryptocurrency",
+        "Open the TON store to purchase game attempts with TON cryptocurrency",
     },
   },
 } as const;
