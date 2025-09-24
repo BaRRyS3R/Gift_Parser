@@ -29,7 +29,7 @@ const CRON_CONFIG = {
   EXECUTION_TIMEOUT: 50000, // 50 секунд
 
   // Настройки мониторинга
-  LOOKBACK_HOURS: 24,
+  LOOKBACK_HOURS: 1,
 
   // Telegram уведомления
   GAME_START_URL: "https://t.me/circusle_bot?startapp",
