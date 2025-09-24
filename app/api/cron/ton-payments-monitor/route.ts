@@ -497,8 +497,14 @@ export async function GET(request: NextRequest) {
   console.log(`[TON_MONITOR] 🚀 Starting TON payments monitoring at ${new Date().toISOString()}`);
   
   try {
-    // Проверяем API ключ для CRON доступа
-    const cronApiKey = request.nextUrl.searchParams.get("key");
+    // Проверяем API ключ для CRON доступа (поддерживаем query param и Authorization header)
+    const cronApiKeyFromQuery = request.nextUrl.searchParams.get("key");
+    const authHeader = request.headers.get("authorization");
+    const cronApiKeyFromHeader = authHeader?.startsWith("Bearer ") 
+      ? authHeader.substring(7) 
+      : null;
+    
+    const cronApiKey = cronApiKeyFromQuery || cronApiKeyFromHeader;
     const expectedCronKey = process.env.CRON_API_KEY;
     
     if (!cronApiKey || cronApiKey !== expectedCronKey) {
