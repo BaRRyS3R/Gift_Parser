@@ -109,14 +109,9 @@ async function fetchAccountEvents(
   const currentTimestamp = Math.floor(Date.now() / 1000);
   const cutoffTimestamp = currentTimestamp - (safeHoursBack * 3600);
   
-  console.log(`[TON_MONITOR] 🔍 Fetching events for account: ${accountId}`);
-  console.log(`[TON_MONITOR] ⏰ Current timestamp: ${currentTimestamp} (${new Date(currentTimestamp * 1000).toISOString()})`);
-  console.log(`[TON_MONITOR] ⏰ Cutoff timestamp: ${cutoffTimestamp} (${new Date(cutoffTimestamp * 1000).toISOString()})`);
-  console.log(`[TON_MONITOR] ⏰ Safe hours back: ${safeHoursBack} hours (original: ${hoursBack})`);
-  
   // Используем только базовые параметры, которые поддерживает TONAPI
   const params = new URLSearchParams({
-    limit: "50", // Разумное количество для обработки
+    limit: "100", // Разумное количество для обработки
   });
   
   const url = `${TONAPI_BASE_URL}${TONAPI_ENDPOINTS.ACCOUNT_EVENTS(accountId)}?${params.toString()}`;
@@ -147,17 +142,11 @@ async function fetchAccountEvents(
     const recentEvents = allEvents.filter(event => {
       const eventTime = event.timestamp;
       const isWithinTimeRange = eventTime >= cutoffTimestamp && eventTime <= currentTimestamp;
-      
-      if (isWithinTimeRange) {
-        console.log(`[TON_MONITOR] ✅ Event within range: ${eventTime} (${new Date(eventTime * 1000).toISOString()})`);
-      }
+    
       
       return isWithinTimeRange;
     });
-    
-    console.log(`[TON_MONITOR] 📊 Total events returned: ${allEvents.length}`);
-    console.log(`[TON_MONITOR] 📊 Events within time range: ${recentEvents.length}`);
-    
+  
     return recentEvents;
     
   } catch (error) {
@@ -189,13 +178,8 @@ function parseIncomingPayments(events: TONAPIEvent[]): Array<{
     lt: number;
   }> = [];
   
-  console.log(`[TON_MONITOR] 🔍 Parsing ${events.length} events for payments`);
-  console.log(`[TON_MONITOR] 🎯 Target corporate wallet (friendly): ${TON_CONFIG.CORPORATE_WALLET}`);
-  console.log(`[TON_MONITOR] 🎯 Target corporate wallet (raw): ${TON_CONFIG.CORPORATE_WALLET_RAW}`);
-  
   for (const event of events) {
     try {
-      console.log(`[TON_MONITOR] 📋 Processing event ${event.event_id} with ${event.actions?.length || 0} actions`);
       
       if (!event.actions || event.actions.length === 0) {
         console.log(`[TON_MONITOR] ⚠️ Event ${event.event_id} has no actions`);
@@ -216,11 +200,7 @@ function parseIncomingPayments(events: TONAPIEvent[]): Array<{
             
             // Check if comment exists and is not empty
             const hasComment = comment.length > 0;
-            
-            console.log(`[TON_MONITOR] 💸 Transfer: ${transfer.amount} nanoTON from ${transfer.sender?.address} to ${recipientAddress}`);
-            console.log(`[TON_MONITOR] 💬 Comment: "${comment}"`);
-            console.log(`[TON_MONITOR] 🎯 Recipient match: ${isRecipientMatch}, Has comment: ${hasComment}`);
-            
+             
             if (isRecipientMatch && hasComment) {
               payments.push({
                 eventId: event.event_id,
@@ -231,8 +211,6 @@ function parseIncomingPayments(events: TONAPIEvent[]): Array<{
                 timestamp: event.timestamp,
                 lt: event.lt,
               });
-              
-              console.log(`[TON_MONITOR] 💰 ✅ PAYMENT FOUND: ${transfer.amount} nanoTON with comment: "${comment}"`);
             } else {
               if (!isRecipientMatch) {
                 console.log(`[TON_MONITOR] ❌ Recipient mismatch: got "${recipientAddress}"`);
@@ -249,7 +227,6 @@ function parseIncomingPayments(events: TONAPIEvent[]): Array<{
     }
   }
   
-  console.log(`[TON_MONITOR] 📊 Parsing completed: ${payments.length} payments found from ${events.length} events`);
   return payments;
 }
 /**
@@ -315,8 +292,6 @@ async function createTONTransaction(
       console.error(`[TON_MONITOR] ❌ Error creating transaction record:`, error);
       return null;
     }
-    
-    console.log(`[TON_MONITOR] ✅ Created transaction record: ${data.id}`);
     return data.id;
     
   } catch (error) {
@@ -333,7 +308,6 @@ async function creditAttemptsToUser(
   attemptsToAdd: number
 ): Promise<boolean> {
   try {
-    console.log(`[TON_MONITOR] 💎 Crediting ${attemptsToAdd} attempts to user ${telegramId}`);
     
     // Получаем текущую информацию о пользователе
     const { data: userData, error: fetchError } = await supabaseServer
@@ -367,10 +341,6 @@ async function creditAttemptsToUser(
       console.error(`[TON_MONITOR] ❌ Error updating user attempts:`, updateError);
       return false;
     }
-    
-    console.log(
-      `[TON_MONITOR] ✅ Successfully credited attempts. User ${telegramId}: ${userData.attempts_remaining} → ${newAttemptsCount}`
-    );
     
     return true;
     
@@ -417,15 +387,14 @@ async function sendTelegramNotification(
 ): Promise<boolean> {
   try {
     const botToken = process.env.TELEGRAM_BOT_API!;
-    const message = `🎉 *Платеж успешно обработан!*
+    const message = `🎉 *Payment successfully completed!*
 
-💰 Получено: *${productInfo.priceTON} TON*
-🎯 Товар: *${productInfo.title}*
-🎮 Получено попыток: *+${productInfo.attempts}*
+Price: *${productInfo.priceTON} TON*
+Recieved attempts: *+${productInfo.attempts}*
 
-🔗 Транзакция: \`${transactionHash}\`
+Transaction Hash: \`${transactionHash}\`
 
-Ваши попытки уже доступны в игре! 🚀`;
+Ready to play!`;
 
     const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
     
@@ -446,8 +415,7 @@ async function sendTelegramNotification(
       const errorText = await response.text();
       throw new Error(`Telegram API error: ${response.status} - ${errorText}`);
     }
-    
-    console.log(`[TON_MONITOR] 📱 Notification sent to user ${telegramId}`);
+
     return true;
     
   } catch (error) {
@@ -476,7 +444,6 @@ async function processPayment(payment: {
     // Проверяем, не обработан ли уже этот платеж
     const alreadyExists = await transactionExists(transactionHash);
     if (alreadyExists) {
-      console.log(`[TON_MONITOR] ⏭️ Transaction already processed: ${transactionHash}`);
       return { success: true };
     }
     
@@ -533,8 +500,6 @@ async function processPayment(payment: {
     
     // Отправляем уведомление
     await sendTelegramNotification(telegramId!, productInfo, transactionHash);
-    
-    console.log(`[TON_MONITOR] ✅ Payment processed successfully: ${transactionHash}`);
     return { success: true };
     
   } catch (error) {
@@ -552,8 +517,7 @@ async function processPayment(payment: {
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  console.log(`[TON_MONITOR] 🚀 Starting TON payments monitoring at ${new Date().toISOString()}`);
-  
+   
   try {
     // Проверяем API ключ для CRON доступа (поддерживаем query param и Authorization header)
     const cronApiKeyFromQuery = request.nextUrl.searchParams.get("key");
@@ -595,13 +559,11 @@ export async function GET(request: NextRequest) {
     
     // Получаем количество часов для проверки с дополнительной валидацией
     const envLookbackValue = process.env.TON_TRANSACTION_LOOKBACK || "2";
-    console.log(`[TON_MONITOR] 📝 Environment TON_TRANSACTION_LOOKBACK value: "${envLookbackValue}"`);
     
     const parsedLookback = parseInt(envLookbackValue, 10);
     const lookbackHours = isNaN(parsedLookback) ? 2 : Math.max(1, Math.min(parsedLookback, 48));
     
-    console.log(`[TON_MONITOR] 📝 Parsed lookback: ${parsedLookback}, Final lookback: ${lookbackHours} hours`);
-    
+     
     // Получаем события для корпоративного кошелька
     const events = await fetchAccountEvents(TON_CONFIG.CORPORATE_WALLET, lookbackHours);
     stats.totalChecked = events.length;
@@ -609,8 +571,6 @@ export async function GET(request: NextRequest) {
     // Извлекаем входящие платежи
     const payments = parseIncomingPayments(events);
     stats.newTransactions = payments.length;
-    
-    console.log(`[TON_MONITOR] 📊 Found ${payments.length} potential payments in ${events.length} events`);
     
     // Обрабатываем каждый платеж
     for (const payment of payments) {
