@@ -167,7 +167,8 @@ async function fetchAccountEvents(
 }
 
 /**
- * Обработка событий TONAPI и извлечение входящих платежей
+ * Enhanced parseIncomingPayments function with detailed debugging
+ * Add this to your route.ts file to replace the existing function
  */
 function parseIncomingPayments(events: TONAPIEvent[]): Array<{
   eventId: string;
@@ -189,80 +190,90 @@ function parseIncomingPayments(events: TONAPIEvent[]): Array<{
   }> = [];
   
   console.log(`[TON_MONITOR] 🔍 Parsing ${events.length} events for payments`);
+  console.log(`[TON_MONITOR] 🎯 Target corporate wallet: ${TON_CONFIG.CORPORATE_WALLET}`);
   
-  for (let eventIndex = 0; eventIndex < events.length; eventIndex++) {
-    const event = events[eventIndex];
-    
+  for (const event of events) {
     try {
-      console.log(`[TON_MONITOR] 📋 Event ${eventIndex + 1}/${events.length}:`);
-      console.log(`[TON_MONITOR] 📋 Event ID: ${event.event_id}`);
-      console.log(`[TON_MONITOR] 📋 Event timestamp: ${event.timestamp} (${new Date(event.timestamp * 1000).toISOString()})`);
-      console.log(`[TON_MONITOR] 📋 Event account: ${event.account?.address || 'unknown'}`);
-      console.log(`[TON_MONITOR] 📋 Event actions count: ${event.actions?.length || 0}`);
-      console.log(`[TON_MONITOR] 📋 Event in_progress: ${event.in_progress}`);
+      console.log(`[TON_MONITOR] 📋 Processing event ${event.event_id} with ${event.actions?.length || 0} actions`);
       
-      // Детальный анализ каждого действия в событии
-      if (event.actions && event.actions.length > 0) {
-        for (let actionIndex = 0; actionIndex < event.actions.length; actionIndex++) {
-          const action = event.actions[actionIndex];
-          
-          console.log(`[TON_MONITOR] 🎬 Action ${actionIndex + 1}: type="${action.type}", status="${action.status}"`);
-          
-          // Логируем структуру действия для анализа
-          console.log(`[TON_MONITOR] 🎬 Action data:`, JSON.stringify(action, null, 2));
-          
-          // Проверяем различные возможные структуры TON переводов
-          if (action.type === "TonTransfer" && action.status === "ok") {
-            console.log(`[TON_MONITOR] 💰 Found TonTransfer action`);
-            
-            if (action.TonTransfer) {
-              const transfer = action.TonTransfer;
-              console.log(`[TON_MONITOR] 💰 Transfer details:`, JSON.stringify(transfer, null, 2));
-              
-              // Проверяем, что это входящий платеж на наш корпоративный кошелек
-              if (transfer.recipient?.address === TON_CONFIG.CORPORATE_WALLET) {
-                console.log(`[TON_MONITOR] ✅ Transfer to corporate wallet detected`);
-                
-                if (transfer.comment) {
-                  console.log(`[TON_MONITOR] 💬 Transfer comment: "${transfer.comment}"`);
-                  
-                  payments.push({
-                    eventId: event.event_id,
-                    transactionHash: event.event_id,
-                    senderWallet: transfer.sender?.address || 'unknown',
-                    amountNanotons: BigInt(transfer.amount || 0),
-                    comment: transfer.comment,
-                    timestamp: event.timestamp,
-                    lt: event.lt || 0,
-                  });
-                  
-                  console.log(`[TON_MONITOR] ✅ Payment added to processing queue`);
-                } else {
-                  console.log(`[TON_MONITOR] ⚠️ Transfer has no comment, skipping`);
-                }
-              } else {
-                console.log(`[TON_MONITOR] ℹ️ Transfer recipient: ${transfer.recipient?.address || 'unknown'} (not our wallet)`);
-              }
-            }
-          } else if (action.type.includes("Transfer") || action.type.includes("Ton")) {
-            console.log(`[TON_MONITOR] 🔍 Potential transfer action found: ${action.type}`);
-            console.log(`[TON_MONITOR] 🔍 Full action structure:`, JSON.stringify(action, null, 2));
-          }
-        }
-      } else {
-        console.log(`[TON_MONITOR] ⚠️ Event has no actions or actions array is empty`);
+      // Log full event structure for first few events
+      if (payments.length < 2) {
+        console.log(`[TON_MONITOR] 📄 Full event structure:`, JSON.stringify(event, null, 2));
       }
       
+      // Check if actions exist
+      if (!event.actions || event.actions.length === 0) {
+        console.log(`[TON_MONITOR] ⚠️ Event ${event.event_id} has no actions`);
+        continue;
+      }
+      
+      // Process each action
+      for (const action of event.actions) {
+        console.log(`[TON_MONITOR] 🔄 Processing action type: "${action.type}" with status: "${action.status}"`);
+        
+        // Log full action structure for debugging
+        if (payments.length < 2) {
+          console.log(`[TON_MONITOR] 📋 Full action structure:`, JSON.stringify(action, null, 2));
+        }
+        
+        // Check for different possible action types
+        if (action.type === "TonTransfer" && action.status === "ok") {
+          console.log(`[TON_MONITOR] ✅ Found TonTransfer action with OK status`);
+          
+          if (action.TonTransfer) {
+            const transfer = action.TonTransfer;
+            
+            console.log(`[TON_MONITOR] 💸 Transfer details:`);
+            console.log(`[TON_MONITOR] 📤 Sender: ${transfer.sender?.address}`);
+            console.log(`[TON_MONITOR] 📥 Recipient: ${transfer.recipient?.address}`);
+            console.log(`[TON_MONITOR] 💰 Amount: ${transfer.amount} nanoTON`);
+            console.log(`[TON_MONITOR] 💬 Comment: "${transfer.comment || 'NO_COMMENT'}"`);
+            
+            // Check recipient address match
+            const isRecipientMatch = transfer.recipient?.address === TON_CONFIG.CORPORATE_WALLET;
+            console.log(`[TON_MONITOR] 🎯 Recipient address match: ${isRecipientMatch}`);
+            
+            // Check if comment exists
+            const hasComment = !!transfer.comment && transfer.comment.trim().length > 0;
+            console.log(`[TON_MONITOR] 💬 Has comment: ${hasComment}`);
+            
+            if (isRecipientMatch && hasComment) {
+              payments.push({
+                eventId: event.event_id,
+                transactionHash: event.event_id,
+                senderWallet: transfer.sender.address,
+                amountNanotons: BigInt(transfer.amount),
+                comment: transfer.comment!, // Safe to use ! since hasComment is true
+                timestamp: event.timestamp,
+                lt: event.lt,
+              });
+              
+              console.log(`[TON_MONITOR] 💰 ✅ PAYMENT FOUND: ${transfer.amount} nanoTON from ${transfer.sender.address} with comment: "${transfer.comment}"`);
+            } else {
+              console.log(`[TON_MONITOR] ❌ Transfer rejected:`);
+              if (!isRecipientMatch) {
+                console.log(`[TON_MONITOR] ❌ Recipient mismatch: expected "${TON_CONFIG.CORPORATE_WALLET}", got "${transfer.recipient?.address}"`);
+              }
+              if (!hasComment) {
+                console.log(`[TON_MONITOR] ❌ No comment: "${transfer.comment}"`);
+              }
+            }
+          } else {
+            console.log(`[TON_MONITOR] ⚠️ TonTransfer action has no TonTransfer data`);
+          }
+        } else {
+          console.log(`[TON_MONITOR] ⚠️ Skipping action: type="${action.type}", status="${action.status}"`);
+        }
+      }
     } catch (error) {
       console.error(`[TON_MONITOR] ❌ Error parsing event ${event.event_id}:`, error);
-      console.error(`[TON_MONITOR] ❌ Problematic event structure:`, JSON.stringify(event, null, 2));
+      console.error(`[TON_MONITOR] 📋 Problematic event:`, JSON.stringify(event, null, 2));
     }
   }
   
-  console.log(`[TON_MONITOR] 📊 Parsing completed: found ${payments.length} payments`);
+  console.log(`[TON_MONITOR] 📊 Parsing completed: ${payments.length} payments found from ${events.length} events`);
   return payments;
 }
-
 /**
  * Проверка существования транзакции в базе данных
  */
