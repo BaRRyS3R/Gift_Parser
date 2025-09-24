@@ -63,9 +63,12 @@ export const NANOTONS_PER_TON = BigInt(1000000000);
 // ============================================================================
 
 export const TON_CONFIG = {
-  // Корпоративный кошелек для приема платежей
+  // Corporate wallet - user-friendly format
   CORPORATE_WALLET: "EQDylHxryL2sUApZzEsp9iOGJNpOBZU_88U3ewxZ560hRA8I",
-
+  
+  // Corporate wallet - raw format (from TONAPI logs)
+  CORPORATE_WALLET_RAW: "0:f2947c6bc8bdac500a59cc4b29f6238624da4e05953ff3c5377b0c59e7ad2144",
+  
   // GetBlock API конфигурация
   GETBLOCK_API_URL: "https://go.getblock.io/cc8c998b532f4fff9e678d879957ca6c",
 

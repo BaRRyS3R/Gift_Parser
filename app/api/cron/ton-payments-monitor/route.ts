@@ -88,7 +88,7 @@ function validateEnvironmentVariables(): { isValid: boolean; missing: string[] }
   const missing = REQUIRED_ENV_VARS.filter(
     (envVar) => !process.env[envVar]
   );
-
+  
   return {
     isValid: missing.length === 0,
     missing,
@@ -103,26 +103,26 @@ async function fetchAccountEvents(
   hoursBack: number = 2
 ): Promise<TONAPIEvent[]> {
   const apiKey = process.env.TONAPI_KEY!;
-
+  
   // Принудительно устанавливаем безопасные значения для времени
   const safeHoursBack = Math.max(1, Math.min(hoursBack, 48)); // Ограничиваем от 1 до 48 часов
   const currentTimestamp = Math.floor(Date.now() / 1000);
   const cutoffTimestamp = currentTimestamp - (safeHoursBack * 3600);
-
+  
   console.log(`[TON_MONITOR] 🔍 Fetching events for account: ${accountId}`);
   console.log(`[TON_MONITOR] ⏰ Current timestamp: ${currentTimestamp} (${new Date(currentTimestamp * 1000).toISOString()})`);
   console.log(`[TON_MONITOR] ⏰ Cutoff timestamp: ${cutoffTimestamp} (${new Date(cutoffTimestamp * 1000).toISOString()})`);
   console.log(`[TON_MONITOR] ⏰ Safe hours back: ${safeHoursBack} hours (original: ${hoursBack})`);
-
+  
   // Используем только базовые параметры, которые поддерживает TONAPI
   const params = new URLSearchParams({
     limit: "50", // Разумное количество для обработки
   });
-
+  
   const url = `${TONAPI_BASE_URL}${TONAPI_ENDPOINTS.ACCOUNT_EVENTS(accountId)}?${params.toString()}`;
-
+  
   console.log(`[TON_MONITOR] 🌐 Request URL: ${url}`);
-
+  
   try {
     const response = await fetch(url, {
       method: "GET",
@@ -131,7 +131,7 @@ async function fetchAccountEvents(
         "Content-Type": "application/json",
       },
     });
-
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[TON_MONITOR] ❌ TONAPI response status: ${response.status}`);
@@ -139,76 +139,37 @@ async function fetchAccountEvents(
       console.error(`[TON_MONITOR] ❌ TONAPI error response: ${errorText}`);
       throw new Error(`TONAPI request failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
-
+    
     const data: TONAPIResponse = await response.json();
-
+    
     // Фильтрация событий по времени на стороне клиента
     const allEvents = data.events || [];
     const recentEvents = allEvents.filter(event => {
       const eventTime = event.timestamp;
       const isWithinTimeRange = eventTime >= cutoffTimestamp && eventTime <= currentTimestamp;
-
+      
       if (isWithinTimeRange) {
         console.log(`[TON_MONITOR] ✅ Event within range: ${eventTime} (${new Date(eventTime * 1000).toISOString()})`);
       }
-
+      
       return isWithinTimeRange;
     });
-
+    
     console.log(`[TON_MONITOR] 📊 Total events returned: ${allEvents.length}`);
     console.log(`[TON_MONITOR] 📊 Events within time range: ${recentEvents.length}`);
-
+    
     return recentEvents;
-
+    
   } catch (error) {
     console.error(`[TON_MONITOR] ❌ Error fetching account events:`, error);
     throw new Error(`Failed to fetch account events: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 
-// Add these utility functions at the top of your route.ts file after imports
-
 /**
- * Convert user-friendly TON address to raw format for comparison
- * EQDylHx... -> 0:f2947c6bc8bdac500a59cc4b29f6238624da4e05953ff3c5377b0c59e7ad2144
+ * Enhanced parseIncomingPayments function with detailed debugging
+ * Add this to your route.ts file to replace the existing function
  */
-function convertToRawAddress(friendlyAddress: string): string {
-  try {
-    // Remove EQ/UQ prefix and convert base64 to hex
-    const addressPart = friendlyAddress.substring(2); // Remove EQ or UQ
-    const buffer = Buffer.from(addressPart, 'base64');
-
-    // First byte is workchain, remaining 32 bytes are address
-    const workchain = buffer[0];
-    const address = buffer.slice(1).toString('hex');
-
-    return `${workchain}:${address}`;
-  } catch (error) {
-    console.error(`[TON_MONITOR] ❌ Error converting address ${friendlyAddress}:`, error);
-    return friendlyAddress; // Return original if conversion fails
-  }
-}
-
-/**
- * Normalize TON address for comparison - converts both formats to raw format
- */
-function normalizeTONAddress(address: string): string {
-  // If already in raw format (starts with number and colon)
-  if (address.match(/^-?\d+:[a-fA-F0-9]+$/)) {
-    return address.toLowerCase();
-  }
-
-  // If in user-friendly format (starts with EQ/UQ)
-  if (address.startsWith('EQ') || address.startsWith('UQ')) {
-    return convertToRawAddress(address).toLowerCase();
-  }
-
-  // Return as-is if format is unrecognized
-  return address.toLowerCase();
-}
-
-// Update the parseIncomingPayments function to use address normalization:
-
 function parseIncomingPayments(events: TONAPIEvent[]): Array<{
   eventId: string;
   transactionHash: string;
@@ -227,51 +188,39 @@ function parseIncomingPayments(events: TONAPIEvent[]): Array<{
     timestamp: number;
     lt: number;
   }> = [];
-
+  
   console.log(`[TON_MONITOR] 🔍 Parsing ${events.length} events for payments`);
-  console.log(`[TON_MONITOR] 🎯 Target corporate wallet: ${TON_CONFIG.CORPORATE_WALLET}`);
-
-  // Normalize the expected corporate wallet address
-  const normalizedCorporateWallet = normalizeTONAddress(TON_CONFIG.CORPORATE_WALLET);
-  console.log(`[TON_MONITOR] 🎯 Normalized corporate wallet: ${normalizedCorporateWallet}`);
-
+  console.log(`[TON_MONITOR] 🎯 Target corporate wallet (friendly): ${TON_CONFIG.CORPORATE_WALLET}`);
+  console.log(`[TON_MONITOR] 🎯 Target corporate wallet (raw): ${TON_CONFIG.CORPORATE_WALLET_RAW}`);
+  
   for (const event of events) {
     try {
       console.log(`[TON_MONITOR] 📋 Processing event ${event.event_id} with ${event.actions?.length || 0} actions`);
-
+      
       if (!event.actions || event.actions.length === 0) {
         console.log(`[TON_MONITOR] ⚠️ Event ${event.event_id} has no actions`);
         continue;
       }
-
+      
       for (const action of event.actions) {
-        console.log(`[TON_MONITOR] 🔄 Processing action type: "${action.type}" with status: "${action.status}"`);
-
         if (action.type === "TonTransfer" && action.status === "ok") {
-          console.log(`[TON_MONITOR] ✅ Found TonTransfer action with OK status`);
-
           if (action.TonTransfer) {
             const transfer = action.TonTransfer;
             const comment = transfer.comment?.trim() || "";
-
-            console.log(`[TON_MONITOR] 💸 Transfer details:`);
-            console.log(`[TON_MONITOR] 📤 Sender: ${transfer.sender?.address}`);
-            console.log(`[TON_MONITOR] 📥 Recipient: ${transfer.recipient?.address}`);
-            console.log(`[TON_MONITOR] 💰 Amount: ${transfer.amount} nanoTON`);
-            console.log(`[TON_MONITOR] 💬 Comment: "${comment || 'NO_COMMENT'}"`);
-
-            // Normalize recipient address for comparison
-            const normalizedRecipient = normalizeTONAddress(transfer.recipient?.address || "");
-            console.log(`[TON_MONITOR] 🔄 Normalized recipient: ${normalizedRecipient}`);
-
-            // Check recipient address match
-            const isRecipientMatch = normalizedRecipient === normalizedCorporateWallet;
-            console.log(`[TON_MONITOR] 🎯 Recipient address match: ${isRecipientMatch}`);
-
+            
+            // Check recipient address match (both formats)
+            const recipientAddress = transfer.recipient?.address || "";
+            const isRecipientMatch = 
+              recipientAddress === TON_CONFIG.CORPORATE_WALLET || 
+              recipientAddress === TON_CONFIG.CORPORATE_WALLET_RAW;
+            
             // Check if comment exists and is not empty
             const hasComment = comment.length > 0;
-            console.log(`[TON_MONITOR] 💬 Has comment: ${hasComment}`);
-
+            
+            console.log(`[TON_MONITOR] 💸 Transfer: ${transfer.amount} nanoTON from ${transfer.sender?.address} to ${recipientAddress}`);
+            console.log(`[TON_MONITOR] 💬 Comment: "${comment}"`);
+            console.log(`[TON_MONITOR] 🎯 Recipient match: ${isRecipientMatch}, Has comment: ${hasComment}`);
+            
             if (isRecipientMatch && hasComment) {
               payments.push({
                 eventId: event.event_id,
@@ -282,29 +231,24 @@ function parseIncomingPayments(events: TONAPIEvent[]): Array<{
                 timestamp: event.timestamp,
                 lt: event.lt,
               });
-
-              console.log(`[TON_MONITOR] 💰 ✅ PAYMENT FOUND: ${transfer.amount} nanoTON from ${transfer.sender.address} with comment: "${comment}"`);
+              
+              console.log(`[TON_MONITOR] 💰 ✅ PAYMENT FOUND: ${transfer.amount} nanoTON with comment: "${comment}"`);
             } else {
-              console.log(`[TON_MONITOR] ❌ Transfer rejected:`);
               if (!isRecipientMatch) {
-                console.log(`[TON_MONITOR] ❌ Recipient mismatch: expected "${normalizedCorporateWallet}", got "${normalizedRecipient}"`);
+                console.log(`[TON_MONITOR] ❌ Recipient mismatch: got "${recipientAddress}"`);
               }
               if (!hasComment) {
-                console.log(`[TON_MONITOR] ❌ No comment: "${comment}"`);
+                console.log(`[TON_MONITOR] ❌ No comment`);
               }
             }
-          } else {
-            console.log(`[TON_MONITOR] ⚠️ TonTransfer action has no TonTransfer data`);
           }
-        } else {
-          console.log(`[TON_MONITOR] ⚠️ Skipping action: type="${action.type}", status="${action.status}"`);
         }
       }
     } catch (error) {
       console.error(`[TON_MONITOR] ❌ Error parsing event ${event.event_id}:`, error);
     }
   }
-
+  
   console.log(`[TON_MONITOR] 📊 Parsing completed: ${payments.length} payments found from ${events.length} events`);
   return payments;
 }
@@ -318,12 +262,12 @@ async function transactionExists(transactionHash: string): Promise<boolean> {
       .select("id")
       .eq("transaction_hash", transactionHash)
       .maybeSingle();
-
+    
     if (error) {
       console.error(`[TON_MONITOR] ❌ Error checking transaction existence:`, error);
       return false; // В случае ошибки считаем, что транзакции нет, чтобы не потерять платеж
     }
-
+    
     return !!data;
   } catch (error) {
     console.error(`[TON_MONITOR] ❌ Exception checking transaction existence:`, error);
@@ -360,21 +304,21 @@ async function createTONTransaction(
       created_at: new Date().toISOString(),
       processed_at: new Date().toISOString(),
     };
-
+    
     const { data, error } = await supabaseServer
       .from("ton_transactions")
       .insert(transactionData)
       .select("id")
       .single();
-
+    
     if (error) {
       console.error(`[TON_MONITOR] ❌ Error creating transaction record:`, error);
       return null;
     }
-
+    
     console.log(`[TON_MONITOR] ✅ Created transaction record: ${data.id}`);
     return data.id;
-
+    
   } catch (error) {
     console.error(`[TON_MONITOR] ❌ Exception creating transaction record:`, error);
     return null;
@@ -390,27 +334,27 @@ async function creditAttemptsToUser(
 ): Promise<boolean> {
   try {
     console.log(`[TON_MONITOR] 💎 Crediting ${attemptsToAdd} attempts to user ${telegramId}`);
-
+    
     // Получаем текущую информацию о пользователе
     const { data: userData, error: fetchError } = await supabaseServer
       .from("users")
       .select("id, attempts_remaining, first_name, last_name")
       .eq("telegram_id", telegramId)
       .maybeSingle();
-
+    
     if (fetchError) {
       console.error(`[TON_MONITOR] ❌ Error fetching user data:`, fetchError);
       return false;
     }
-
+    
     if (!userData) {
       console.error(`[TON_MONITOR] ❌ User not found: ${telegramId}`);
       return false;
     }
-
+    
     // Обновляем количество попыток
     const newAttemptsCount = userData.attempts_remaining + attemptsToAdd;
-
+    
     const { error: updateError } = await supabaseServer
       .from("users")
       .update({
@@ -418,18 +362,18 @@ async function creditAttemptsToUser(
         updated_at: new Date().toISOString(),
       })
       .eq("telegram_id", telegramId);
-
+    
     if (updateError) {
       console.error(`[TON_MONITOR] ❌ Error updating user attempts:`, updateError);
       return false;
     }
-
+    
     console.log(
       `[TON_MONITOR] ✅ Successfully credited attempts. User ${telegramId}: ${userData.attempts_remaining} → ${newAttemptsCount}`
     );
-
+    
     return true;
-
+    
   } catch (error) {
     console.error(`[TON_MONITOR] ❌ Exception crediting attempts:`, error);
     return false;
@@ -451,13 +395,13 @@ async function updateTONOrderStatus(
         updated_at: new Date().toISOString(),
       })
       .eq("unique_id", uniqueId);
-
+    
     if (error) {
       console.error(`[TON_MONITOR] ⚠️ Error updating order status:`, error);
     } else {
       console.log(`[TON_MONITOR] ✅ Updated order status to ${status}: ${uniqueId}`);
     }
-
+    
   } catch (error) {
     console.error(`[TON_MONITOR] ⚠️ Exception updating order status:`, error);
   }
@@ -484,7 +428,7 @@ async function sendTelegramNotification(
 Ваши попытки уже доступны в игре! 🚀`;
 
     const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-
+    
     const response = await fetch(telegramUrl, {
       method: "POST",
       headers: {
@@ -497,15 +441,15 @@ async function sendTelegramNotification(
         disable_web_page_preview: true,
       }),
     });
-
+    
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Telegram API error: ${response.status} - ${errorText}`);
     }
-
+    
     console.log(`[TON_MONITOR] 📱 Notification sent to user ${telegramId}`);
     return true;
-
+    
   } catch (error) {
     console.error(`[TON_MONITOR] ❌ Error sending Telegram notification:`, error);
     return false;
@@ -525,42 +469,42 @@ async function processPayment(payment: {
   lt: number;
 }): Promise<{ success: boolean; error?: string }> {
   const { transactionHash, senderWallet, amountNanotons, comment, timestamp } = payment;
-
+  
   try {
     console.log(`[TON_MONITOR] 🔄 Processing payment: ${transactionHash}`);
-
+    
     // Проверяем, не обработан ли уже этот платеж
     const alreadyExists = await transactionExists(transactionHash);
     if (alreadyExists) {
       console.log(`[TON_MONITOR] ⏭️ Transaction already processed: ${transactionHash}`);
       return { success: true };
     }
-
+    
     // Парсим payload
     const parsedPayload = parseTONPayload(comment);
     if (!parsedPayload.isValid) {
       console.log(`[TON_MONITOR] ⚠️ Invalid payload: ${comment} - ${parsedPayload.error}`);
       return { success: false, error: `Invalid payload: ${parsedPayload.error}` };
     }
-
+    
     const { telegramId, productType, uniqueId } = parsedPayload;
-
+    
     // Получаем информацию о продукте и проверяем сумму
     const productInfo = getTONProductInfo(productType!);
     const expectedAmountNanotons = BigInt(productInfo.priceNanotons);
-
+    
     // Проверяем, что сумма достаточна (допускаем небольшое отклонение)
     const minimumAmount = (expectedAmountNanotons * BigInt(95)) / BigInt(100); // 95% от ожидаемой суммы
     if (amountNanotons < minimumAmount) {
       console.log(
         `[TON_MONITOR] ⚠️ Insufficient amount: ${amountNanotons} < ${minimumAmount} (expected: ${expectedAmountNanotons})`
       );
-      return {
-        success: false,
-        error: `Insufficient amount: ${amountNanotons} < ${expectedAmountNanotons}`
+      return { 
+        success: false, 
+        error: `Insufficient amount: ${amountNanotons} < ${expectedAmountNanotons}` 
       };
     }
-
+    
     // Создаем запись о транзакции
     const transactionId = await createTONTransaction(
       transactionHash,
@@ -573,31 +517,31 @@ async function processPayment(payment: {
       comment,
       timestamp
     );
-
+    
     if (!transactionId) {
       return { success: false, error: "Failed to create transaction record" };
     }
-
+    
     // Начисляем попытки пользователю
     const attemptsResult = await creditAttemptsToUser(telegramId!, productInfo.attempts);
     if (!attemptsResult) {
       console.error(`[TON_MONITOR] ❌ Failed to credit attempts, but transaction is recorded`);
     }
-
+    
     // Обновляем статус заказа
     await updateTONOrderStatus(uniqueId!, "completed");
-
+    
     // Отправляем уведомление
     await sendTelegramNotification(telegramId!, productInfo, transactionHash);
-
+    
     console.log(`[TON_MONITOR] ✅ Payment processed successfully: ${transactionHash}`);
     return { success: true };
-
+    
   } catch (error) {
     console.error(`[TON_MONITOR] ❌ Error processing payment ${transactionHash}:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error" 
     };
   }
 }
@@ -609,18 +553,18 @@ async function processPayment(payment: {
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   console.log(`[TON_MONITOR] 🚀 Starting TON payments monitoring at ${new Date().toISOString()}`);
-
+  
   try {
     // Проверяем API ключ для CRON доступа (поддерживаем query param и Authorization header)
     const cronApiKeyFromQuery = request.nextUrl.searchParams.get("key");
     const authHeader = request.headers.get("authorization");
-    const cronApiKeyFromHeader = authHeader?.startsWith("Bearer ")
-      ? authHeader.substring(7)
+    const cronApiKeyFromHeader = authHeader?.startsWith("Bearer ") 
+      ? authHeader.substring(7) 
       : null;
-
+    
     const cronApiKey = cronApiKeyFromQuery || cronApiKeyFromHeader;
     const expectedCronKey = process.env.CRON_API_KEY;
-
+    
     if (!cronApiKey || cronApiKey !== expectedCronKey) {
       console.log(`[TON_MONITOR] ❌ Unauthorized access attempt`);
       return NextResponse.json(
@@ -628,7 +572,7 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-
+    
     // Проверяем переменные окружения
     const envValidation = validateEnvironmentVariables();
     if (!envValidation.isValid) {
@@ -638,7 +582,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-
+    
     // Инициализируем статистику
     const stats: ProcessingStats = {
       totalChecked: 0,
@@ -648,30 +592,30 @@ export async function GET(request: NextRequest) {
       notificationsSet: 0,
       errors: [],
     };
-
+    
     // Получаем количество часов для проверки с дополнительной валидацией
     const envLookbackValue = process.env.TON_TRANSACTION_LOOKBACK || "2";
     console.log(`[TON_MONITOR] 📝 Environment TON_TRANSACTION_LOOKBACK value: "${envLookbackValue}"`);
-
+    
     const parsedLookback = parseInt(envLookbackValue, 10);
     const lookbackHours = isNaN(parsedLookback) ? 2 : Math.max(1, Math.min(parsedLookback, 48));
-
+    
     console.log(`[TON_MONITOR] 📝 Parsed lookback: ${parsedLookback}, Final lookback: ${lookbackHours} hours`);
-
+    
     // Получаем события для корпоративного кошелька
     const events = await fetchAccountEvents(TON_CONFIG.CORPORATE_WALLET, lookbackHours);
     stats.totalChecked = events.length;
-
+    
     // Извлекаем входящие платежи
     const payments = parseIncomingPayments(events);
     stats.newTransactions = payments.length;
-
+    
     console.log(`[TON_MONITOR] 📊 Found ${payments.length} potential payments in ${events.length} events`);
-
+    
     // Обрабатываем каждый платеж
     for (const payment of payments) {
       const result = await processPayment(payment);
-
+      
       if (result.success) {
         stats.processedTransactions++;
       } else {
@@ -681,9 +625,9 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-
+    
     const executionTime = Date.now() - startTime;
-
+    
     console.log(`[TON_MONITOR] ✅ Monitoring completed in ${executionTime}ms`);
     console.log(`[TON_MONITOR] 📊 Stats:`, {
       totalChecked: stats.totalChecked,
@@ -692,7 +636,7 @@ export async function GET(request: NextRequest) {
       failed: stats.failedTransactions,
       errors: stats.errors.length,
     });
-
+    
     // Возвращаем результат
     return NextResponse.json({
       success: true,
@@ -707,11 +651,11 @@ export async function GET(request: NextRequest) {
       },
       timestamp: new Date().toISOString(),
     });
-
+    
   } catch (error) {
     const executionTime = Date.now() - startTime;
     console.error(`[TON_MONITOR] ❌ Fatal error during monitoring:`, error);
-
+    
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
