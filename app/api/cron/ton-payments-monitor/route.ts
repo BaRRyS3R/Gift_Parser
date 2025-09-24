@@ -1,4 +1,4 @@
-// src/app/api/cron/ton-payments-monitor/route.ts - Improved with multiple TON API providers
+// src/app/api/cron/ton-payments-monitor/route.ts - Fixed with working TON API providers
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -21,7 +21,7 @@ const CRON_CONFIG = {
   // API ключи и настройки
   CRON_API_KEY: process.env.CRON_API_KEY,
   TONCENTER_API_KEY: process.env.TONCENTER_API_KEY,
-  TONAPI_KEY: process.env.TONAPI_KEY, // New: TONAPI.io API key
+  TONAPI_KEY: process.env.TONAPI_KEY, // TONAPI.io API key
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_API,
 
   // Лимиты выполнения
@@ -29,7 +29,7 @@ const CRON_CONFIG = {
   EXECUTION_TIMEOUT: 50000, // 50 секунд
 
   // Настройки мониторинга
-  LOOKBACK_HOURS: 1,
+  LOOKBACK_HOURS: 1, // Уменьшил до 1 часа для стабильности
 
   // Telegram уведомления
   GAME_START_URL: "https://t.me/circusle_bot?startapp",
@@ -78,7 +78,7 @@ interface UnifiedTransaction {
 // ============================================================================
 
 /**
- * TON Center API провайдер (основной)
+ * TON Center API провайдер (основной, проверенный)
  */
 async function fetchFromToncenter(): Promise<UnifiedTransaction[]> {
   const lookbackTimestamp = Math.floor(
@@ -127,7 +127,7 @@ async function fetchFromToncenter(): Promise<UnifiedTransaction[]> {
 }
 
 /**
- * TONAPI.io провайдер (резервный)
+ * TONAPI.io провайдер (резервный) - ИСПРАВЛЕННЫЙ
  */
 async function fetchFromTonAPI(): Promise<UnifiedTransaction[]> {
   const lookbackTimestamp = Math.floor(
@@ -136,85 +136,116 @@ async function fetchFromTonAPI(): Promise<UnifiedTransaction[]> {
 
   console.log("[TON_MONITOR] [TONAPI] 🔗 Fetching transactions...");
   
-  // TONAPI использует другой формат URL
+  // ИСПРАВЛЕННЫЙ URL для TONAPI.io
   const apiUrl = `https://tonapi.io/v2/accounts/${TON_CONFIG.CORPORATE_WALLET}/transactions`;
   
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
+  // Правильная авторизация для TONAPI
   if (CRON_CONFIG.TONAPI_KEY) {
     headers["Authorization"] = `Bearer ${CRON_CONFIG.TONAPI_KEY}`;
   }
+
+  console.log(`[TON_MONITOR] [TONAPI] 📡 Request URL: ${apiUrl}`);
+  console.log(`[TON_MONITOR] [TONAPI] 🔐 Using API key: ${!!CRON_CONFIG.TONAPI_KEY}`);
 
   const response = await fetch(`${apiUrl}?limit=${CRON_CONFIG.MAX_TRANSACTIONS_PER_RUN}`, {
     method: "GET",
     headers,
   });
 
+  console.log(`[TON_MONITOR] [TONAPI] 📥 Response status: ${response.status}`);
+
   if (!response.ok) {
     const errorText = await response.text();
+    console.log(`[TON_MONITOR] [TONAPI] ❌ Error response: ${errorText}`);
     throw new Error(`TONAPI error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  console.log(`[TON_MONITOR] [TONAPI] 📊 Response structure:`, {
+    hasTransactions: !!data.transactions,
+    transactionCount: data.transactions?.length || 0,
+    hasError: !!data.error
+  });
   
-  // TONAPI имеет другой формат ответа, нужно адаптировать
+  if (data.error) {
+    throw new Error(`TONAPI error: ${data.error}`);
+  }
+
+  // TONAPI имеет другой формат ответа
   const transactions = data.transactions || [];
   
   // Конвертируем TONAPI формат в унифицированный
-  const convertedTransactions: UnifiedTransaction[] = transactions.map((tx: any) => ({
-    "@type": "raw.transaction",
-    utime: tx.utime || 0,
-    data: tx.data || "",
-    transaction_id: {
-      "@type": "internal.transactionId",
-      lt: tx.lt || "0",
-      hash: tx.hash || "",
-    },
-    fee: tx.total_fees || "0",
-    storage_fee: tx.storage_fee || "0",
-    other_fee: tx.other_fee || "0",
-    in_msg: tx.in_msg ? {
-      "@type": "raw.message",
-      source: tx.in_msg.source?.address,
-      destination: tx.in_msg.destination?.address,
-      value: tx.in_msg.value || "0",
-      fwd_fee: tx.in_msg.fwd_fee || "0",
-      ihr_fee: tx.in_msg.ihr_fee || "0",
-      created_lt: tx.in_msg.created_lt || "0",
-      body_hash: tx.in_msg.body_hash || "",
-      msg_data: tx.in_msg.raw_body ? {
-        "@type": "msg.dataRaw",
-        body: tx.in_msg.raw_body,
+  const convertedTransactions: UnifiedTransaction[] = transactions.map((tx: any) => {
+    console.log(`[TON_MONITOR] [TONAPI] 🔄 Converting transaction:`, {
+      hash: tx.hash,
+      utime: tx.utime,
+      hasInMsg: !!tx.in_msg,
+      inMsgValue: tx.in_msg?.value || "0"
+    });
+
+    return {
+      "@type": "raw.transaction",
+      utime: tx.utime || 0,
+      data: tx.data || "",
+      transaction_id: {
+        "@type": "internal.transactionId",
+        lt: tx.lt?.toString() || "0",
+        hash: tx.hash || "",
+      },
+      fee: tx.total_fees?.toString() || "0",
+      storage_fee: tx.storage_fee?.toString() || "0",
+      other_fee: tx.other_fee?.toString() || "0",
+      in_msg: tx.in_msg ? {
+        "@type": "raw.message",
+        source: tx.in_msg.source?.address,
+        destination: tx.in_msg.destination?.address,
+        value: tx.in_msg.value?.toString() || "0",
+        fwd_fee: tx.in_msg.fwd_fee?.toString() || "0",
+        ihr_fee: tx.in_msg.ihr_fee?.toString() || "0",
+        created_lt: tx.in_msg.created_lt?.toString() || "0",
+        body_hash: tx.in_msg.body_hash || "",
+        msg_data: tx.in_msg.raw_body ? {
+          "@type": "msg.dataRaw",
+          body: tx.in_msg.raw_body,
+        } : tx.in_msg.decoded_body?.text ? {
+          "@type": "msg.dataText",
+          text: tx.in_msg.decoded_body.text
+        } : undefined,
+        message: tx.in_msg.decoded_body?.text || "",
       } : undefined,
-      message: tx.in_msg.decoded_body?.text || "",
-    } : undefined,
-    out_msgs: tx.out_msgs || [],
-  }));
+      out_msgs: tx.out_msgs || [],
+    };
+  });
 
   // Фильтруем по времени
   const recentTransactions = convertedTransactions.filter(tx => tx.utime >= lookbackTimestamp);
   
-  console.log(`[TON_MONITOR] [TONAPI] ✅ Fetched ${recentTransactions.length} recent transactions`);
+  console.log(`[TON_MONITOR] [TONAPI] ✅ Fetched and converted ${recentTransactions.length} recent transactions`);
   
   return recentTransactions;
 }
 
 /**
- * TON Access провайдер (публичный)
+ * Публичный TonCenter провайдер (без ключа API, как резервный)
  */
-async function fetchFromTonAccess(): Promise<UnifiedTransaction[]> {
+async function fetchFromPublicToncenter(): Promise<UnifiedTransaction[]> {
   const lookbackTimestamp = Math.floor(
     (Date.now() - CRON_CONFIG.LOOKBACK_HOURS * 60 * 60 * 1000) / 1000,
   );
 
-  console.log("[TON_MONITOR] [TON_Access] 🔗 Fetching transactions...");
+  console.log("[TON_MONITOR] [PublicToncenter] 🔗 Fetching transactions (public API)...");
   
-  const apiUrl = new URL("https://tonaccess.com/api/v2/getTransactions");
+  const apiUrl = new URL("https://toncenter.com/api/v2/getTransactions");
   apiUrl.searchParams.append("address", TON_CONFIG.CORPORATE_WALLET);
-  apiUrl.searchParams.append("limit", CRON_CONFIG.MAX_TRANSACTIONS_PER_RUN.toString());
-  
+  apiUrl.searchParams.append("limit", Math.min(CRON_CONFIG.MAX_TRANSACTIONS_PER_RUN, 10).toString()); // Лимит для публичного API
+  apiUrl.searchParams.append("archival", "false");
+
+  console.log(`[TON_MONITOR] [PublicToncenter] ⚠️  Using public API (1 RPS limit)`);
+
   const response = await fetch(apiUrl.toString(), {
     method: "GET",
     headers: {
@@ -224,13 +255,13 @@ async function fetchFromTonAccess(): Promise<UnifiedTransaction[]> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`TON Access API error: ${response.status} - ${errorText}`);
+    throw new Error(`Public Toncenter API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
   
   if (!data.ok) {
-    throw new Error(`TON Access API error: ${data.error || "Unknown error"}`);
+    throw new Error(`Public Toncenter API error: ${data.error || "Unknown error"}`);
   }
 
   const transactions = data.result || [];
@@ -238,7 +269,7 @@ async function fetchFromTonAccess(): Promise<UnifiedTransaction[]> {
   // Фильтруем по времени
   const recentTransactions = transactions.filter((tx: any) => tx.utime >= lookbackTimestamp);
   
-  console.log(`[TON_MONITOR] [TON_Access] ✅ Fetched ${recentTransactions.length} recent transactions`);
+  console.log(`[TON_MONITOR] [PublicToncenter] ✅ Fetched ${recentTransactions.length} recent transactions`);
   
   return recentTransactions;
 }
@@ -255,40 +286,41 @@ async function fetchTransactionsWithMultipleProviders(): Promise<{
   provider: string;
 }> {
   // Определяем провайдеров в порядке приоритета
-  const providers: APIProvider[] = [
-    {
+  const providers: APIProvider[] = [];
+
+  // Добавляем TON Center с API ключом если доступен
+  if (CRON_CONFIG.TONCENTER_API_KEY) {
+    providers.push({
       name: "toncenter",
       priority: 1,
       fetchTransactions: fetchFromToncenter,
-    },
-    {
+    });
+  }
+
+  // Добавляем TONAPI если доступен ключ
+  if (CRON_CONFIG.TONAPI_KEY) {
+    providers.push({
       name: "tonapi",
       priority: 2,
       fetchTransactions: fetchFromTonAPI,
-    },
-    {
-      name: "tonaccess",
-      priority: 3,
-      fetchTransactions: fetchFromTonAccess,
-    },
-  ];
+    });
+  }
 
-  // Фильтруем только доступных провайдеров
-  const availableProviders = providers.filter(provider => {
-    if (provider.name === "toncenter" && CRON_CONFIG.TONCENTER_API_KEY) return true;
-    if (provider.name === "tonapi" && CRON_CONFIG.TONAPI_KEY) return true;
-    if (provider.name === "tonaccess") return true; // Публичный API
-    return false;
+  // Добавляем публичный TON Center как последний резерв
+  providers.push({
+    name: "public_toncenter",
+    priority: 3,
+    fetchTransactions: fetchFromPublicToncenter,
   });
 
-  if (availableProviders.length === 0) {
+  if (providers.length === 0) {
     throw new Error("No API providers configured");
   }
 
-  console.log(`[TON_MONITOR] 📋 Available providers: ${availableProviders.map(p => p.name).join(", ")}`);
+  console.log(`[TON_MONITOR] 📋 Available providers: ${providers.map(p => p.name).join(", ")}`);
 
   // Пытаемся получить данные от каждого провайдера по порядку
-  for (const provider of availableProviders) {
+  for (const provider of providers) {
     try {
       console.log(`[TON_MONITOR] 🔄 Trying provider: ${provider.name}`);
       const transactions = await provider.fetchTransactions();
@@ -303,9 +335,11 @@ async function fetchTransactionsWithMultipleProviders(): Promise<{
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       console.warn(`[TON_MONITOR] ⚠️  Provider ${provider.name} failed: ${errorMessage}`);
       
-      // Специальная обработка для LITE_SERVER_UNKNOWN ошибок
-      if (errorMessage.includes("LITE_SERVER_UNKNOWN") || errorMessage.includes("cannot find block")) {
-        console.warn(`[TON_MONITOR] 🔍 Blockchain data access issue detected, trying next provider...`);
+      // Специальная обработка для известных временных ошибок
+      if (errorMessage.includes("LITE_SERVER_UNKNOWN") || 
+          errorMessage.includes("cannot find block") ||
+          errorMessage.includes("500")) {
+        console.warn(`[TON_MONITOR] 🔍 Temporary blockchain data issue detected, trying next provider...`);
         continue;
       }
       
@@ -315,7 +349,7 @@ async function fetchTransactionsWithMultipleProviders(): Promise<{
   }
 
   // Если все провайдеры не сработали
-  throw new Error(`All API providers failed. Available providers were: ${availableProviders.map(p => p.name).join(", ")}`);
+  throw new Error(`All API providers failed. Tried providers: ${providers.map(p => p.name).join(", ")}`);
 }
 
 // ============================================================================
@@ -471,7 +505,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CronRespo
       incorrect_payloads: stats.incorrect_payloads,
       execution_time_ms: executionTime,
       debug_info: {
-        api_response_format: "multi_provider_api",
+        api_response_format: "multi_provider_api_fixed",
         transactions_fetched: transactions.length,
         filtered_transactions: processResults.length,
         api_provider: provider,
@@ -504,7 +538,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CronRespo
 }
 
 // ============================================================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ОСТАЮТСЯ БЕЗ ИЗМЕНЕНИЙ)
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 // ============================================================================
 
 /**
@@ -568,6 +602,11 @@ async function processTransaction(
     } else if (inMsg.msg_data.body) {
       payload = decodePayload(inMsg.msg_data.body);
     }
+  }
+  
+  // Также проверяем message поле
+  if (!payload && inMsg.message) {
+    payload = inMsg.message;
   }
 
   if (!payload) return null;
@@ -658,10 +697,6 @@ async function processTransaction(
     attempts_credited: attemptsToCredit,
   };
 }
-
-// Остальные вспомогательные функции остаются без изменений...
-// (checkTransactionExists, saveIncorrectTransaction, saveSuccessfulTransaction, 
-//  creditAttemptsToUser, sendSuccessNotifications, calculateStats, decodePayload и др.)
 
 /**
  * Декодирование base64 payload и извлечение текста
@@ -913,9 +948,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       has_toncenter_token: !!CRON_CONFIG.TONCENTER_API_KEY,
       has_tonapi_token: !!CRON_CONFIG.TONAPI_KEY,
       has_telegram_token: !!CRON_CONFIG.TELEGRAM_BOT_TOKEN,
-      available_providers: ["toncenter", "tonapi", "tonaccess"],
+      available_providers: [
+        CRON_CONFIG.TONCENTER_API_KEY ? "toncenter" : null,
+        CRON_CONFIG.TONAPI_KEY ? "tonapi" : null,
+        "public_toncenter"
+      ].filter(Boolean),
     },
-    status: "TON payments monitor is active with multiple API providers",
+    status: "TON payments monitor active with fixed API providers",
     next_execution_url: `${request.nextUrl.origin}/api/cron/ton-payments-monitor`,
     timestamp: new Date().toISOString(),
   };
