@@ -103,19 +103,20 @@ async function fetchAccountEvents(
   hoursBack: number = 2
 ): Promise<TONAPIEvent[]> {
   const apiKey = process.env.TONAPI_KEY!;
+  
+  // Принудительно устанавливаем безопасные значения для времени
+  const safeHoursBack = Math.max(1, Math.min(hoursBack, 48)); // Ограничиваем от 1 до 48 часов
   const currentTimestamp = Math.floor(Date.now() / 1000);
-  const cutoffTimestamp = currentTimestamp - (hoursBack * 3600);
+  const cutoffTimestamp = currentTimestamp - (safeHoursBack * 3600);
   
   console.log(`[TON_MONITOR] 🔍 Fetching events for account: ${accountId}`);
   console.log(`[TON_MONITOR] ⏰ Current timestamp: ${currentTimestamp} (${new Date(currentTimestamp * 1000).toISOString()})`);
   console.log(`[TON_MONITOR] ⏰ Cutoff timestamp: ${cutoffTimestamp} (${new Date(cutoffTimestamp * 1000).toISOString()})`);
-  console.log(`[TON_MONITOR] ⏰ Looking back: ${hoursBack} hours`);
+  console.log(`[TON_MONITOR] ⏰ Safe hours back: ${safeHoursBack} hours (original: ${hoursBack})`);
   
-  // Построение URL с обязательными параметрами
+  // Используем только базовые параметры, которые поддерживает TONAPI
   const params = new URLSearchParams({
-    limit: "100", // Обязательный параметр
-    start_date: cutoffTimestamp.toString(), // Фильтр по дате начала
-    end_date: currentTimestamp.toString(), // Фильтр по дате окончания
+    limit: "50", // Разумное количество для обработки
   });
   
   const url = `${TONAPI_BASE_URL}${TONAPI_ENDPOINTS.ACCOUNT_EVENTS(accountId)}?${params.toString()}`;
@@ -141,12 +142,20 @@ async function fetchAccountEvents(
     
     const data: TONAPIResponse = await response.json();
     
-    // Дополнительная фильтрация событий по времени на всякий случай
-    const recentEvents = data.events ? data.events.filter(
-      event => event.timestamp >= cutoffTimestamp && event.timestamp <= currentTimestamp
-    ) : [];
+    // Фильтрация событий по времени на стороне клиента
+    const allEvents = data.events || [];
+    const recentEvents = allEvents.filter(event => {
+      const eventTime = event.timestamp;
+      const isWithinTimeRange = eventTime >= cutoffTimestamp && eventTime <= currentTimestamp;
+      
+      if (isWithinTimeRange) {
+        console.log(`[TON_MONITOR] ✅ Event within range: ${eventTime} (${new Date(eventTime * 1000).toISOString()})`);
+      }
+      
+      return isWithinTimeRange;
+    });
     
-    console.log(`[TON_MONITOR] 📊 Total events returned: ${data.events ? data.events.length : 0}`);
+    console.log(`[TON_MONITOR] 📊 Total events returned: ${allEvents.length}`);
     console.log(`[TON_MONITOR] 📊 Events within time range: ${recentEvents.length}`);
     
     return recentEvents;
@@ -551,8 +560,14 @@ export async function GET(request: NextRequest) {
       errors: [],
     };
     
-    // Получаем количество часов для проверки (по умолчанию 2 часа)
-    const lookbackHours = parseInt(process.env.TON_TRANSACTION_LOOKBACK || "2", 10);
+    // Получаем количество часов для проверки с дополнительной валидацией
+    const envLookbackValue = process.env.TON_TRANSACTION_LOOKBACK || "2";
+    console.log(`[TON_MONITOR] 📝 Environment TON_TRANSACTION_LOOKBACK value: "${envLookbackValue}"`);
+    
+    const parsedLookback = parseInt(envLookbackValue, 10);
+    const lookbackHours = isNaN(parsedLookback) ? 2 : Math.max(1, Math.min(parsedLookback, 48));
+    
+    console.log(`[TON_MONITOR] 📝 Parsed lookback: ${parsedLookback}, Final lookback: ${lookbackHours} hours`);
     
     // Получаем события для корпоративного кошелька
     const events = await fetchAccountEvents(TON_CONFIG.CORPORATE_WALLET, lookbackHours);
