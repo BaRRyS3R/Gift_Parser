@@ -103,12 +103,24 @@ async function fetchAccountEvents(
   hoursBack: number = 2
 ): Promise<TONAPIEvent[]> {
   const apiKey = process.env.TONAPI_KEY!;
-  const cutoffTimestamp = Math.floor(Date.now() / 1000) - (hoursBack * 3600);
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  const cutoffTimestamp = currentTimestamp - (hoursBack * 3600);
   
   console.log(`[TON_MONITOR] 🔍 Fetching events for account: ${accountId}`);
+  console.log(`[TON_MONITOR] ⏰ Current timestamp: ${currentTimestamp} (${new Date(currentTimestamp * 1000).toISOString()})`);
   console.log(`[TON_MONITOR] ⏰ Cutoff timestamp: ${cutoffTimestamp} (${new Date(cutoffTimestamp * 1000).toISOString()})`);
+  console.log(`[TON_MONITOR] ⏰ Looking back: ${hoursBack} hours`);
   
-  const url = `${TONAPI_BASE_URL}${TONAPI_ENDPOINTS.ACCOUNT_EVENTS(accountId)}`;
+  // Построение URL с обязательными параметрами
+  const params = new URLSearchParams({
+    limit: "100", // Обязательный параметр
+    start_date: cutoffTimestamp.toString(), // Фильтр по дате начала
+    end_date: currentTimestamp.toString(), // Фильтр по дате окончания
+  });
+  
+  const url = `${TONAPI_BASE_URL}${TONAPI_ENDPOINTS.ACCOUNT_EVENTS(accountId)}?${params.toString()}`;
+  
+  console.log(`[TON_MONITOR] 🌐 Request URL: ${url}`);
   
   try {
     const response = await fetch(url, {
@@ -121,17 +133,21 @@ async function fetchAccountEvents(
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[TON_MONITOR] ❌ TONAPI response status: ${response.status}`);
+      console.error(`[TON_MONITOR] ❌ TONAPI response headers:`, Object.fromEntries(response.headers.entries()));
+      console.error(`[TON_MONITOR] ❌ TONAPI error response: ${errorText}`);
       throw new Error(`TONAPI request failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     const data: TONAPIResponse = await response.json();
     
-    // Фильтруем события по времени
-    const recentEvents = data.events.filter(
-      event => event.timestamp >= cutoffTimestamp
-    );
+    // Дополнительная фильтрация событий по времени на всякий случай
+    const recentEvents = data.events ? data.events.filter(
+      event => event.timestamp >= cutoffTimestamp && event.timestamp <= currentTimestamp
+    ) : [];
     
-    console.log(`[TON_MONITOR] 📊 Total events: ${data.events.length}, Recent events: ${recentEvents.length}`);
+    console.log(`[TON_MONITOR] 📊 Total events returned: ${data.events ? data.events.length : 0}`);
+    console.log(`[TON_MONITOR] 📊 Events within time range: ${recentEvents.length}`);
     
     return recentEvents;
     
@@ -600,3 +616,5 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+// GET метод уже экспортирован выше через "export async function GET"
