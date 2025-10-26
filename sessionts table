@@ -1,0 +1,63 @@
+create table public.game_sessions (
+  session_id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  telegram_id bigint not null,
+  game_mode character varying(20) not null,
+  started_at timestamp with time zone not null default now(),
+  expires_at timestamp with time zone not null,
+  status character varying(20) not null default 'active'::character varying,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint game_sessions_pkey primary key (session_id),
+  constraint fk_game_sessions_telegram_id foreign KEY (telegram_id) references users (telegram_id) on delete CASCADE,
+  constraint fk_game_sessions_user_id foreign KEY (user_id) references users (id) on delete CASCADE,
+  constraint game_sessions_game_mode_check check (
+    (
+      (game_mode)::text = any (
+        (
+          array[
+            'reaction'::character varying,
+            'survival'::character varying,
+            'physics'::character varying,
+            'rotation'::character varying
+          ]
+        )::text[]
+      )
+    )
+  ),
+  constraint game_sessions_status_check check (
+    (
+      (status)::text = any (
+        (
+          array[
+            'active'::character varying,
+            'finished'::character varying,
+            'expired'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_game_sessions_user_id on public.game_sessions using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_game_sessions_telegram_id on public.game_sessions using btree (telegram_id) TABLESPACE pg_default;
+
+create index IF not exists idx_game_sessions_status on public.game_sessions using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_game_sessions_expires_at on public.game_sessions using btree (expires_at) TABLESPACE pg_default;
+
+create index IF not exists idx_game_sessions_game_mode on public.game_sessions using btree (game_mode) TABLESPACE pg_default;
+
+create index IF not exists idx_game_sessions_cleanup on public.game_sessions using btree (status, expires_at) TABLESPACE pg_default;
+
+create index IF not exists idx_game_sessions_cleanup_optimized on public.game_sessions using btree (expires_at, status) TABLESPACE pg_default
+where
+  (expires_at is not null);
+
+create index IF not exists idx_game_sessions_status_created on public.game_sessions using btree (status, created_at) TABLESPACE pg_default;
+
+create trigger trigger_update_game_sessions_updated_at BEFORE
+update on game_sessions for EACH row
+execute FUNCTION update_game_sessions_updated_at ();

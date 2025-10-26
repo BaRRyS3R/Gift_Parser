@@ -1,0 +1,59 @@
+create table public.ton_transactions (
+  id uuid not null default gen_random_uuid (),
+  transaction_hash text not null,
+  sender_wallet text not null,
+  telegram_id bigint not null,
+  product_type text not null,
+  unique_id text not null,
+  amount_nanotons bigint not null,
+  expected_amount_nanotons bigint not null,
+  payload text not null,
+  status text not null default 'pending'::text,
+  error_message text null,
+  transaction_timestamp timestamp with time zone not null,
+  created_at timestamp with time zone null default now(),
+  processed_at timestamp with time zone null,
+  constraint ton_transactions_pkey primary key (id),
+  constraint ton_transactions_transaction_hash_key unique (transaction_hash),
+  constraint ton_transactions_unique_id_key unique (unique_id),
+  constraint ton_transactions_product_type_check check (
+    (
+      product_type = any (
+        array[
+          'attempts_1'::text,
+          'attempts_5'::text,
+          'attempts_10'::text,
+          'attempts_20'::text,
+          'attempts_50'::text,
+          'attempts_100'::text
+        ]
+      )
+    )
+  ),
+  constraint ton_transactions_status_check check (
+    (
+      status = any (
+        array[
+          'pending'::text,
+          'processed'::text,
+          'failed'::text,
+          'incorrect_payload'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_ton_transactions_telegram_id on public.ton_transactions using btree (telegram_id) TABLESPACE pg_default;
+
+create index IF not exists idx_ton_transactions_status on public.ton_transactions using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_ton_transactions_unique_id on public.ton_transactions using btree (unique_id) TABLESPACE pg_default;
+
+create index IF not exists idx_ton_transactions_transaction_hash on public.ton_transactions using btree (transaction_hash) TABLESPACE pg_default;
+
+create index IF not exists idx_ton_transactions_created_at on public.ton_transactions using btree (created_at) TABLESPACE pg_default;
+
+create index IF not exists idx_ton_transactions_pending on public.ton_transactions using btree (status, created_at) TABLESPACE pg_default
+where
+  (status = 'pending'::text);
